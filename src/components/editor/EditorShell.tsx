@@ -1,39 +1,32 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useEditor } from "@/lib/editor/store";
 import { TopBar } from "./TopBar";
 import { LeftPanel } from "./LeftPanel";
 import { RightPanel } from "./RightPanel";
-
-// Lazily import canvas modules so Konva/three never touch SSR.
-import type { ComponentType } from "react";
-
-let Canvas2DCached: ComponentType<{ onExportRef?: (fn: () => string | null) => void }> | null = null;
-let Canvas3DCached: ComponentType | null = null;
+import { Canvas2D } from "./Canvas2D";
+import { Canvas3D } from "./Canvas3D";
 
 export function EditorShell() {
   const view = useEditor((s) => s.view);
-  const [ready, setReady] = useState(false);
-  const [C2, setC2] = useState<ComponentType<{ onExportRef?: (fn: () => string | null) => void }> | null>(Canvas2DCached);
-  const [C3, setC3] = useState<ComponentType | null>(Canvas3DCached);
   const exportRef = useRef<() => string | null>(() => null);
 
+  // Load a starter plan on first mount
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (!Canvas2DCached) {
-        const m = await import("./Canvas2D");
-        Canvas2DCached = m.Canvas2D;
+    const st = useEditor.getState();
+    if (st.plan.walls.length === 0) {
+      const T = 15;
+      const pts = [
+        { x: -400, y: -300 },
+        { x: 400, y: -300 },
+        { x: 400, y: 300 },
+        { x: -400, y: 300 },
+      ];
+      for (let i = 0; i < 4; i++) {
+        st.addWall({ a: pts[i], b: pts[(i + 1) % 4], thickness: T });
       }
-      if (!Canvas3DCached) {
-        const m = await import("./Canvas3D");
-        Canvas3DCached = m.Canvas3D;
-      }
-      if (!mounted) return;
-      setC2(() => Canvas2DCached);
-      setC3(() => Canvas3DCached);
-      setReady(true);
-    })();
-    return () => { mounted = false; };
+      // Add an interior wall
+      st.addWall({ a: { x: 0, y: -300 }, b: { x: 0, y: 100 }, thickness: T });
+    }
   }, []);
 
   const handleExportPNG = () => {
@@ -82,17 +75,12 @@ export function EditorShell() {
       <div className="flex min-h-0 flex-1">
         <LeftPanel />
         <main className="relative flex min-w-0 flex-1">
-          {!ready && (
-            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-              Chargement de l'éditeur…
-            </div>
-          )}
-          {ready && view === "2d" && C2 && <C2 onExportRef={(fn) => (exportRef.current = fn)} />}
-          {ready && view === "3d" && C3 && <C3 />}
-          {ready && view === "split" && C2 && C3 && (
+          {view === "2d" && <Canvas2D onExportRef={(fn) => (exportRef.current = fn)} />}
+          {view === "3d" && <Canvas3D />}
+          {view === "split" && (
             <div className="grid h-full w-full grid-cols-2 divide-x divide-border">
-              <C2 onExportRef={(fn) => (exportRef.current = fn)} />
-              <C3 />
+              <Canvas2D onExportRef={(fn) => (exportRef.current = fn)} />
+              <Canvas3D />
             </div>
           )}
         </main>
