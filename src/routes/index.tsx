@@ -1,24 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { EditorShell } from "@/components/editor/EditorShell";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Plana Studio — Créateur de plans en ligne" },
+      { name: "description", content: "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant." },
+      { property: "og:title", content: "Plana Studio — Créateur de plans en ligne" },
+      { property: "og:description", content: "Éditeur de plans 2D/3D moderne et intuitif." },
+      { property: "og:type", content: "website" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="font-display text-2xl">Plana Studio</div>
+          <div className="mt-2 text-xs text-muted-foreground">Chargement…</div>
+        </div>
+      </div>
+    );
+  }
+  return <EditorShell />;
 }
