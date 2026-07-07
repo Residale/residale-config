@@ -77,14 +77,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Plana Studio — Créateur de plans en ligne" },
+      { name: "description", content: "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant." },
+      { name: "author", content: "Plana Studio" },
+      { property: "og:title", content: "Plana Studio" },
+      { property: "og:description", content: "Éditeur de plans 2D/3D moderne et intuitif." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {
