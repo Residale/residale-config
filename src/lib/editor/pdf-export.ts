@@ -298,7 +298,7 @@ export async function exportDossierPDF({ plan, projectName, theme = DEFAULT_THEM
   const tableTop = margin + 24;
   const rowH = 9;
   const colX = [margin, margin + 15, margin + 100, margin + 160];
-  doc.setFillColor(240);
+  doc.setFillColor(240, 240, 240);
   doc.rect(margin, tableTop, contentW, rowH, "F");
   doc.setDrawColor(160);
   doc.setLineWidth(0.2);
@@ -312,7 +312,7 @@ export async function exportDossierPDF({ plan, projectName, theme = DEFAULT_THEM
 
   rooms.forEach((r, i) => {
     const y = tableTop + rowH + i * rowH;
-    if (i % 2 === 0) { doc.setFillColor(250); doc.rect(margin, y, contentW, rowH, "F"); }
+    if (i % 2 === 0) { doc.setFillColor(250, 250, 250); doc.rect(margin, y, contentW, rowH, "F"); }
     doc.setDrawColor(200);
     doc.rect(margin, y, contentW, rowH);
     doc.setTextColor(30);
@@ -326,7 +326,7 @@ export async function exportDossierPDF({ plan, projectName, theme = DEFAULT_THEM
 
   // Total row
   const totalY = tableTop + rowH + rooms.length * rowH + 2;
-  doc.setFillColor(230);
+  doc.setFillColor(230, 230, 230);
   doc.rect(margin, totalY, contentW, rowH, "F");
   doc.setDrawColor(120);
   doc.setLineWidth(0.3);
