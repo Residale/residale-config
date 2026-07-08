@@ -578,9 +578,9 @@ export function Canvas2D({ onExportRef }: Props) {
 
   const onDblClick = () => { if (tool === "wall") { setDrawing(null); setTool("select"); } };
 
-  const snapFurnitureToWalls = (pos: Point, w: number, h: number): Point => {
+  const snapFurnitureToWalls = (pos: Point, w: number, h: number, rotation = 0): Point & { rotation: number } => {
     const threshold = 25 / scale;
-    let best: { d: number; snap: Point } | null = null;
+    let best: { d: number; snap: Point & { rotation: number } } | null = null;
     for (const wall of plan.walls) {
       const info = pointOnWall(pos, wall);
       if (info.dist < threshold + Math.max(w, h) / 2) {
@@ -594,12 +594,13 @@ export function Canvas2D({ onExportRef }: Props) {
         const snapped = {
           x: info.closest.x + nx * side * offset,
           y: info.closest.y + ny * side * offset,
+          rotation: Math.round((ang * 180) / Math.PI),
         };
         const d = Math.hypot(pos.x - snapped.x, pos.y - snapped.y);
         if (!best || d < best.d) best = { d, snap: snapped };
       }
     }
-    return best ? best.snap : pos;
+    return best ? best.snap : { ...pos, rotation };
   };
 
   const onDropHtml = (e: React.DragEvent<HTMLDivElement>) => {
