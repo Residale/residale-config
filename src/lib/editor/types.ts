@@ -113,8 +113,11 @@ export type Tool =
   | "eraser"
   | "section";
 
+export type SelectionItem = { type: "wall" | "opening" | "furniture" | "label" | "section"; id: string };
+
 export type Selection =
-  | { type: "wall" | "opening" | "furniture" | "label" | "section"; id: string }
+  | SelectionItem
+  | { type: "multi"; items: SelectionItem[] }
   | null;
 
 export type SectionDisplay = {

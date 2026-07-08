@@ -45,12 +45,30 @@ Objectif : un éditeur où **chaque geste est évident**, où **toutes les vues 
 - **Snap au mur amélioré** : quand le meuble arrive à < 25 cm d'un mur, il « colle » à l'intérieur (côté salle) avec la bonne orientation (dos au mur). Type détecté par `wallType` : côté intérieur si mur extérieur, indifférent si mur intérieur.
 - **Alt+drag** = duplication.
 
+**Ajout exécuté — mobilité et édition des meubles** :
+- Un meuble sélectionné se déplace directement au clic-glisser, sans drag HTML parasite.
+- Les 4 coins redimensionnent le meuble au centimètre, avec cadre de sélection visible.
+- Le handle rond supérieur pivote le meuble avec snap propre à 15°.
+- Au déplacement, le meuble devient magnétique aux murs proches et s'oriente automatiquement dans l'axe du mur.
+- Le panneau droit conserve l'édition numérique largeur / profondeur / hauteur / rotation pour les corrections exactes.
+
 ### A.4 Guides d'alignement intelligents (nouveauté)
 
 Pendant un drag (mur, ouverture, meuble) :
 - Scan de tous les autres éléments : si un axe (x ou y) est aligné à ± 4 px world, on affiche une **ligne pointillée dorée** allant de l'élément aligné jusqu'au curseur, et on **snappe** dessus.
 - Alignement avec centres, faces, endpoints.
 - Petit badge « = 245 cm » quand une distance égale est détectée entre deux paires d'éléments.
+
+### A.5 Sélection multiple, copie et aimantation structurelle
+
+**Ajout exécuté** :
+- `Shift + clic` ajoute / retire un mur, une ouverture, un meuble ou une coupe de la sélection.
+- `Shift + glisser` sur le vide trace un rectangle de sélection et sélectionne tous les éléments inclus.
+- `Cmd/Ctrl + C`, `Cmd/Ctrl + V` et `Cmd/Ctrl + D` copient / dupliquent la sélection.
+- Le panneau droit affiche un état « sélection multiple » avec duplication et suppression groupée.
+- La duplication de murs conserve les ouvertures associées lorsque le mur est copié.
+- Les murs déplacés restent magnétiques aux extrémités proches pour éviter les décrochages.
+- Le dessin de nouveaux murs aimante les extrémités existantes et peut aussi s'accrocher sur un mur proche.
 
 ---
 
@@ -75,6 +93,11 @@ Aujourd'hui : 2D = molette + espace, 3D = OrbitControls, Coupes = système ad ho
 - Chaque canvas a un **overlay bas-droite** : `[- ] 100 % [+] [⛶ recentrer]`.
 - Fit-to-content au mount si le plan a du contenu (corrige le zoom pété à l'ouverture).
 - Limites : zoom 15 % → 600 % en 2D, distance 1.5 → 80 m en 3D.
+
+**Ajout exécuté — navigation 2D restaurée** :
+- En mode sélection, clic-glisser sur le vide déplace à nouveau le plan.
+- `Shift + clic-glisser` sur le vide crée un rectangle de sélection multiple.
+- `0` recentre automatiquement le contenu, `+` et `-` zooment rapidement.
 
 ---
 

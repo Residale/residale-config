@@ -32,6 +32,7 @@ export function RightPanel() {
   const furn = selection?.type === "furniture" ? plan.furniture.find((f) => f.id === selection.id) : null;
   const opening = selection?.type === "opening" ? plan.openings.find((o) => o.id === selection.id) : null;
   const sec = selection?.type === "section" ? plan.sections.find((x) => x.id === selection.id) : null;
+  const multi = selection?.type === "multi" ? selection.items : null;
 
   // In section view: show display toggles
   if (view === "section") {
@@ -104,7 +105,7 @@ export function RightPanel() {
       <div className="border-b border-border px-4 py-3">
         <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Propriétés</div>
         <div className="mt-1 font-display text-lg">
-          {wall ? "Mur" : furn ? furn.label ?? "Mobilier" : opening ? (opening.type === "door" ? "Porte" : "Fenêtre") : sec ? `Coupe ${sec.name}-${sec.name}'` : "—"}
+          {multi ? `${multi.length} éléments` : wall ? "Mur" : furn ? furn.label ?? "Mobilier" : opening ? (opening.type === "door" ? "Porte" : "Fenêtre") : sec ? `Coupe ${sec.name}-${sec.name}'` : "—"}
         </div>
       </div>
 
@@ -112,6 +113,24 @@ export function RightPanel() {
         {!selection && (
           <div className="rounded-md border border-dashed border-border bg-background/40 p-4 text-center text-xs text-muted-foreground">
             Sélectionnez un élément avec l'outil <span className="font-medium text-ink">Sélection</span> pour éditer ses propriétés.
+          </div>
+        )}
+
+        {multi && (
+          <div className="space-y-3">
+            <div className="rounded-md border border-brass/40 bg-brass/5 p-3 text-xs">
+              <div className="font-medium text-ink">Sélection multiple</div>
+              <div className="mt-1 text-muted-foreground">{multi.length} éléments sélectionnés</div>
+            </div>
+            <button
+              onClick={() => useEditor.getState().duplicateSelected()}
+              className="w-full rounded-md border border-border bg-background py-2 text-xs font-medium hover:border-brass hover:bg-brass/10"
+            >
+              Copier / dupliquer
+            </button>
+            <button onClick={deleteSelected} className="w-full rounded-md border border-destructive/30 bg-destructive/5 py-2 text-xs font-medium text-destructive hover:bg-destructive/10">
+              Supprimer la sélection
+            </button>
           </div>
         )}
 
@@ -173,6 +192,9 @@ export function RightPanel() {
             <button onClick={deleteSelected} className="w-full rounded-md border border-destructive/30 bg-destructive/5 py-2 text-xs font-medium text-destructive hover:bg-destructive/10">
               Supprimer le mur
             </button>
+            <button onClick={() => useEditor.getState().duplicateSelected()} className="w-full rounded-md border border-border bg-background py-2 text-xs font-medium hover:border-brass hover:bg-brass/10">
+              Copier le mur
+            </button>
           </div>
           );
         })()}
@@ -206,6 +228,7 @@ export function RightPanel() {
               </div>
             </div>
             <button onClick={deleteSelected} className="w-full rounded-md border border-destructive/30 bg-destructive/5 py-2 text-xs font-medium text-destructive hover:bg-destructive/10">Supprimer</button>
+            <button onClick={() => useEditor.getState().duplicateSelected()} className="w-full rounded-md border border-border bg-background py-2 text-xs font-medium hover:border-brass hover:bg-brass/10">Copier le mobilier</button>
           </div>
         )}
 
@@ -280,6 +303,7 @@ export function RightPanel() {
             )}
 
             <button onClick={deleteSelected} className="w-full rounded-md border border-destructive/30 bg-destructive/5 py-2 text-xs font-medium text-destructive hover:bg-destructive/10">Supprimer</button>
+            <button onClick={() => useEditor.getState().duplicateSelected()} className="w-full rounded-md border border-border bg-background py-2 text-xs font-medium hover:border-brass hover:bg-brass/10">Copier l'ouverture</button>
           </div>
         )}
 
