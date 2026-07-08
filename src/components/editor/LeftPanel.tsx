@@ -3,6 +3,7 @@ import { CATALOG } from "@/lib/editor/furniture-catalog";
 import { useMemo, useState } from "react";
 import { wallLength } from "@/lib/editor/geometry";
 import { THEME_PRESETS } from "@/lib/editor/theme";
+import { FurnitureThumb } from "./FurnitureThumb";
 
 type ToolDef = {
   id: import("@/lib/editor/types").Tool;
@@ -19,10 +20,24 @@ const TOOLS: ToolDef[] = [
   { id: "select", label: "Sélection", hint: "V", icon: <Icon><path d="M4 4l7 16 2-7 7-2z"/></Icon> },
   { id: "wall", label: "Mur", hint: "W · clic-clic · Échap pour terminer", icon: <Icon><path d="M3 20h18"/><path d="M6 20V8h12v12"/></Icon> },
   { id: "rectangle", label: "Pièce", hint: "R · 2 clics", icon: <Icon><rect x="4" y="5" width="16" height="14" rx="1"/></Icon> },
-  { id: "door", label: "Porte", hint: "D · cliquez un mur", icon: <Icon><path d="M6 20V4h9v16"/><path d="M6 20a9 9 0 0 1 9-9"/></Icon> },
-  { id: "window", label: "Fenêtre", hint: "F · cliquez un mur", icon: <Icon><rect x="4" y="6" width="16" height="12"/><path d="M12 6v12M4 12h16"/></Icon> },
   { id: "section", label: "Coupe", hint: "S · 2 clics", icon: <Icon><path d="M3 12h18"/><path d="M6 8l-3 4 3 4"/><path d="M18 8l3 4-3 4"/></Icon> },
   { id: "eraser", label: "Gomme", hint: "E", icon: <Icon><path d="M3 17l6 6h12v-2H10.4L4.4 15z"/><path d="M20 8L14 2 3 13l6 6"/></Icon> },
+];
+
+type OpeningItem = {
+  kind: "door" | "window";
+  label: string;
+  width: number;
+  height: number;
+  sillHeight: number;
+};
+
+const OPENINGS: OpeningItem[] = [
+  { kind: "door", label: "Porte simple", width: 80, height: 210, sillHeight: 0 },
+  { kind: "door", label: "Porte large", width: 100, height: 210, sillHeight: 0 },
+  { kind: "window", label: "Fenêtre", width: 100, height: 120, sillHeight: 100 },
+  { kind: "window", label: "Grande fenêtre", width: 160, height: 140, sillHeight: 90 },
+  { kind: "window", label: "Baie vitrée", width: 240, height: 210, sillHeight: 0 },
 ];
 
 export function LeftPanel() {
@@ -33,7 +48,7 @@ export function LeftPanel() {
   } = useEditor();
   const [tab, setTab] = useState<"tools" | "furniture" | "theme">("tools");
   const cats = useMemo(() => Array.from(new Set(CATALOG.map((c) => c.category))), []);
-  const [openCat, setOpenCat] = useState<string>(cats[0]);
+  const [openCat, setOpenCat] = useState<string>("Ouvertures");
 
   const totalMeters = plan.walls.reduce((sum, w) => sum + wallLength(w), 0) / 100;
 
@@ -69,8 +84,11 @@ export function LeftPanel() {
             ))}
           </div>
 
-          {/* Global wall settings */}
-          <div className="mt-5 rounded-md border border-brass/40 bg-brass/5 p-3">
+          <div className="mt-3 rounded-md border border-border bg-background/60 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
+            <span className="font-medium text-ink">Astuce.</span> Portes et fenêtres se placent en glissant depuis l'onglet <span className="font-medium text-ink">Mobilier</span> sur un mur.
+          </div>
+
+          <div className="mt-4 rounded-md border border-brass/40 bg-brass/5 p-3">
             <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
               Type de mur en cours
             </div>
@@ -118,7 +136,6 @@ export function LeftPanel() {
               <div className="flex justify-between"><span className="text-muted-foreground">Longueur</span><span>{totalMeters.toFixed(2)} m</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Ouvertures</span><span>{plan.openings.length}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Mobilier</span><span>{plan.furniture.length}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Coupes</span><span>{plan.sections.length || "auto"}</span></div>
             </div>
           </div>
         </div>
@@ -126,8 +143,45 @@ export function LeftPanel() {
 
       {tab === "furniture" && (
         <div className="flex-1 overflow-y-auto p-3">
-          <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Glissez-déposez</div>
+          <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Glissez sur le plan</div>
           <div className="space-y-2">
+            {/* Ouvertures — première catégorie */}
+            <div className="overflow-hidden rounded-md border border-border bg-card">
+              <button
+                onClick={() => setOpenCat(openCat === "Ouvertures" ? "" : "Ouvertures")}
+                className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium hover:bg-brass/5"
+              >
+                <span>Ouvertures</span>
+                <span className="text-muted-foreground">{openCat === "Ouvertures" ? "−" : "+"}</span>
+              </button>
+              {openCat === "Ouvertures" && (
+                <div className="grid grid-cols-2 gap-1.5 border-t border-border bg-background/40 p-2">
+                  {OPENINGS.map((o, i) => (
+                    <div
+                      key={i}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("application/x-opening", JSON.stringify(o));
+                        e.dataTransfer.effectAllowed = "copy";
+                      }}
+                      className="group cursor-grab select-none rounded border border-border bg-card p-2 text-[11px] transition-all hover:border-brass hover:shadow-panel active:cursor-grabbing"
+                    >
+                      <div className="mb-1 flex h-10 w-full items-center justify-center rounded-sm border border-border bg-background">
+                        {o.kind === "door" ? <DoorGlyph /> : <WindowGlyph />}
+                      </div>
+                      <div className="truncate font-medium">{o.label}</div>
+                      <div className="font-mono-tab text-[9px] text-muted-foreground">
+                        {(o.width / 100).toFixed(2)} m
+                      </div>
+                    </div>
+                  ))}
+                  <div className="col-span-2 rounded border border-dashed border-border bg-background/50 px-2 py-1.5 text-[10px] leading-tight text-muted-foreground">
+                    Déposez sur un mur — la porte/fenêtre s'y aligne automatiquement.
+                  </div>
+                </div>
+              )}
+            </div>
+
             {cats.map((cat) => (
               <div key={cat} className="overflow-hidden rounded-md border border-border bg-card">
                 <button onClick={() => setOpenCat(openCat === cat ? "" : cat)} className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium hover:bg-brass/5">
@@ -146,7 +200,9 @@ export function LeftPanel() {
                         }}
                         className="group cursor-grab select-none rounded border border-border bg-card p-2 text-[11px] transition-all hover:border-brass hover:shadow-panel active:cursor-grabbing"
                       >
-                        <div className="mb-1 h-8 w-full rounded-sm border" style={{ backgroundColor: c.color, borderColor: "#8b7355" }} />
+                        <div className="mb-1 flex h-12 w-full items-center justify-center rounded-sm border border-border bg-background">
+                          <FurnitureThumb kind={c.kind} />
+                        </div>
                         <div className="truncate font-medium">{c.label}</div>
                         <div className="font-mono-tab text-[9px] text-muted-foreground">
                           {(c.width / 100).toFixed(2)}×{(c.height / 100).toFixed(2)} m
@@ -243,5 +299,27 @@ function MiniNum({ label, value, onChange }: { label: string; value: number; onC
         <span className="pr-1.5 text-[9px] text-muted-foreground">cm</span>
       </div>
     </label>
+  );
+}
+
+function DoorGlyph() {
+  return (
+    <svg viewBox="0 0 40 40" className="h-9 w-9" fill="none" stroke="#3d2f22" strokeWidth="1.5" strokeLinecap="round">
+      <path d="M6 32h28" strokeWidth="3" stroke="#111" />
+      <path d="M6 32V10" />
+      <path d="M6 32a22 22 0 0 1 22-22" strokeDasharray="3 3" />
+      <path d="M6 10L28 10" />
+    </svg>
+  );
+}
+
+function WindowGlyph() {
+  return (
+    <svg viewBox="0 0 40 40" className="h-9 w-9" fill="none" stroke="#3d2f22" strokeWidth="1.5">
+      <path d="M4 28h32" strokeWidth="3" stroke="#111" />
+      <path d="M4 22h32" />
+      <path d="M4 16h32" />
+      <path d="M4 28V16M36 28V16" />
+    </svg>
   );
 }

@@ -13,6 +13,7 @@ import {
   wallLength,
 } from "@/lib/editor/geometry";
 import { collectJunctions } from "@/lib/editor/wall-geometry";
+import { FurnitureShape2D } from "./FurnitureShape2D";
 
 
 
@@ -34,7 +35,8 @@ export function Canvas2D({ onExportRef }: Props) {
   const s = useEditor();
   const {
     plan, tool, selection, grid, snapEnabled, showGrid, showDimensions,
-    theme, setSelection, addWall, addOpening, addFurniture, addSection,
+    showExteriorDims, showInteriorDims,
+    theme, setTool, setSelection, addWall, addOpening, addFurniture, addSection,
     updateFurniture, updateWall, commit, deleteSelected, undo, redo,
   } = s;
 
@@ -51,7 +53,7 @@ export function Canvas2D({ onExportRef }: Props) {
     const kd = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.tagName === "INPUT" || (e.target as HTMLElement)?.tagName === "TEXTAREA") return;
       if (e.code === "Space") setSpaceDown(true);
-      if (e.key === "Escape") { setDrawing(null); setRectStart(null); setSectionStart(null); setSelection(null); }
+      if (e.key === "Escape") { if (drawing) setTool("select"); setDrawing(null); setRectStart(null); setSectionStart(null); setSelection(null); }
       if ((e.key === "Delete" || e.key === "Backspace") && selection) { e.preventDefault(); deleteSelected(); }
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
       if ((e.metaKey || e.ctrlKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) { e.preventDefault(); redo(); }
@@ -83,7 +85,7 @@ export function Canvas2D({ onExportRef }: Props) {
     if (!pointer) return;
     const oldScale = scale;
     const direction = e.evt.deltaY > 0 ? -1 : 1;
-    const factor = 1.12;
+    const factor = 1.05;
     const newScale = Math.max(0.15, Math.min(6, direction > 0 ? oldScale * factor : oldScale / factor));
     const mp = { x: (pointer.x - pos.x) / oldScale, y: (pointer.y - pos.y) / oldScale };
     setScale(newScale);
@@ -155,6 +157,7 @@ export function Canvas2D({ onExportRef }: Props) {
         addWall({ a: c3, b: c4, thickness: s.wallSettings[s.currentWallType].thickness });
         addWall({ a: c4, b: c1, thickness: s.wallSettings[s.currentWallType].thickness });
         setRectStart(null);
+        setTool("select");
       }
       return;
     }
@@ -164,6 +167,7 @@ export function Canvas2D({ onExportRef }: Props) {
       else {
         addSection({ a: sectionStart, b: snapped, name: "" });
         setSectionStart(null);
+        setTool("select");
       }
       return;
     }
@@ -176,6 +180,7 @@ export function Canvas2D({ onExportRef }: Props) {
           width: tool === "door" ? 80 : 100,
           type: tool,
         });
+        setTool("select");
       }
       return;
     }
@@ -231,7 +236,7 @@ export function Canvas2D({ onExportRef }: Props) {
     if (dragHandle) setDragHandle(null);
   };
 
-  const onDblClick = () => { if (tool === "wall") setDrawing(null); };
+  const onDblClick = () => { if (tool === "wall") { setDrawing(null); setTool("select"); } };
 
   const snapFurnitureToWalls = (pos: Point, w: number, h: number): Point => {
     const threshold = 25 / scale;
@@ -259,14 +264,35 @@ export function Canvas2D({ onExportRef }: Props) {
 
   const onDropHtml = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    const rect = containerRef.current!.getBoundingClientRect();
+    const screen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const world = toWorld(screen);
+
+    // Opening drag (door/window) — snap to nearest wall
+    const openingRaw = e.dataTransfer.getData("application/x-opening");
+    if (openingRaw) {
+      try {
+        const o = JSON.parse(openingRaw) as { kind: "door" | "window"; label: string; width: number; height: number; sillHeight: number };
+        const hit = findWallNear(world);
+        if (hit) {
+          addOpening({
+            wallId: hit.wall.id,
+            t: Math.max(0.08, Math.min(0.92, hit.t)),
+            width: o.width,
+            type: o.kind,
+            height: o.height,
+            sillHeight: o.sillHeight,
+          });
+        }
+      } catch { /* ignore */ }
+      return;
+    }
+
     const kind = e.dataTransfer.getData("application/x-furniture");
     if (!kind) return;
     const item = CATALOG.find((c) => c.kind === kind && c.label === e.dataTransfer.getData("application/x-furniture-label"))
       || CATALOG.find((c) => c.kind === kind);
     if (!item) return;
-    const rect = containerRef.current!.getBoundingClientRect();
-    const screen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    const world = toWorld(screen);
     let snapped = snapEnabled ? snapPoint(world, grid / 2) : world;
     snapped = snapFurnitureToWalls(snapped, item.width, item.height);
     addFurniture({
@@ -382,29 +408,114 @@ export function Canvas2D({ onExportRef }: Props) {
     if (!showDimensions) return null;
     const len = wallLength(w);
     if (len < 20) return null;
-    const cx = (w.a.x + w.b.x) / 2;
-    const cy = (w.a.y + w.b.y) / 2;
     const ang = wallAngle(w);
-    const off = w.thickness / 2 + 14;
-    const nx = Math.cos(ang - Math.PI / 2) * off;
-    const ny = Math.sin(ang - Math.PI / 2) * off;
+    const off = w.thickness / 2 + 18 / scale + 6;
+    const nx = Math.cos(ang - Math.PI / 2);
+    const ny = Math.sin(ang - Math.PI / 2);
+    // Endpoints on the dimension line (parallel to wall, offset outward)
+    const ax = w.a.x + nx * off;
+    const ay = w.a.y + ny * off;
+    const bx = w.b.x + nx * off;
+    const by = w.b.y + ny * off;
+    // Tick marks (perpendicular short segments)
+    const tick = 5 / scale;
+    // Extension lines from wall face to dim line
+    const extFrom = w.thickness / 2 + 2 / scale;
     const label = len >= 100 ? `${(len / 100).toFixed(2)} m` : `${Math.round(len)} cm`;
     let deg = (ang * 180) / Math.PI;
-    if (deg > 90 || deg < -90) deg += 180;
+    let flipped = false;
+    if (deg > 90 || deg < -90) { deg += 180; flipped = true; }
+    const strokeCol = theme.dimension;
+    // Label anchored near "start" end (leftmost when reading) — use a-side
+    // Position label offset slightly outside from dim line
+    const labelOffset = 8 / scale;
+    const lx = ax + nx * labelOffset + Math.cos(ang) * 6 / scale;
+    const ly = ay + ny * labelOffset + Math.sin(ang) * 6 / scale;
     return (
-      <Text
-        key={`d${w.id}`} x={cx + nx} y={cy + ny} text={label}
-        fontSize={11 / scale} fontFamily="JetBrains Mono"
-        fill={theme.dimension} rotation={deg}
-        offsetX={20 / scale} offsetY={5 / scale} listening={false}
-      />
+      <Group key={`d${w.id}`} listening={false}>
+        {/* extension lines */}
+        <Line points={[w.a.x + nx * extFrom, w.a.y + ny * extFrom, ax + nx * (2 / scale), ay + ny * (2 / scale)]} stroke={strokeCol} strokeWidth={0.6 / scale} />
+        <Line points={[w.b.x + nx * extFrom, w.b.y + ny * extFrom, bx + nx * (2 / scale), by + ny * (2 / scale)]} stroke={strokeCol} strokeWidth={0.6 / scale} />
+        {/* dim line */}
+        <Line points={[ax, ay, bx, by]} stroke={strokeCol} strokeWidth={0.8 / scale} />
+        {/* end ticks (short 45° slashes typical of architectural drawings) */}
+        <Line points={[ax - Math.cos(ang) * tick + nx * tick, ay - Math.sin(ang) * tick + ny * tick, ax + Math.cos(ang) * tick - nx * tick, ay + Math.sin(ang) * tick - ny * tick]} stroke={strokeCol} strokeWidth={1 / scale} />
+        <Line points={[bx - Math.cos(ang) * tick + nx * tick, by - Math.sin(ang) * tick + ny * tick, bx + Math.cos(ang) * tick - nx * tick, by + Math.sin(ang) * tick - ny * tick]} stroke={strokeCol} strokeWidth={1 / scale} />
+        {/* label */}
+        <Text
+          x={flipped ? bx - Math.cos(ang) * 6 / scale + nx * labelOffset : lx}
+          y={flipped ? by - Math.sin(ang) * 6 / scale + ny * labelOffset : ly}
+          text={label}
+          fontSize={11 / scale}
+          fontFamily="JetBrains Mono"
+          fill={strokeCol}
+          rotation={deg}
+          offsetY={13 / scale}
+        />
+      </Group>
     );
   };
 
+  // Overall perimeter dimensions (unique X and Y extents of walls)
+  const perimeterDims = useMemo(() => {
+    if (!showExteriorDims && !showInteriorDims) return null;
+    if (plan.walls.length === 0) return null;
+    // Collect distinct X and Y values
+    const xs = new Set<number>();
+    const ys = new Set<number>();
+    for (const w of plan.walls) {
+      xs.add(Math.round(w.a.x)); xs.add(Math.round(w.b.x));
+      ys.add(Math.round(w.a.y)); ys.add(Math.round(w.b.y));
+    }
+    const xArr = [...xs].sort((a, b) => a - b);
+    const yArr = [...ys].sort((a, b) => a - b);
+    const minX = xArr[0], maxX = xArr[xArr.length - 1];
+    const minY = yArr[0], maxY = yArr[yArr.length - 1];
+    const OFFSET = 60 / scale + 40; // outside offset
+    const col = theme.dimension;
+    const nodes: React.ReactNode[] = [];
+
+    const drawSegment = (x0: number, y0: number, x1: number, y1: number, len: number, horizontal: boolean, key: string) => {
+      const label = len >= 100 ? `${(len / 100).toFixed(2)} m` : `${Math.round(len)} cm`;
+      const tick = 5 / scale;
+      nodes.push(<Line key={`ln${key}`} points={[x0, y0, x1, y1]} stroke={col} strokeWidth={0.8 / scale} listening={false} />);
+      // Ticks
+      if (horizontal) {
+        nodes.push(<Line key={`t1${key}`} points={[x0, y0 - tick, x0, y0 + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
+        nodes.push(<Line key={`t2${key}`} points={[x1, y0 - tick, x1, y0 + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
+        nodes.push(<Text key={`tx${key}`} x={(x0 + x1) / 2} y={y0 - 4 / scale} text={label} fontSize={11 / scale} fontFamily="JetBrains Mono" fill={col} align="center" offsetX={30 / scale} width={60 / scale} offsetY={13 / scale} listening={false} />);
+      } else {
+        nodes.push(<Line key={`t1${key}`} points={[x0 - tick, y0, x0 + tick, y0]} stroke={col} strokeWidth={1 / scale} listening={false} />);
+        nodes.push(<Line key={`t2${key}`} points={[x1 - tick, y1, x1 + tick, y1]} stroke={col} strokeWidth={1 / scale} listening={false} />);
+        nodes.push(<Text key={`tx${key}`} x={x0 - 6 / scale} y={(y0 + y1) / 2} text={label} fontSize={11 / scale} fontFamily="JetBrains Mono" fill={col} rotation={-90} offsetY={0} listening={false} />);
+      }
+    };
+
+    if (showExteriorDims) {
+      // Overall bottom (horizontal) — total width
+      const yBottom = maxY + OFFSET;
+      drawSegment(minX, yBottom, maxX, yBottom, maxX - minX, true, "extH");
+      // Left overall (vertical)
+      const xLeft = minX - OFFSET;
+      drawSegment(xLeft, minY, xLeft, maxY, maxY - minY, false, "extV");
+    }
+    if (showInteriorDims) {
+      // Chained dimensions between successive x values (top) and y values (right)
+      const yTop = minY - OFFSET;
+      for (let i = 0; i < xArr.length - 1; i++) {
+        drawSegment(xArr[i], yTop, xArr[i + 1], yTop, xArr[i + 1] - xArr[i], true, `chH${i}`);
+      }
+      const xRight = maxX + OFFSET;
+      for (let i = 0; i < yArr.length - 1; i++) {
+        drawSegment(xRight, yArr[i], xRight, yArr[i + 1], yArr[i + 1] - yArr[i], false, `chV${i}`);
+      }
+    }
+    return nodes;
+  }, [plan.walls, scale, theme.dimension, showExteriorDims, showInteriorDims]);
+
   const renderFurniture = (f: Furniture) => {
-    const item = CATALOG.find((c) => c.kind === f.kind);
-    const color = theme.furnitureFill === "transparent" ? "transparent" : (item?.color ?? theme.furnitureFill);
     const isSel = selection?.type === "furniture" && selection.id === f.id;
+    const strokeColor = isSel ? "#c9a961" : theme.furnitureStroke;
     return (
       <Group
         key={f.id} x={f.x} y={f.y} rotation={f.rotation}
@@ -422,19 +533,11 @@ export function Canvas2D({ onExportRef }: Props) {
           updateFurniture(f.id, { x: nx, y: ny });
         }}
       >
-        <Rect
-          x={-f.width / 2} y={-f.height / 2} width={f.width} height={f.height}
-          fill={color} stroke={isSel ? "#c9a961" : theme.furnitureStroke}
-          strokeWidth={isSel ? 2 : 1}
-          cornerRadius={f.kind === "rug" ? 4 : 2}
-          opacity={f.kind === "rug" ? 0.5 : 0.92}
-          dash={f.kind === "rug" ? [6, 4] : undefined}
-        />
-        {f.width > 40 && (
-          <Text
-            text={item?.label ?? ""} fontSize={10} fontFamily="Inter"
-            fill={theme.furnitureStroke} width={f.width - 8} align="center"
-            x={-f.width / 2 + 4} y={-6} listening={false}
+        <FurnitureShape2D f={f} strokeColor={strokeColor} />
+        {isSel && (
+          <Rect
+            x={-f.width / 2 - 2} y={-f.height / 2 - 2} width={f.width + 4} height={f.height + 4}
+            stroke="#c9a961" strokeWidth={1.5 / scale} dash={[6 / scale, 4 / scale]} listening={false}
           />
         )}
       </Group>
@@ -495,7 +598,7 @@ export function Canvas2D({ onExportRef }: Props) {
     <div
       ref={containerRef}
       className="relative h-full w-full overflow-hidden"
-      style={{ background: theme.background, cursor: spaceDown ? "grab" : tool === "select" ? "default" : "crosshair" }}
+      style={{ background: theme.background, cursor: spaceDown ? "grab" : tool === "select" ? "grab" : "crosshair" }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDropHtml}
     >
@@ -503,7 +606,14 @@ export function Canvas2D({ onExportRef }: Props) {
         ref={stageRef}
         width={size.w} height={size.h}
         scaleX={scale} scaleY={scale} x={pos.x} y={pos.y}
-        draggable={spaceDown}
+        draggable={spaceDown || tool === "select"}
+        onDragStart={(e) => {
+          // Only allow stage panning when the drag originated from the stage itself
+          // (not from a shape). Otherwise cancel so shape drag/select works.
+          if (e.target !== e.target.getStage() && !spaceDown) {
+            e.target.stopDrag();
+          }
+        }}
         onDragEnd={(e) => { if (e.target === e.target.getStage()) setPos({ x: e.target.x(), y: e.target.y() }); }}
         onWheel={onWheel} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onDblClick={onDblClick}
       >
@@ -520,6 +630,7 @@ export function Canvas2D({ onExportRef }: Props) {
           ))}
           {plan.openings.map(renderOpening)}
           {plan.walls.map(renderDim)}
+          {perimeterDims}
           {plan.sections.map(renderSection)}
           {previewLine}{previewRect}{previewSection}
           {plan.labels.map((l) => (
