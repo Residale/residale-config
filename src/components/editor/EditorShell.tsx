@@ -149,8 +149,10 @@ export function EditorShell() {
               <Canvas3D />
             </div>
           )}
+          {(view === "2d" || view === "split") && <ShortcutsHelp />}
         </main>
         <RightPanel />
+
       </div>
       <CommandPalette />
     </div>
