@@ -19,6 +19,14 @@ export function CanvasSection() {
     const user = plan.sections;
     return user.length ? user : autoSectionsFromPlan(plan);
   }, [plan]);
+  const [expanded, setExpanded] = useState<SectionLine | null>(null);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
 
   if (sections.length === 0) {
     return (
@@ -35,22 +43,40 @@ export function CanvasSection() {
 
   const cols = sections.length <= 2 ? sections.length : 2;
   return (
-    <div
-      className="grid h-full w-full gap-2 p-2"
-      style={{
-        gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-        gridAutoRows: sections.length <= 2 ? "1fr" : "minmax(0, 1fr)",
-        background: theme.background,
-      }}
-    >
-      {sections.map((sec) => (
-        <SectionPanel key={sec.id} section={sec} />
-      ))}
-    </div>
+    <>
+      <div
+        className="grid h-full w-full gap-2 p-2"
+        style={{
+          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+          gridAutoRows: sections.length <= 2 ? "1fr" : "minmax(0, 1fr)",
+          background: theme.background,
+        }}
+      >
+        {sections.map((sec) => (
+          <SectionPanel key={sec.id} section={sec} onExpand={() => setExpanded(sec)} />
+        ))}
+      </div>
+      {expanded && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+          onClick={() => setExpanded(null)}
+        >
+          <div className="relative h-full w-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setExpanded(null)}
+              className="absolute right-2 top-2 z-[60] rounded border border-border bg-card px-3 py-1 text-xs font-medium hover:border-brass"
+            >
+              Fermer (Échap)
+            </button>
+            <SectionPanel section={expanded} fullscreen />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
-function SectionPanel({ section }: { section: SectionLine }) {
+function SectionPanel({ section, fullscreen = false, onExpand }: { section: SectionLine; fullscreen?: boolean; onExpand?: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
   const [size, setSize] = useState({ w: 400, h: 300 });
@@ -157,16 +183,30 @@ function SectionPanel({ section }: { section: SectionLine }) {
 
   return (
     <div ref={containerRef} className="relative overflow-hidden rounded-md border border-border" style={{ background: "#faf8f2" }}>
-      <div className="absolute left-2 top-2 z-10 rounded bg-card/90 px-2 py-1 text-[11px] font-medium tracking-wide shadow-panel">
+      <div
+        onDoubleClick={onExpand}
+        className="absolute left-2 top-2 z-10 cursor-pointer rounded bg-card/90 px-2 py-1 text-[11px] font-medium tracking-wide shadow-panel hover:border hover:border-brass"
+        title="Double-cliquez pour agrandir"
+      >
         {NAME_MAP[section.name] ?? `Coupe ${section.name}-${section.name}'`}
       </div>
-      <button
-        onClick={resetView}
-        className="absolute right-2 top-2 z-10 rounded border border-border bg-card/90 px-2 py-1 text-[10px] font-medium hover:border-brass"
-        title="Recentrer la vue"
-      >
-        Recentrer
-      </button>
+      <div className="absolute right-2 top-2 z-10 flex gap-1">
+        {onExpand && !fullscreen && (
+          <button
+            onClick={onExpand}
+            className="rounded border border-border bg-card/90 px-2 py-1 text-[10px] font-medium hover:border-brass"
+            title="Plein écran"
+          >⛶</button>
+        )}
+        <button
+          onClick={resetView}
+          className="rounded border border-border bg-card/90 px-2 py-1 text-[10px] font-medium hover:border-brass"
+          title="Recentrer la vue"
+        >
+          Recentrer
+        </button>
+      </div>
+
       <Stage
         ref={stageRef}
         width={size.w}
@@ -223,7 +263,18 @@ function SectionPanel({ section }: { section: SectionLine }) {
             return <Line points={poly} closed fill={theme.wallFill} stroke={theme.wallStroke} strokeWidth={1} opacity={0.9} />;
           })()}
 
-          {/* Walls */}
+          {/* Elevation walls (behind — draw first, greyed) */}
+          {data.elevationWalls?.map((ew, i) => (
+            <Rect
+              key={`ew${i}`}
+              x={toX(ew.start)} y={toY(ew.height)}
+              width={(ew.end - ew.start) * s} height={ew.height * s}
+              fill={theme.wallFill} stroke={theme.wallStroke} strokeWidth={0.6}
+              opacity={0.35}
+            />
+          ))}
+
+          {/* Cut walls (poché) */}
           {cuts.filter((c) => c.type === "wall").map((c, i) => (
             <Rect
               key={`w${i}`}
@@ -232,6 +283,7 @@ function SectionPanel({ section }: { section: SectionLine }) {
               fill={theme.wallFill} stroke={theme.wallStroke} strokeWidth={1}
             />
           ))}
+
 
           {/* Openings */}
           {cuts.filter((c) => c.type !== "wall").map((c, i) => {
