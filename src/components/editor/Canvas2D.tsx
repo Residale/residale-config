@@ -679,7 +679,8 @@ export function Canvas2D({ onExportRef }: Props) {
 
     const drawH = (x0: number, x1: number, yFace: number, yDim: number, key: string) => {
       const len = Math.abs(x1 - x0);
-      const label = len >= 100 ? `${(len / 100).toFixed(2)} m` : `${Math.round(len)} cm`;
+      const label = `${Math.round(len)}`;
+
       const dir = yDim >= yFace ? 1 : -1;
       // extension lines stop exactly at the dim line (no overshoot)
       nodes.push(<Line key={`e1${key}`} points={[x0, yFace + dir * gap, x0, yDim]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
