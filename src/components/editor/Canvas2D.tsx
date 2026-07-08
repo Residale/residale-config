@@ -138,7 +138,7 @@ export function Canvas2D({ onExportRef }: Props) {
       else {
         const prev = drawing[drawing.length - 1];
         if (dist(prev, snapped) < 5) return;
-        addWall({ a: prev, b: snapped, thickness: DEFAULT_WALL_THICKNESS });
+        addWall({ a: prev, b: snapped, thickness: s.wallSettings[s.currentWallType].thickness });
         setDrawing([...drawing, snapped]);
       }
       return;
@@ -150,10 +150,10 @@ export function Canvas2D({ onExportRef }: Props) {
         const a = rectStart, b = snapped;
         commit();
         const c1={x:a.x,y:a.y}, c2={x:b.x,y:a.y}, c3={x:b.x,y:b.y}, c4={x:a.x,y:b.y};
-        addWall({ a: c1, b: c2, thickness: DEFAULT_WALL_THICKNESS });
-        addWall({ a: c2, b: c3, thickness: DEFAULT_WALL_THICKNESS });
-        addWall({ a: c3, b: c4, thickness: DEFAULT_WALL_THICKNESS });
-        addWall({ a: c4, b: c1, thickness: DEFAULT_WALL_THICKNESS });
+        addWall({ a: c1, b: c2, thickness: s.wallSettings[s.currentWallType].thickness });
+        addWall({ a: c2, b: c3, thickness: s.wallSettings[s.currentWallType].thickness });
+        addWall({ a: c3, b: c4, thickness: s.wallSettings[s.currentWallType].thickness });
+        addWall({ a: c4, b: c1, thickness: s.wallSettings[s.currentWallType].thickness });
         setRectStart(null);
       }
       return;
@@ -444,7 +444,7 @@ export function Canvas2D({ onExportRef }: Props) {
 
   const previewLine =
     tool === "wall" && drawing?.length && cursor
-      ? (<Line points={[drawing[drawing.length - 1].x, drawing[drawing.length - 1].y, cursor.x, cursor.y]} stroke="#c9a961" strokeWidth={DEFAULT_WALL_THICKNESS} opacity={0.4} dash={[8, 6]} listening={false} />)
+      ? (<Line points={[drawing[drawing.length - 1].x, drawing[drawing.length - 1].y, cursor.x, cursor.y]} stroke="#c9a961" strokeWidth={s.wallSettings[s.currentWallType].thickness} opacity={0.4} dash={[8, 6]} listening={false} />)
       : null;
   const previewRect =
     tool === "rectangle" && rectStart && cursor
