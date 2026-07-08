@@ -499,12 +499,12 @@ function Washer({ w, d, h }: { w: number; d: number; h: number }) {
         <boxGeometry args={[w, h, d]} />
         <meshStandardMaterial color="#e0e0e0" roughness={0.4} metalness={0.15} />
       </mesh>
-      <mesh position={[0, h * 0.45, d / 2 + 0.005]}>
-        <cylinderGeometry args={[Math.min(w, h) * 0.28, Math.min(w, h) * 0.28, 0.02, 24]} rotation={[Math.PI / 2, 0, 0]} />
+      <mesh position={[0, h * 0.45, d / 2 + 0.005]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[Math.min(w, h) * 0.28, Math.min(w, h) * 0.28, 0.02, 24]} />
         <meshStandardMaterial color="#404040" roughness={0.4} />
       </mesh>
-      <mesh position={[0, h * 0.45, d / 2 + 0.015]}>
-        <cylinderGeometry args={[Math.min(w, h) * 0.22, Math.min(w, h) * 0.22, 0.02, 24]} rotation={[Math.PI / 2, 0, 0]} />
+      <mesh position={[0, h * 0.45, d / 2 + 0.015]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[Math.min(w, h) * 0.22, Math.min(w, h) * 0.22, 0.02, 24]} />
         <meshStandardMaterial color="#a0c0d0" transparent opacity={0.5} />
       </mesh>
     </group>
