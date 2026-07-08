@@ -106,13 +106,33 @@ export function RightPanel() {
           </div>
         )}
 
-        {wall && (
+        {wall && (() => {
+          const samePt = (a: {x:number;y:number}, b: {x:number;y:number}) => Math.hypot(a.x-b.x, a.y-b.y) <= 1.5;
+          const perpThicknessAt = (endpoint: {x:number;y:number}) => {
+            const dx = wall.b.x - wall.a.x, dy = wall.b.y - wall.a.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const ux = dx/len, uy = dy/len;
+            let maxT = 0;
+            for (const w of plan.walls) {
+              if (w.id === wall.id) continue;
+              if (!(samePt(w.a, endpoint) || samePt(w.b, endpoint))) continue;
+              const wl = Math.hypot(w.b.x-w.a.x, w.b.y-w.a.y) || 1;
+              const dot = Math.abs(((w.b.x-w.a.x)/wl)*ux + ((w.b.y-w.a.y)/wl)*uy);
+              if (dot < 0.35) maxT = Math.max(maxT, w.thickness);
+            }
+            return maxT;
+          };
+          const extraA = perpThicknessAt(wall.a) / 2;
+          const extraB = perpThicknessAt(wall.b) / 2;
+          const axisLen = wallLength(wall);
+          const exteriorLen = axisLen + extraA + extraB;
+          return (
           <div className="space-y-3">
             <NumberField
-              label="Longueur (cm)"
-              value={Math.round(wallLength(wall))}
+              label="Longueur extérieure (cm)"
+              value={Math.round(exteriorLen)}
               min={10} max={5000}
-              onChange={(v) => resizeWallLength(wall.id, v)}
+              onChange={(v) => resizeWallLength(wall.id, Math.max(10, v - extraA - extraB))}
             />
             <div>
               <div className="mb-1 block text-xs font-medium text-muted-foreground">Type</div>
