@@ -314,6 +314,67 @@ export function Canvas2D({ onExportRef }: Props) {
     return best ? { a: { x: a.x + best.dx, y: a.y + best.dy }, b: { x: b.x + best.dx, y: b.y + best.dy } } : { a, b };
   };
 
+  const normalizeWallAxis = (a: Point, b: Point) => {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1) return { a, b };
+    const deg = Math.abs((Math.atan2(dy, dx) * 180) / Math.PI) % 180;
+    const nearHorizontal = deg <= 10 || deg >= 170;
+    const nearVertical = Math.abs(deg - 90) <= 10;
+    if (nearHorizontal) {
+      const y = Math.round((a.y + b.y) / 2);
+      return { a: { x: Math.round(a.x), y }, b: { x: Math.round(b.x), y } };
+    }
+    if (nearVertical) {
+      const x = Math.round((a.x + b.x) / 2);
+      return { a: { x, y: Math.round(a.y) }, b: { x, y: Math.round(b.y) } };
+    }
+    return { a, b };
+  };
+
+  const snapWallEndpointToNode = (p: Point, ignoreWallId: string) => {
+    const threshold = 18 / scale;
+    let best: { d: number; p: Point } | null = null;
+    for (const wall of plan.walls) {
+      if (wall.id === ignoreWallId) continue;
+      for (const end of [wall.a, wall.b]) {
+        const d = dist(p, end);
+        if (d < threshold && (!best || d < best.d)) best = { d, p: end };
+      }
+    }
+    return best ? { ...best.p } : p;
+  };
+
+  const snapWallEndpoint = (fixed: Point, rawTarget: Point, wallId: string): Point => {
+    const dx = rawTarget.x - fixed.x;
+    const dy = rawTarget.y - fixed.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1) return fixed;
+    const angDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
+    const nearest90 = Math.round(angDeg / 90) * 90;
+    const nearOrtho = Math.abs(angDeg - nearest90) <= 10;
+    let target: Point;
+    if (nearOrtho) {
+      const isVertical = Math.abs(Math.abs(nearest90) % 180 - 90) < 1;
+      target = isVertical
+        ? { x: Math.round(fixed.x), y: Math.round(rawTarget.y) }
+        : { x: Math.round(rawTarget.x), y: Math.round(fixed.y) };
+    } else {
+      const snapped = snapAngle(fixed, rawTarget, 15);
+      target = { x: Math.round(snapped.x), y: Math.round(snapped.y) };
+    }
+
+    const node = snapWallEndpointToNode(target, wallId);
+    if (nearOrtho) {
+      const isVertical = Math.abs(Math.abs(nearest90) % 180 - 90) < 1;
+      return isVertical
+        ? { x: Math.round(fixed.x), y: Math.round(node.y) }
+        : { x: Math.round(node.x), y: Math.round(fixed.y) };
+    }
+    return node;
+  };
+
   const moveSelectedBy = (drag: NonNullable<typeof moveDrag>, dx: number, dy: number) => {
     const wallIds = new Set(drag.items.filter((item) => item.type === "wall").map((item) => item.id));
     for (const f of drag.furniture) {
@@ -322,9 +383,13 @@ export function Canvas2D({ onExportRef }: Props) {
       updateFurniture(f.id, { x: snapped.x, y: snapped.y, rotation: snapped.rotation });
     }
     for (const w of drag.walls) {
-      const moved = snapWallMove(
+      const axisLocked = normalizeWallAxis(
         { x: Math.round(w.a.x + dx), y: Math.round(w.a.y + dy) },
         { x: Math.round(w.b.x + dx), y: Math.round(w.b.y + dy) },
+      );
+      const moved = snapWallMove(
+        axisLocked.a,
+        axisLocked.b,
         wallIds,
       );
       updateWall(w.id, moved);
@@ -684,30 +749,14 @@ export function Canvas2D({ onExportRef }: Props) {
         const dx = wp.x - dragHandle.startPointer.x;
         const dy = wp.y - dragHandle.startPointer.y;
         // Fine 1 cm translation (no coarse grid snap) — hold Shift on drop for grid alignment
-        const na = { x: Math.round(dragHandle.origA.x + dx), y: Math.round(dragHandle.origA.y + dy) };
-        const nb = { x: Math.round(dragHandle.origB.x + dx), y: Math.round(dragHandle.origB.y + dy) };
-        updateWall(w.id, snapWallMove(na, nb, new Set([w.id])));
+        const axisLocked = normalizeWallAxis(
+          { x: Math.round(dragHandle.origA.x + dx), y: Math.round(dragHandle.origA.y + dy) },
+          { x: Math.round(dragHandle.origB.x + dx), y: Math.round(dragHandle.origB.y + dy) },
+        );
+        updateWall(w.id, snapWallMove(axisLocked.a, axisLocked.b, new Set([w.id])));
       } else {
-        // Endpoint drag: keep the wall straight — snap angle relative to the fixed endpoint
-        // to multiples of 15°, with strong pull to orthogonal (0/90/180/270).
         const fixed = dragHandle.end === "a" ? dragHandle.origB : dragHandle.origA;
-        const rawTarget = { x: Math.round(wp.x), y: Math.round(wp.y) };
-        const dxT = rawTarget.x - fixed.x;
-        const dyT = rawTarget.y - fixed.y;
-        const rawLen = Math.hypot(dxT, dyT);
-        let angDeg = (Math.atan2(dyT, dxT) * 180) / Math.PI;
-        const snapStep = 15;
-        const orthoPull = 8; // deg — pull toward the nearest 90° multiple
-        const nearest15 = Math.round(angDeg / snapStep) * snapStep;
-        const nearest90 = Math.round(angDeg / 90) * 90;
-        const useOrtho = Math.abs(angDeg - nearest90) <= orthoPull;
-        const finalAng = ((useOrtho ? nearest90 : nearest15) * Math.PI) / 180;
-        let target: Point = {
-          x: Math.round(fixed.x + Math.cos(finalAng) * rawLen),
-          y: Math.round(fixed.y + Math.sin(finalAng) * rawLen),
-        };
-        // Then apply node snap so corners still glue to nearby walls.
-        target = applySnap(target, undefined, w.id);
+        const target = snapWallEndpoint(fixed, { x: Math.round(wp.x), y: Math.round(wp.y) }, w.id);
         updateWall(w.id, { [dragHandle.end]: target } as Partial<Wall>);
       }
 
@@ -1416,7 +1465,7 @@ export function Canvas2D({ onExportRef }: Props) {
             <Rect key={`j${i}`} x={j.p.x - j.radius} y={j.p.y - j.radius} width={j.radius * 2} height={j.radius * 2} fill={theme.wallFill} listening={false} />
           ))}
           {plan.openings.map(renderOpening)}
-          {/* per-wall dims removed — only overall exterior/interior perimeter dims are shown */}
+          {showDimensions && plan.walls.map(renderDim)}
           {perimeterDims}
           {plan.sections.map(renderSection)}
           {previewLine}{previewRect}{previewSection}
