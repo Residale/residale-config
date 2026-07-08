@@ -14,7 +14,7 @@ import {
 } from "@/lib/editor/geometry";
 import { collectJunctions } from "@/lib/editor/wall-geometry";
 
-const DEFAULT_WALL_THICKNESS = 20;
+
 
 type Props = { onExportRef?: (fn: () => string | null) => void };
 
