@@ -3,7 +3,7 @@ import { Stage, Layer, Line, Rect, Group, Text } from "react-konva";
 import type Konva from "konva";
 import { useEditor } from "@/lib/editor/store";
 import { CATALOG } from "@/lib/editor/furniture-catalog";
-import { computeSection } from "@/lib/editor/sections";
+import { autoSectionsFromPlan, computeSection } from "@/lib/editor/sections";
 
 const MARGIN_X = 90;
 const MARGIN_Y = 90;
@@ -13,10 +13,10 @@ export function CanvasSection() {
   const stageRef = useRef<Konva.Stage | null>(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
 
-  const { plan, sections, activeSectionId, setActiveSection, sectionDisplay, theme } = {
-    ...useEditor(),
-    sections: useEditor((s) => s.plan.sections),
-  };
+  const { plan, activeSectionId, setActiveSection, sectionDisplay, theme } = useEditor();
+  const userSections = plan.sections;
+  const autoSections = useMemo(() => (userSections.length ? [] : autoSectionsFromPlan(plan)), [plan, userSections.length]);
+  const sections = userSections.length ? userSections : autoSections;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -39,9 +39,9 @@ export function CanvasSection() {
     return (
       <div ref={containerRef} className="flex h-full w-full items-center justify-center" style={{ background: theme.background }}>
         <div className="max-w-md rounded-md border border-dashed border-border bg-card/70 p-6 text-center">
-          <div className="mb-2 font-display text-lg">Aucune coupe définie</div>
+          <div className="mb-2 font-display text-lg">Aucun plan à couper</div>
           <p className="text-sm text-muted-foreground">
-            Sélectionnez l'outil <span className="font-medium text-ink">Coupe</span> dans la barre de gauche, puis tracez une ligne à travers votre plan pour générer une coupe architecturale.
+            Dessinez d'abord quelques murs pour générer automatiquement des vues en coupe (A-A' et B-B').
           </p>
         </div>
       </div>

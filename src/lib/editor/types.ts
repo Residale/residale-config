@@ -1,11 +1,18 @@
 export type Point = { x: number; y: number };
 
+export type WallType = "interior" | "exterior";
 export type Wall = {
   id: string;
   a: Point;
   b: Point;
   thickness: number; // cm
   height?: number; // cm, default 250
+  wallType?: WallType;
+};
+
+export type WallSettings = {
+  interior: { thickness: number; height: number };
+  exterior: { thickness: number; height: number };
 };
 
 export type OpeningType = "door" | "window";

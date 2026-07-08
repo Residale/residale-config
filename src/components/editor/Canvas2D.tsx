@@ -14,7 +14,7 @@ import {
 } from "@/lib/editor/geometry";
 import { collectJunctions } from "@/lib/editor/wall-geometry";
 
-const DEFAULT_WALL_THICKNESS = 20;
+
 
 type Props = { onExportRef?: (fn: () => string | null) => void };
 
@@ -138,7 +138,7 @@ export function Canvas2D({ onExportRef }: Props) {
       else {
         const prev = drawing[drawing.length - 1];
         if (dist(prev, snapped) < 5) return;
-        addWall({ a: prev, b: snapped, thickness: DEFAULT_WALL_THICKNESS });
+        addWall({ a: prev, b: snapped, thickness: s.wallSettings[s.currentWallType].thickness });
         setDrawing([...drawing, snapped]);
       }
       return;
@@ -150,10 +150,10 @@ export function Canvas2D({ onExportRef }: Props) {
         const a = rectStart, b = snapped;
         commit();
         const c1={x:a.x,y:a.y}, c2={x:b.x,y:a.y}, c3={x:b.x,y:b.y}, c4={x:a.x,y:b.y};
-        addWall({ a: c1, b: c2, thickness: DEFAULT_WALL_THICKNESS });
-        addWall({ a: c2, b: c3, thickness: DEFAULT_WALL_THICKNESS });
-        addWall({ a: c3, b: c4, thickness: DEFAULT_WALL_THICKNESS });
-        addWall({ a: c4, b: c1, thickness: DEFAULT_WALL_THICKNESS });
+        addWall({ a: c1, b: c2, thickness: s.wallSettings[s.currentWallType].thickness });
+        addWall({ a: c2, b: c3, thickness: s.wallSettings[s.currentWallType].thickness });
+        addWall({ a: c3, b: c4, thickness: s.wallSettings[s.currentWallType].thickness });
+        addWall({ a: c4, b: c1, thickness: s.wallSettings[s.currentWallType].thickness });
         setRectStart(null);
       }
       return;
@@ -233,6 +233,30 @@ export function Canvas2D({ onExportRef }: Props) {
 
   const onDblClick = () => { if (tool === "wall") setDrawing(null); };
 
+  const snapFurnitureToWalls = (pos: Point, w: number, h: number): Point => {
+    const threshold = 25 / scale;
+    let best: { d: number; snap: Point } | null = null;
+    for (const wall of plan.walls) {
+      const info = pointOnWall(pos, wall);
+      if (info.dist < threshold + Math.max(w, h) / 2) {
+        // project the furniture so its closest edge touches the wall centerline offset by wall.thickness/2 + half furniture depth
+        const ang = wallAngle(wall);
+        const nx = Math.cos(ang - Math.PI / 2);
+        const ny = Math.sin(ang - Math.PI / 2);
+        const rel = { x: pos.x - info.closest.x, y: pos.y - info.closest.y };
+        const side = rel.x * nx + rel.y * ny >= 0 ? 1 : -1;
+        const offset = wall.thickness / 2 + Math.min(w, h) / 2;
+        const snapped = {
+          x: info.closest.x + nx * side * offset,
+          y: info.closest.y + ny * side * offset,
+        };
+        const d = Math.hypot(pos.x - snapped.x, pos.y - snapped.y);
+        if (!best || d < best.d) best = { d, snap: snapped };
+      }
+    }
+    return best ? best.snap : pos;
+  };
+
   const onDropHtml = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const kind = e.dataTransfer.getData("application/x-furniture");
@@ -243,7 +267,8 @@ export function Canvas2D({ onExportRef }: Props) {
     const rect = containerRef.current!.getBoundingClientRect();
     const screen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     const world = toWorld(screen);
-    const snapped = snapEnabled ? snapPoint(world, grid / 2) : world;
+    let snapped = snapEnabled ? snapPoint(world, grid / 2) : world;
+    snapped = snapFurnitureToWalls(snapped, item.width, item.height);
     addFurniture({
       kind: item.kind, x: snapped.x, y: snapped.y,
       width: item.width, height: item.height, rotation: 0, label: item.label,
@@ -444,7 +469,7 @@ export function Canvas2D({ onExportRef }: Props) {
 
   const previewLine =
     tool === "wall" && drawing?.length && cursor
-      ? (<Line points={[drawing[drawing.length - 1].x, drawing[drawing.length - 1].y, cursor.x, cursor.y]} stroke="#c9a961" strokeWidth={DEFAULT_WALL_THICKNESS} opacity={0.4} dash={[8, 6]} listening={false} />)
+      ? (<Line points={[drawing[drawing.length - 1].x, drawing[drawing.length - 1].y, cursor.x, cursor.y]} stroke="#c9a961" strokeWidth={s.wallSettings[s.currentWallType].thickness} opacity={0.4} dash={[8, 6]} listening={false} />)
       : null;
   const previewRect =
     tool === "rectangle" && rectStart && cursor
@@ -508,22 +533,57 @@ export function Canvas2D({ onExportRef }: Props) {
             <>
               {(["a", "b", "mid"] as const).map((end) => {
                 const pt = end === "mid" ? { x: (selectedWall.a.x + selectedWall.b.x) / 2, y: (selectedWall.a.y + selectedWall.b.y) / 2 } : selectedWall[end];
+                const isMid = end === "mid";
                 return (
-                  <Circle
-                    key={end}
-                    x={pt.x} y={pt.y}
-                    radius={(end === "mid" ? 6 : 8) / scale}
-                    fill="#ffffff" stroke="#c9a961" strokeWidth={2 / scale}
-                    onMouseDown={(e) => {
-                      e.cancelBubble = true;
-                      const wp = getWorldPointer();
-                      if (!wp) return;
-                      setDragHandle({ wallId: selectedWall.id, end, origA: { ...selectedWall.a }, origB: { ...selectedWall.b }, startPointer: wp });
-                      commit();
-                    }}
-                  />
+                  <Group key={end}>
+                    <Circle
+                      x={pt.x} y={pt.y}
+                      radius={(isMid ? 9 : 13) / scale}
+                      fill="#ffffff" stroke="#c9a961"
+                      strokeWidth={2.5 / scale}
+                      shadowColor="rgba(0,0,0,0.25)" shadowBlur={4 / scale} shadowOffset={{ x: 0, y: 1 / scale }}
+                      onMouseDown={(e) => {
+                        e.cancelBubble = true;
+                        const wp = getWorldPointer();
+                        if (!wp) return;
+                        setDragHandle({ wallId: selectedWall.id, end, origA: { ...selectedWall.a }, origB: { ...selectedWall.b }, startPointer: wp });
+                        commit();
+                      }}
+                    />
+                    {!isMid && (
+                      <Line
+                        points={[pt.x - 4 / scale, pt.y, pt.x + 4 / scale, pt.y]}
+                        stroke="#c9a961" strokeWidth={1.5 / scale} listening={false}
+                      />
+                    )}
+                    {!isMid && (
+                      <Line
+                        points={[pt.x, pt.y - 4 / scale, pt.x, pt.y + 4 / scale]}
+                        stroke="#c9a961" strokeWidth={1.5 / scale} listening={false}
+                      />
+                    )}
+                  </Group>
                 );
               })}
+              {/* live length badge during drag */}
+              {dragHandle && (
+                <Group
+                  x={(selectedWall.a.x + selectedWall.b.x) / 2}
+                  y={(selectedWall.a.y + selectedWall.b.y) / 2 - 24 / scale}
+                >
+                  <Rect
+                    x={-30 / scale} y={-9 / scale}
+                    width={60 / scale} height={18 / scale}
+                    fill="#1a1a1a" cornerRadius={3 / scale} listening={false}
+                  />
+                  <Text
+                    text={`${(wallLength(selectedWall) / 100).toFixed(2)} m`}
+                    fontSize={11 / scale} fontFamily="JetBrains Mono"
+                    fill="#ffffff" width={60 / scale} align="center"
+                    x={-30 / scale} y={-6 / scale} listening={false}
+                  />
+                </Group>
+              )}
             </>
           )}
         </Layer>
