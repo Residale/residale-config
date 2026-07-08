@@ -3,6 +3,8 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, Grid, ContactShadows } from "@react-three/drei";
 import { useEditor } from "@/lib/editor/store";
 import { wallAngle, wallLength } from "@/lib/editor/geometry";
+import { openingHeight, openingSill } from "@/lib/editor/opening-defaults";
+
 import { FurnitureMesh3D } from "./FurnitureMesh3D";
 
 const SCALE = 0.01;
