@@ -4,6 +4,8 @@ import { TopBar } from "./TopBar";
 import { LeftPanel } from "./LeftPanel";
 import { RightPanel } from "./RightPanel";
 import { Canvas2D } from "./Canvas2D";
+import { ShortcutsHelp } from "./ShortcutsHelp";
+
 import { Canvas3D } from "./Canvas3D";
 import { CanvasSection } from "./CanvasSection";
 import { CommandPalette } from "./CommandPalette";
