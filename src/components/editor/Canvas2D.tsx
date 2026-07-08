@@ -997,7 +997,7 @@ export function Canvas2D({ onExportRef }: Props) {
     }
 
     return (
-      <Group key={o.id} onClick={(e) => tool === "select" && selectItem({ type: "opening", id: o.id }, e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey)} onTap={() => tool === "select" && selectItem({ type: "opening", id: o.id }, false)}>
+      <Group key={o.id} listening={false}>
         {wallCut}
         {symbol}
         {isSel && (kind === "door_simple" || kind === "door_double" || kind === "entrance") && (
@@ -1204,7 +1204,7 @@ export function Canvas2D({ onExportRef }: Props) {
     return (
       <Group
         key={f.id} x={f.x} y={f.y} rotation={f.rotation}
-        onClick={(e) => tool === "select" && selectItem({ type: "furniture", id: f.id }, e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey)}
+        listening={false}
       >
         <FurnitureShape2D f={f} strokeColor={strokeColor} />
         {isSel && (
