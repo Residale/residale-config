@@ -1,5 +1,20 @@
 import { useEditor } from "@/lib/editor/store";
 import { wallLength } from "@/lib/editor/geometry";
+import type { OpeningKind } from "@/lib/editor/types";
+
+const KIND_LABELS: Record<OpeningKind, string> = {
+  door_simple: "Simple",
+  door_double: "Double",
+  door_slide: "Coulissante",
+  door_pocket: "Galandage",
+  entrance: "Entrée",
+  window_1: "1 vantail",
+  window_2: "2 vantaux",
+  window_oscillo: "Oscillo-batt.",
+  bay: "Baie vitrée",
+  bay_slide: "Baie coulissante",
+  fixed: "Châssis fixe",
+};
 
 export function RightPanel() {
   const {
