@@ -272,6 +272,69 @@ export function Canvas2D({ onExportRef }: Props) {
     return null;
   };
 
+  const itemsInRect = (a: Point, b: Point): SelectionItem[] => {
+    const minX = Math.min(a.x, b.x), maxX = Math.max(a.x, b.x);
+    const minY = Math.min(a.y, b.y), maxY = Math.max(a.y, b.y);
+    const inside = (p: Point) => p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY;
+    const items: SelectionItem[] = [];
+    for (const wall of plan.walls) {
+      if (inside(wall.a) || inside(wall.b) || inside({ x: (wall.a.x + wall.b.x) / 2, y: (wall.a.y + wall.b.y) / 2 })) {
+        items.push({ type: "wall", id: wall.id });
+      }
+    }
+    for (const opening of plan.openings) {
+      const wall = plan.walls.find((w) => w.id === opening.wallId);
+      if (!wall) continue;
+      const p = { x: wall.a.x + (wall.b.x - wall.a.x) * opening.t, y: wall.a.y + (wall.b.y - wall.a.y) * opening.t };
+      if (inside(p)) items.push({ type: "opening", id: opening.id });
+    }
+    for (const f of plan.furniture) {
+      if (f.x + f.width / 2 >= minX && f.x - f.width / 2 <= maxX && f.y + f.height / 2 >= minY && f.y - f.height / 2 <= maxY) {
+        items.push({ type: "furniture", id: f.id });
+      }
+    }
+    for (const label of plan.labels) if (inside(label)) items.push({ type: "label", id: label.id });
+    for (const section of plan.sections) if (inside(section.a) || inside(section.b)) items.push({ type: "section", id: section.id });
+    return items;
+  };
+
+  const snapWallMove = (a: Point, b: Point, ignoreIds: Set<string>) => {
+    const threshold = 18 / scale;
+    let best: { d: number; dx: number; dy: number } | null = null;
+    for (const p of [a, b]) {
+      for (const wall of plan.walls) {
+        if (ignoreIds.has(wall.id)) continue;
+        for (const end of [wall.a, wall.b]) {
+          const d = dist(p, end);
+          if (d < threshold && (!best || d < best.d)) best = { d, dx: end.x - p.x, dy: end.y - p.y };
+        }
+      }
+    }
+    return best ? { a: { x: a.x + best.dx, y: a.y + best.dy }, b: { x: b.x + best.dx, y: b.y + best.dy } } : { a, b };
+  };
+
+  const moveSelectedBy = (drag: NonNullable<typeof moveDrag>, dx: number, dy: number) => {
+    const wallIds = new Set(drag.items.filter((item) => item.type === "wall").map((item) => item.id));
+    for (const f of drag.furniture) {
+      const snapped = snapFurnitureToWalls({ x: f.x + dx, y: f.y + dy }, f.width, f.height, f.rotation);
+      updateFurniture(f.id, { x: snapped.x, y: snapped.y, rotation: snapped.rotation });
+    }
+    for (const w of drag.walls) {
+      const moved = snapWallMove(
+        { x: Math.round(w.a.x + dx), y: Math.round(w.a.y + dy) },
+        { x: Math.round(w.b.x + dx), y: Math.round(w.b.y + dy) },
+        wallIds,
+      );
+      updateWall(w.id, moved);
+    }
+    for (const sec of drag.sections) {
+      s.updateSection(sec.id, {
+        a: { x: Math.round(sec.a.x + dx), y: Math.round(sec.a.y + dy) },
+        b: { x: Math.round(sec.b.x + dx), y: Math.round(sec.b.y + dy) },
+      });
+    }
+  };
+
   // Hit-test opening at world point — returns the opening + a hint whether the click is on an edge (for resize) or center (for move).
   const findOpeningAt = (p: Point): { opening: Opening; wall: Wall; mode: "move" | "resizeA" | "resizeB" } | null => {
     for (let i = plan.openings.length - 1; i >= 0; i--) {
