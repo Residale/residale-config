@@ -1152,31 +1152,37 @@ export function Canvas2D({ onExportRef }: Props) {
   }, [plan.walls, scale, theme.dimension, showExteriorDims, showInteriorDims]);
 
   const renderFurniture = (f: Furniture) => {
-    const isSel = selection?.type === "furniture" && selection.id === f.id;
+    const isSel = isSelected("furniture", f.id);
     const strokeColor = isSel ? "#c9a961" : theme.furnitureStroke;
     return (
       <Group
         key={f.id} x={f.x} y={f.y} rotation={f.rotation}
-        draggable={tool === "select"}
-        onClick={() => tool === "select" && setSelection({ type: "furniture", id: f.id })}
-        onDragStart={() => commit()}
-        onDragMove={(e) => {
-          const node = e.target;
-          let nx = node.x(); let ny = node.y();
-          if (snapEnabled) {
-            nx = Math.round(nx / (grid / 2)) * (grid / 2);
-            ny = Math.round(ny / (grid / 2)) * (grid / 2);
-            node.x(nx); node.y(ny);
-          }
-          updateFurniture(f.id, { x: nx, y: ny });
-        }}
+        onClick={(e) => tool === "select" && selectItem({ type: "furniture", id: f.id }, e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey)}
       >
         <FurnitureShape2D f={f} strokeColor={strokeColor} />
         {isSel && (
-          <Rect
-            x={-f.width / 2 - 2} y={-f.height / 2 - 2} width={f.width + 4} height={f.height + 4}
-            stroke="#c9a961" strokeWidth={1.5 / scale} dash={[6 / scale, 4 / scale]} listening={false}
-          />
+          <>
+            <Rect
+              x={-f.width / 2 - 2 / scale} y={-f.height / 2 - 2 / scale} width={f.width + 4 / scale} height={f.height + 4 / scale}
+              stroke="#c9a961" strokeWidth={1.5 / scale} dash={[6 / scale, 4 / scale]} listening={false}
+            />
+            {([[-1, -1, "nw"], [1, -1, "ne"], [1, 1, "se"], [-1, 1, "sw"]] as const).map(([sx, sy, key]) => (
+              <Rect
+                key={key}
+                x={sx * f.width / 2 - 5 / scale}
+                y={sy * f.height / 2 - 5 / scale}
+                width={10 / scale}
+                height={10 / scale}
+                fill="#ffffff"
+                stroke="#c9a961"
+                strokeWidth={1.5 / scale}
+                cornerRadius={1 / scale}
+                listening={false}
+              />
+            ))}
+            <Line points={[0, -f.height / 2, 0, -f.height / 2 - 22 / scale]} stroke="#c9a961" strokeWidth={1 / scale} listening={false} />
+            <Circle x={0} y={-f.height / 2 - 28 / scale} radius={6 / scale} fill="#ffffff" stroke="#c9a961" strokeWidth={1.5 / scale} listening={false} />
+          </>
         )}
       </Group>
     );
