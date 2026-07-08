@@ -732,8 +732,8 @@ export function Canvas2D({ onExportRef }: Props) {
     const item = CATALOG.find((c) => c.kind === kind && c.label === e.dataTransfer.getData("application/x-furniture-label"))
       || CATALOG.find((c) => c.kind === kind);
     if (!item) return;
-    let snapped = snapEnabled ? snapPoint(world, grid / 2) : world;
-    snapped = snapFurnitureToWalls(snapped, item.width, item.height);
+    const base = snapEnabled ? snapPoint(world, grid / 2) : world;
+    const snapped = snapFurnitureToWalls(base, item.width, item.height);
     addFurniture({
       kind: item.kind, x: snapped.x, y: snapped.y,
       width: item.width, height: item.height, rotation: snapped.rotation, label: item.label,
