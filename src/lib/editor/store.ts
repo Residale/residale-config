@@ -1,10 +1,11 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type {
-  Furniture, Opening, Plan, RoomLabel, Selection, Tool, Wall, SectionLine, SectionDisplay, WallType, WallSettings,
+  Furniture, Opening, Plan, RoomLabel, Selection, SelectionItem, Tool, Wall, SectionLine, SectionDisplay, WallType, WallSettings,
 } from "./types";
 import { uid } from "./geometry";
 import { DEFAULT_THEME, type Theme2D } from "./theme";
+import { defaultKind, OPENING_DEFAULTS } from "./opening-defaults";
 
 
 const POINT_EPS = 1.5;
@@ -111,6 +112,8 @@ type Actions = {
   updateFurniture: (id: string, patch: Partial<Furniture>) => void;
   addLabel: (l: Omit<RoomLabel, "id">) => string;
   updateLabel: (id: string, patch: Partial<RoomLabel>) => void;
+  duplicateItems: (items: SelectionItem[], offset?: { x: number; y: number }) => SelectionItem[];
+  duplicateSelected: () => void;
 
   setWallSettings: (patch: Partial<WallSettings>) => void;
   setCurrentWallType: (t: WallType) => void;
@@ -240,16 +243,17 @@ export const useEditor = create<State & Actions>()(persist((set, get) => ({
   addOpening: (o) => {
     const id = uid();
     get().commit();
-    const isDoor = o.type === "door";
+    const kind = o.kind ?? defaultKind(o.type);
+    const defaults = OPENING_DEFAULTS[kind];
     set((s) => ({
       plan: {
         ...s.plan,
         openings: [
           ...s.plan.openings,
           {
-            height: isDoor ? 210 : 120,
-            sillHeight: isDoor ? 0 : 100,
-            kind: isDoor ? "door_simple" : "window_1",
+            height: defaults.height,
+            sillHeight: defaults.sillHeight,
+            kind,
             hingeSide: "a",
             swingSide: "p",
             ...o,
@@ -335,6 +339,98 @@ export const useEditor = create<State & Actions>()(persist((set, get) => ({
   updateLabel: (id, patch) =>
     set((s) => ({ plan: { ...s.plan, labels: s.plan.labels.map((l) => (l.id === id ? { ...l, ...patch } : l)) } })),
 
+  duplicateItems: (items, offset = { x: 30, y: 30 }) => {
+    if (!items.length) return [];
+    get().commit();
+    const state = get();
+    const wallIds = new Map<string, string>();
+    const selected: SelectionItem[] = [];
+    const nextWalls: Wall[] = [];
+    const nextOpenings: Opening[] = [];
+    const nextFurniture: Furniture[] = [];
+    const nextLabels: RoomLabel[] = [];
+    const nextSections: SectionLine[] = [];
+
+    for (const item of items) {
+      if (item.type !== "wall") continue;
+      const wall = state.plan.walls.find((w) => w.id === item.id);
+      if (!wall) continue;
+      const id = uid();
+      wallIds.set(wall.id, id);
+      nextWalls.push({
+        ...wall,
+        id,
+        a: { x: wall.a.x + offset.x, y: wall.a.y + offset.y },
+        b: { x: wall.b.x + offset.x, y: wall.b.y + offset.y },
+      });
+      selected.push({ type: "wall", id });
+    }
+
+    for (const item of items) {
+      if (item.type === "opening") {
+        const opening = state.plan.openings.find((o) => o.id === item.id);
+        if (!opening) continue;
+        const id = uid();
+        nextOpenings.push({ ...opening, id, wallId: wallIds.get(opening.wallId) ?? opening.wallId });
+        selected.push({ type: "opening", id });
+      }
+      if (item.type === "furniture") {
+        const furniture = state.plan.furniture.find((f) => f.id === item.id);
+        if (!furniture) continue;
+        const id = uid();
+        nextFurniture.push({ ...furniture, id, x: furniture.x + offset.x, y: furniture.y + offset.y });
+        selected.push({ type: "furniture", id });
+      }
+      if (item.type === "label") {
+        const label = state.plan.labels.find((l) => l.id === item.id);
+        if (!label) continue;
+        const id = uid();
+        nextLabels.push({ ...label, id, x: label.x + offset.x, y: label.y + offset.y });
+        selected.push({ type: "label", id });
+      }
+      if (item.type === "section") {
+        const section = state.plan.sections.find((sec) => sec.id === item.id);
+        if (!section) continue;
+        const id = uid();
+        nextSections.push({
+          ...section,
+          id,
+          a: { x: section.a.x + offset.x, y: section.a.y + offset.y },
+          b: { x: section.b.x + offset.x, y: section.b.y + offset.y },
+        });
+        selected.push({ type: "section", id });
+      }
+    }
+
+    for (const wall of nextWalls) {
+      for (const opening of state.plan.openings) {
+        const mappedWallId = wallIds.get(opening.wallId);
+        if (mappedWallId !== wall.id) continue;
+        nextOpenings.push({ ...opening, id: uid(), wallId: wall.id });
+      }
+    }
+
+    set((s) => ({
+      plan: {
+        ...s.plan,
+        walls: [...s.plan.walls, ...nextWalls],
+        openings: [...s.plan.openings, ...nextOpenings],
+        furniture: [...s.plan.furniture, ...nextFurniture],
+        labels: [...s.plan.labels, ...nextLabels],
+        sections: [...s.plan.sections, ...nextSections],
+      },
+      selection: selected.length === 1 ? selected[0] : selected.length ? { type: "multi", items: selected } : s.selection,
+    }));
+    return selected;
+  },
+
+  duplicateSelected: () => {
+    const selection = get().selection;
+    if (!selection) return;
+    const items = selection.type === "multi" ? selection.items : [selection];
+    get().duplicateItems(items);
+  },
+
   addSection: (s) => {
     const id = uid();
     get().commit();
@@ -367,14 +463,17 @@ export const useEditor = create<State & Actions>()(persist((set, get) => ({
     get().commit();
     set((s) => {
       const p = { ...s.plan };
-      if (sel.type === "wall") {
-        p.walls = p.walls.filter((w) => w.id !== sel.id);
-        p.openings = p.openings.filter((o) => o.wallId !== sel.id);
-      }
-      if (sel.type === "opening") p.openings = p.openings.filter((o) => o.id !== sel.id);
-      if (sel.type === "furniture") p.furniture = p.furniture.filter((f) => f.id !== sel.id);
-      if (sel.type === "label") p.labels = p.labels.filter((l) => l.id !== sel.id);
-      if (sel.type === "section") p.sections = p.sections.filter((x) => x.id !== sel.id);
+      const items = sel.type === "multi" ? sel.items : [sel];
+      const wallIds = new Set(items.filter((item) => item.type === "wall").map((item) => item.id));
+      const openingIds = new Set(items.filter((item) => item.type === "opening").map((item) => item.id));
+      const furnitureIds = new Set(items.filter((item) => item.type === "furniture").map((item) => item.id));
+      const labelIds = new Set(items.filter((item) => item.type === "label").map((item) => item.id));
+      const sectionIds = new Set(items.filter((item) => item.type === "section").map((item) => item.id));
+      p.walls = p.walls.filter((w) => !wallIds.has(w.id));
+      p.openings = p.openings.filter((o) => !openingIds.has(o.id) && !wallIds.has(o.wallId));
+      p.furniture = p.furniture.filter((f) => !furnitureIds.has(f.id));
+      p.labels = p.labels.filter((l) => !labelIds.has(l.id));
+      p.sections = p.sections.filter((x) => !sectionIds.has(x.id));
       return { plan: p, selection: null };
     });
   },
