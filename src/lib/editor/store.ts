@@ -128,7 +128,7 @@ export const useEditor = create<State & Actions>((set, get) => ({
         ...s.plan,
         walls: [
           ...s.plan.walls,
-          { thickness: spec.thickness, height: spec.height, wallType: type, ...w, id },
+          { ...w, thickness: spec.thickness, height: spec.height, wallType: type, id },
         ],
       },
     }));
