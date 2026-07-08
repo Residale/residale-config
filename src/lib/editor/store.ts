@@ -181,7 +181,15 @@ export const useEditor = create<State & Actions>((set, get) => ({
         ...s.plan,
         openings: [
           ...s.plan.openings,
-          { height: isDoor ? 210 : 120, sillHeight: isDoor ? 0 : 100, ...o, id },
+          {
+            height: isDoor ? 210 : 120,
+            sillHeight: isDoor ? 0 : 100,
+            kind: isDoor ? "door_simple" : "window_1",
+            hingeSide: "a",
+            swingSide: "p",
+            ...o,
+            id,
+          },
         ],
       },
     }));
@@ -189,6 +197,62 @@ export const useEditor = create<State & Actions>((set, get) => ({
   },
   updateOpening: (id, patch) =>
     set((s) => ({ plan: { ...s.plan, openings: s.plan.openings.map((o) => (o.id === id ? { ...o, ...patch } : o)) } })),
+  flipOpeningHinge: (id) => {
+    get().commit();
+    set((s) => ({
+      plan: {
+        ...s.plan,
+        openings: s.plan.openings.map((o) =>
+          o.id === id ? { ...o, hingeSide: (o.hingeSide ?? "a") === "a" ? "b" : "a" } : o,
+        ),
+      },
+    }));
+  },
+  flipOpeningSwing: (id) => {
+    get().commit();
+    set((s) => ({
+      plan: {
+        ...s.plan,
+        openings: s.plan.openings.map((o) =>
+          o.id === id ? { ...o, swingSide: (o.swingSide ?? "p") === "p" ? "n" : "p" } : o,
+        ),
+      },
+    }));
+  },
+  cycleOpeningKind: (id, dir = 1) => {
+    get().commit();
+    const doorKinds: Array<Opening["kind"]> = ["door_simple", "door_double", "door_slide", "door_pocket", "entrance"];
+    const winKinds: Array<Opening["kind"]> = ["window_1", "window_2", "window_oscillo", "bay", "bay_slide", "fixed"];
+    set((s) => ({
+      plan: {
+        ...s.plan,
+        openings: s.plan.openings.map((o) => {
+          if (o.id !== id) return o;
+          const list = o.type === "door" ? doorKinds : winKinds;
+          const idx = Math.max(0, list.indexOf(o.kind ?? list[0]));
+          const next = list[(idx + dir + list.length) % list.length];
+          return { ...o, kind: next };
+        }),
+      },
+    }));
+  },
+  nudgeOpening: (id, deltaCm) => {
+    set((s) => ({
+      plan: {
+        ...s.plan,
+        openings: s.plan.openings.map((o) => {
+          if (o.id !== id) return o;
+          const wall = s.plan.walls.find((w) => w.id === o.wallId);
+          if (!wall) return o;
+          const len = Math.hypot(wall.b.x - wall.a.x, wall.b.y - wall.a.y) || 1;
+          const dt = deltaCm / len;
+          const halfW = (o.width / 2) / len + 0.02;
+          const nt = Math.max(halfW, Math.min(1 - halfW, o.t + dt));
+          return { ...o, t: nt };
+        }),
+      },
+    }));
+  },
   addFurniture: (f) => {
     const id = uid();
     get().commit();
