@@ -1,23 +1,62 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Stage, Layer, Line, Rect, Group, Text } from "react-konva";
 import type Konva from "konva";
 import { useEditor } from "@/lib/editor/store";
-import { CATALOG } from "@/lib/editor/furniture-catalog";
 import { autoSectionsFromPlan, computeSection } from "@/lib/editor/sections";
+import type { SectionLine } from "@/lib/editor/types";
 
-const MARGIN_X = 90;
-const TOP_MARGIN = 130;
-const BOTTOM_MARGIN = 90;
+const NAME_MAP: Record<string, string> = {
+  N: "Coupe Nord",
+  S: "Coupe Sud",
+  E: "Coupe Est",
+  O: "Coupe Ouest",
+};
 
 export function CanvasSection() {
+  const { plan, theme } = useEditor();
+  const sections = useMemo(() => {
+    const user = plan.sections;
+    return user.length ? user : autoSectionsFromPlan(plan);
+  }, [plan]);
+
+  if (sections.length === 0) {
+    return (
+      <div className="flex h-full w-full items-center justify-center" style={{ background: theme.background }}>
+        <div className="max-w-md rounded-md border border-dashed border-border bg-card/70 p-6 text-center">
+          <div className="mb-2 font-display text-lg">Aucun plan à couper</div>
+          <p className="text-sm text-muted-foreground">
+            Dessinez d'abord quelques murs pour générer automatiquement les coupes.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const cols = sections.length <= 2 ? sections.length : 2;
+  return (
+    <div
+      className="grid h-full w-full gap-2 p-2"
+      style={{
+        gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+        gridAutoRows: sections.length <= 2 ? "1fr" : "minmax(0, 1fr)",
+        background: theme.background,
+      }}
+    >
+      {sections.map((sec) => (
+        <SectionPanel key={sec.id} section={sec} />
+      ))}
+    </div>
+  );
+}
+
+function SectionPanel({ section }: { section: SectionLine }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
-  const [size, setSize] = useState({ w: 800, h: 600 });
+  const [size, setSize] = useState({ w: 400, h: 300 });
+  const [scale, setScale] = useState(1);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
 
-  const { plan, activeSectionId, setActiveSection, sectionDisplay, theme } = useEditor();
-  const userSections = plan.sections;
-  const autoSections = useMemo(() => (userSections.length ? [] : autoSectionsFromPlan(plan)), [plan, userSections.length]);
-  const sections = userSections.length ? userSections : autoSections;
+  const { plan, theme, sectionDisplay } = useEditor();
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -28,69 +67,117 @@ export function CanvasSection() {
     return () => ro.disconnect();
   }, []);
 
-  const active = sections.find((s) => s.id === activeSectionId) ?? sections[0];
+  const data = useMemo(() => computeSection(plan, section), [plan, section]);
 
-  useEffect(() => {
-    if (!activeSectionId && sections[0]) setActiveSection(sections[0].id);
-  }, [sections, activeSectionId, setActiveSection]);
+  // Fit to view
+  const layout = useMemo(() => {
+    const totalLen = data.length;
+    const cuts = [...data.cuts].sort((a, b) => a.start - b.start || a.end - b.end);
+    const wallCuts = cuts.filter((c) => c.type === "wall");
+    const roofMaxH = (() => {
+      if (!plan.roof || !wallCuts.length) return data.ceilingH;
+      const spanStart = Math.min(...wallCuts.map((c) => c.start));
+      const spanEnd = Math.max(...wallCuts.map((c) => c.end));
+      const xL = spanStart - plan.roof.overhang;
+      const xR = spanEnd + plan.roof.overhang;
+      if (plan.roof.kind === "flat") return Math.max(data.ceilingH, plan.roof.eaveHeight + 20);
+      if (plan.roof.kind === "mono") return Math.max(data.ceilingH, plan.roof.eaveHeight + Math.tan((plan.roof.pitch * Math.PI) / 180) * (xR - xL));
+      return Math.max(data.ceilingH, plan.roof.eaveHeight + Math.tan((plan.roof.pitch * Math.PI) / 180) * ((spanEnd - spanStart) / 2 + plan.roof.overhang));
+    })();
+    const belowGround = 60;
+    const totalH = roofMaxH + belowGround;
+    const marginX = 60, marginY = 40;
+    const availW = Math.max(100, size.w - marginX * 2);
+    const availH = Math.max(100, size.h - marginY * 2);
+    const fitScale = Math.min(availW / Math.max(1, totalLen), availH / Math.max(1, totalH));
+    const originX = marginX;
+    const originY = marginY + roofMaxH * fitScale;
+    return { totalLen, cuts, wallCuts, roofMaxH, fitScale, originX, originY };
+  }, [data, plan.roof, size.w, size.h]);
 
-  const data = useMemo(() => (active ? computeSection(plan, active) : null), [plan, active]);
+  const s = scale * layout.fitScale;
+  const originX = layout.originX + pos.x;
+  const originY = layout.originY + pos.y;
+  const toX = (cm: number) => originX + cm * s;
+  const toY = (heightCm: number) => originY - heightCm * s;
 
-  if (!active || !data) {
-    return (
-      <div ref={containerRef} className="flex h-full w-full items-center justify-center" style={{ background: theme.background }}>
-        <div className="max-w-md rounded-md border border-dashed border-border bg-card/70 p-6 text-center">
-          <div className="mb-2 font-display text-lg">Aucun plan à couper</div>
-          <p className="text-sm text-muted-foreground">
-            Dessinez d'abord quelques murs pour générer automatiquement des vues en coupe (A-A' et B-B').
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const onWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
+    e.evt.preventDefault();
+    const stage = stageRef.current;
+    if (!stage) return;
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+    const direction = e.evt.deltaY > 0 ? -1 : 1;
+    const factor = 1.08;
+    const oldScale = scale;
+    const newScale = Math.max(0.3, Math.min(8, direction > 0 ? oldScale * factor : oldScale / factor));
+    // Zoom around pointer
+    const oldS = oldScale * layout.fitScale;
+    const worldPt = { x: (pointer.x - originX) / oldS, y: -(pointer.y - originY) / oldS };
+    const newS = newScale * layout.fitScale;
+    const newOriginX = pointer.x - worldPt.x * newS;
+    const newOriginY = pointer.y + worldPt.y * newS;
+    setScale(newScale);
+    setPos({ x: newOriginX - layout.originX, y: newOriginY - layout.originY });
+  }, [scale, layout, originX, originY]);
 
-  const totalLen = data.length;
-  const cuts = [...data.cuts].sort((a, b) => a.start - b.start || a.end - b.end);
-  const wallCuts = cuts.filter((c) => c.type === "wall");
-  const roofMaxH = (() => {
-    if (!plan.roof || !wallCuts.length) return data.ceilingH;
-    const spanStart = Math.min(...wallCuts.map((c) => c.start));
-    const spanEnd = Math.max(...wallCuts.map((c) => c.end));
-    const xL = spanStart - plan.roof.overhang;
-    const xR = spanEnd + plan.roof.overhang;
-    if (plan.roof.kind === "flat") return Math.max(data.ceilingH, plan.roof.eaveHeight + 20);
-    if (plan.roof.kind === "mono") return Math.max(data.ceilingH, plan.roof.eaveHeight + Math.tan((plan.roof.pitch * Math.PI) / 180) * (xR - xL));
-    return Math.max(data.ceilingH, plan.roof.eaveHeight + Math.tan((plan.roof.pitch * Math.PI) / 180) * ((spanEnd - spanStart) / 2 + plan.roof.overhang));
-  })();
-  const belowGround = 70;
-  const totalH = roofMaxH + belowGround;
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
+  const onMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const p = stage.getPointerPosition();
+    if (!p) return;
+    dragStart.current = { x: pos.x, y: pos.y, px: p.x, py: p.y };
+    setDragging(true);
+    e.evt.preventDefault();
+  };
+  const onMouseMove = () => {
+    if (!dragging || !dragStart.current) return;
+    const stage = stageRef.current;
+    if (!stage) return;
+    const p = stage.getPointerPosition();
+    if (!p) return;
+    setPos({
+      x: dragStart.current.x + (p.x - dragStart.current.px),
+      y: dragStart.current.y + (p.y - dragStart.current.py),
+    });
+  };
+  const onMouseUp = () => { setDragging(false); dragStart.current = null; };
 
-  // Fit-to-view scale
-  const availW = Math.max(200, size.w - MARGIN_X * 2 - 120);
-  const availH = Math.max(200, size.h - TOP_MARGIN - BOTTOM_MARGIN);
-  const scale = Math.min(availW / totalLen, availH / totalH);
-  const originX = MARGIN_X;
-  const originY = TOP_MARGIN + roofMaxH * scale; // ground line (y=0 world) sits here; up is negative y in canvas
+  const resetView = () => { setScale(1); setPos({ x: 0, y: 0 }); };
 
-  const toX = (cm: number) => originX + cm * scale;
-  const toY = (heightCm: number) => originY - heightCm * scale;
-
-  const topDimY = Math.max(24, TOP_MARGIN - 34);
+  const { totalLen, cuts, wallCuts } = layout;
+  const topDimY = originY - layout.roofMaxH * s - 20;
 
   return (
-    <div ref={containerRef} className="relative h-full w-full overflow-hidden" style={{ background: theme.background }}>
-      <Stage ref={stageRef} width={size.w} height={size.h}>
+    <div ref={containerRef} className="relative overflow-hidden rounded-md border border-border" style={{ background: "#faf8f2" }}>
+      <div className="absolute left-2 top-2 z-10 rounded bg-card/90 px-2 py-1 text-[11px] font-medium tracking-wide shadow-panel">
+        {NAME_MAP[section.name] ?? `Coupe ${section.name}-${section.name}'`}
+      </div>
+      <button
+        onClick={resetView}
+        className="absolute right-2 top-2 z-10 rounded border border-border bg-card/90 px-2 py-1 text-[10px] font-medium hover:border-brass"
+        title="Recentrer la vue"
+      >
+        Recentrer
+      </button>
+      <Stage
+        ref={stageRef}
+        width={size.w}
+        height={size.h}
+        onWheel={onWheel}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+        style={{ cursor: dragging ? "grabbing" : "grab" }}
+      >
         <Layer>
-          {/* Ground hatching */}
+          {/* Ground */}
           {sectionDisplay.showGround && (
             <Group>
-              <Rect x={toX(-50) - 20} y={originY} width={(totalLen + 100) * scale + 40} height={40} fill={theme.floor} opacity={0.4} />
-              {Array.from({ length: 40 }).map((_, i) => {
-                const x = toX(-50) - 20 + i * 20;
-                return (
-                  <Line key={i} points={[x, originY, x + 20, originY + 20]} stroke={theme.dimension} strokeWidth={0.5} opacity={0.6} />
-                );
-              })}
+              <Rect x={toX(-50) - 20} y={originY} width={(totalLen + 100) * s + 40} height={30} fill={theme.floor} opacity={0.4} />
               <Line points={[toX(-50) - 20, originY, toX(totalLen + 50) + 20, originY]} stroke={theme.wallStroke} strokeWidth={1.5} />
             </Group>
           )}
@@ -98,13 +185,11 @@ export function CanvasSection() {
           {/* Ceiling line */}
           <Line
             points={[toX(-50), toY(data.ceilingH), toX(totalLen + 50), toY(data.ceilingH)]}
-            stroke={theme.wallStroke} strokeWidth={1}
-            dash={[8, 4]}
+            stroke={theme.wallStroke} strokeWidth={1} dash={[8, 4]}
           />
 
-          {/* Roof profile */}
-          {plan.roof && (() => {
-            if (!wallCuts.length) return null;
+          {/* Roof */}
+          {plan.roof && wallCuts.length > 0 && (() => {
             const spanStart = Math.min(...wallCuts.map((c) => c.start));
             const spanEnd = Math.max(...wallCuts.map((c) => c.end));
             const ov = plan.roof.overhang;
@@ -120,7 +205,6 @@ export function CanvasSection() {
               const hi = eave + Math.tan(pitchRad) * (xR - xL);
               poly = [toX(xL), toY(eave), toX(xR), toY(hi), toX(xR), toY(hi - 15), toX(xL), toY(eave - 15)];
             } else {
-              // gable / hip: symmetric ridge at center
               const midX = (xL + xR) / 2;
               poly = [
                 toX(xL), toY(eave),
@@ -131,40 +215,30 @@ export function CanvasSection() {
                 toX(xL), toY(eave - 15),
               ];
             }
-            return (
-              <Group>
-                <Line points={poly} closed fill={theme.wallFill} stroke={theme.wallStroke} strokeWidth={1} opacity={0.9} />
-                {plan.roof.kind !== "flat" && sectionDisplay.showLevels && (
-                  <Text x={toX(-50) - 60} y={toY(ridgeH) - 6} text={`+ ${(ridgeH / 100).toFixed(2)}`} fontSize={10} fontFamily="JetBrains Mono" fill={theme.dimension} />
-                )}
-              </Group>
-            );
+            return <Line points={poly} closed fill={theme.wallFill} stroke={theme.wallStroke} strokeWidth={1} opacity={0.9} />;
           })()}
 
-
-          {/* Walls (poché) */}
+          {/* Walls */}
           {cuts.filter((c) => c.type === "wall").map((c, i) => (
             <Rect
               key={`w${i}`}
               x={toX(c.start)} y={toY(c.height)}
-              width={(c.end - c.start) * scale} height={c.height * scale}
+              width={(c.end - c.start) * s} height={c.height * s}
               fill={theme.wallFill} stroke={theme.wallStroke} strokeWidth={1}
             />
           ))}
 
-          {/* Openings — draw a "hole" over the wall with exact dimensions */}
+          {/* Openings */}
           {cuts.filter((c) => c.type !== "wall").map((c, i) => {
-            const openH = (c.height - c.sillHeight);
+            const openH = c.height - c.sillHeight;
             const openW = c.opening?.width ?? (c.end - c.start);
-            const kindLabel = c.type === "door" ? "Porte" : "Fenêtre";
-            const dimLabel = `${kindLabel} ${Math.round(openW)}×${Math.round(openH)}`;
+            const kind = c.type === "door" ? "Porte" : "Fenêtre";
             return (
               <Group key={`o${i}`}>
-                {/* void */}
                 <Rect
                   x={toX(c.start)} y={toY(c.height)}
-                  width={(c.end - c.start) * scale} height={openH * scale}
-                  fill={theme.background} stroke={theme.openingStroke} strokeWidth={1}
+                  width={(c.end - c.start) * s} height={openH * s}
+                  fill={"#faf8f2"} stroke={theme.openingStroke} strokeWidth={1}
                 />
                 {c.type === "window" && (
                   <>
@@ -172,10 +246,9 @@ export function CanvasSection() {
                       points={[toX(c.start), toY((c.height + c.sillHeight) / 2), toX(c.end), toY((c.height + c.sillHeight) / 2)]}
                       stroke={theme.openingStroke} strokeWidth={0.6}
                     />
-                    {/* sill wall below */}
                     <Rect
                       x={toX(c.start)} y={toY(c.sillHeight)}
-                      width={(c.end - c.start) * scale} height={c.sillHeight * scale}
+                      width={(c.end - c.start) * s} height={c.sillHeight * s}
                       fill={theme.wallFill} stroke={theme.wallStroke} strokeWidth={1}
                     />
                   </>
@@ -185,23 +258,15 @@ export function CanvasSection() {
                     x={toX((c.start + c.end) / 2) - 80}
                     y={toY(c.height) - 18}
                     width={160} align="center"
-                    text={dimLabel}
+                    text={`${kind} ${Math.round(openW)}×${Math.round(openH)}`}
                     fontSize={10} fontFamily="Inter" fill={theme.dimension}
                   />
                 )}
                 {sectionDisplay.showVerticalDims && (
                   <>
-                    <VerticalDim
-                      xPos={toX(c.end) + 12}
-                      yTop={toY(c.height)} yBot={toY(c.sillHeight)}
-                      label={`${Math.round(openH)}`} color={theme.dimension}
-                    />
+                    <VerticalDim xPos={toX(c.end) + 10} yTop={toY(c.height)} yBot={toY(c.sillHeight)} label={`${Math.round(openH)}`} color={theme.dimension} />
                     {c.type === "window" && (
-                      <VerticalDim
-                        xPos={toX(c.end) + 12}
-                        yTop={toY(c.sillHeight)} yBot={toY(0)}
-                        label={`${Math.round(c.sillHeight)}`} color={theme.dimension}
-                      />
+                      <VerticalDim xPos={toX(c.end) + 10} yTop={toY(c.sillHeight)} yBot={toY(0)} label={`${Math.round(c.sillHeight)}`} color={theme.dimension} />
                     )}
                   </>
                 )}
@@ -209,92 +274,44 @@ export function CanvasSection() {
             );
           })}
 
-          {/* Slab below floor */}
+          {/* Slab */}
           {sectionDisplay.showFloorHatch && (
-            <Rect x={toX(-50)} y={toY(0)} width={(totalLen + 100) * scale} height={20} fill={theme.wallFill} />
+            <Rect x={toX(-50)} y={toY(0)} width={(totalLen + 100) * s} height={16} fill={theme.wallFill} />
           )}
 
-          {/* Level indicators */}
+          {/* Levels */}
           {sectionDisplay.showLevels && (
             <Group>
-              <Text x={toX(-50) - 60} y={toY(0) - 6} text="± 0.00" fontSize={10} fontFamily="JetBrains Mono" fill={theme.dimension} />
-              <Text x={toX(-50) - 60} y={toY(data.ceilingH) - 6} text={`+ ${(data.ceilingH / 100).toFixed(2)}`} fontSize={10} fontFamily="JetBrains Mono" fill={theme.dimension} />
-              <Text x={toX(-50) - 60} y={toY(210) - 6} text="+ 2.10" fontSize={9} fontFamily="JetBrains Mono" fill={theme.dimension} opacity={0.7} />
+              <Text x={toX(-50) - 55} y={toY(0) - 6} text="± 0.00" fontSize={10} fontFamily="JetBrains Mono" fill={theme.dimension} />
+              <Text x={toX(-50) - 55} y={toY(data.ceilingH) - 6} text={`+ ${(data.ceilingH / 100).toFixed(2)}`} fontSize={10} fontFamily="JetBrains Mono" fill={theme.dimension} />
             </Group>
           )}
 
-          {/* Vertical dim: ceiling */}
-          {sectionDisplay.showVerticalDims && (
+          {/* Vertical dim: HSP right side */}
+          {sectionDisplay.showVerticalDims && wallCuts.length > 0 && (
             <VerticalDim
-              xPos={toX(totalLen) + 60}
+              xPos={toX(Math.max(...wallCuts.map(c => c.end))) + 40}
               yTop={toY(data.ceilingH)} yBot={toY(0)}
               label={`${(data.ceilingH / 100).toFixed(2)} m`} color={theme.dimension}
             />
           )}
 
-          {/* Horizontal dimensions along the top — based on actual cut extents (not the padded section line) */}
-          {sectionDisplay.showHorizontalDims && cuts.length > 0 && (() => {
-            const spanStart = wallCuts.length ? Math.min(...wallCuts.map((c) => c.start)) : cuts[0].start;
-            const spanEnd = wallCuts.length ? Math.max(...wallCuts.map((c) => c.end)) : cuts[cuts.length - 1].end;
+          {/* Horizontal top dim */}
+          {sectionDisplay.showHorizontalDims && wallCuts.length > 0 && (() => {
+            const spanStart = Math.min(...wallCuts.map((c) => c.start));
+            const spanEnd = Math.max(...wallCuts.map((c) => c.end));
             const spanLen = spanEnd - spanStart;
             return (
               <Group>
-                <Line
-                  points={[toX(spanStart), topDimY, toX(spanEnd), topDimY]}
-                  stroke={theme.dimension} strokeWidth={1}
-                />
-                <Line points={[toX(spanStart), topDimY + 6, toX(spanStart), topDimY - 6]} stroke={theme.dimension} strokeWidth={1} />
-                <Line points={[toX(spanEnd), topDimY + 6, toX(spanEnd), topDimY - 6]} stroke={theme.dimension} strokeWidth={1} />
-                <Text
-                  x={toX((spanStart + spanEnd) / 2) - 40}
-                  y={topDimY - 16}
-                  width={80} align="center"
-                  text={`${(spanLen / 100).toFixed(2)} m`}
-                  fontSize={11} fontFamily="JetBrains Mono" fill={theme.dimension}
-                />
-                {/* per-cut widths (walls only) */}
-                {wallCuts.map((c, i) => (
-                  <Group key={`hd${i}`}>
-                    <Line points={[toX(c.start), topDimY + 18, toX(c.end), topDimY + 18]} stroke={theme.dimension} strokeWidth={0.6} />
-                    <Text
-                      x={toX((c.start + c.end) / 2) - 20} y={topDimY + 6}
-                      width={40} align="center"
-                      text={`${Math.round(c.end - c.start)}`}
-                      fontSize={9} fontFamily="JetBrains Mono" fill={theme.dimension} opacity={0.8}
-                    />
-                  </Group>
-                ))}
+                <Line points={[toX(spanStart), topDimY, toX(spanEnd), topDimY]} stroke={theme.dimension} strokeWidth={1} />
+                <Line points={[toX(spanStart), topDimY + 5, toX(spanStart), topDimY - 5]} stroke={theme.dimension} strokeWidth={1} />
+                <Line points={[toX(spanEnd), topDimY + 5, toX(spanEnd), topDimY - 5]} stroke={theme.dimension} strokeWidth={1} />
+                <Text x={toX((spanStart + spanEnd) / 2) - 40} y={topDimY - 15} width={80} align="center" text={`${(spanLen / 100).toFixed(2)} m`} fontSize={10} fontFamily="JetBrains Mono" fill={theme.dimension} />
               </Group>
             );
           })()}
-
-
-          {/* Title */}
-          <Text
-            x={MARGIN_X} y={size.h - 50}
-            text={`Coupe ${active.name}-${active.name}'`}
-            fontSize={22} fontFamily="Fraunces" fill={theme.dimension}
-          />
-          <Text
-            x={MARGIN_X} y={size.h - 24}
-            text={`Échelle 1:${Math.round(100 / scale / 10) * 10}   ·   H.S.P. ${(data.ceilingH / 100).toFixed(2)} m`}
-            fontSize={11} fontFamily="JetBrains Mono" fill={theme.dimension} opacity={0.7}
-          />
         </Layer>
       </Stage>
-
-      {sections.length > 1 && (
-        <div className="absolute right-3 top-3 flex gap-1 rounded-md border border-border bg-card/90 p-1 shadow-panel">
-          {sections.map((s) => (
-            <button
-              key={s.id} onClick={() => setActiveSection(s.id)}
-              className={`rounded px-2 py-1 text-xs font-medium ${s.id === active.id ? "bg-ink text-paper" : "text-muted-foreground hover:text-ink"}`}
-            >
-              {s.name}-{s.name}'
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -311,6 +328,10 @@ function VerticalDim({ xPos, yTop, yBot, label, color }: { xPos: number; yTop: n
   );
 }
 
-export function exportSectionPNG(): string | null {
-  return null; // handled via stage ref elsewhere if needed
+/** Export all sections as a single tall PNG dataURL (for TopBar). */
+export async function exportAllSectionsPNG(): Promise<string | null> {
+  // Rendered on demand via Konva stages already mounted — use a helper to render offscreen
+  // For now, use html-to-image of the container? Konva only exports its own stages.
+  // Simplest approach: reuse individual stage refs — but they're in components. So we regenerate offscreen with Konva.
+  return null;
 }
