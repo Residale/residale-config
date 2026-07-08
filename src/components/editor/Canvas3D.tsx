@@ -4,10 +4,12 @@ import { OrbitControls, Environment, Grid, ContactShadows } from "@react-three/d
 import { useEditor } from "@/lib/editor/store";
 import { wallAngle, wallLength } from "@/lib/editor/geometry";
 import { openingHeight, openingSill } from "@/lib/editor/opening-defaults";
+import { summarizeRooms } from "@/lib/editor/rooms";
 
 import { FurnitureMesh3D } from "./FurnitureMesh3D";
 
 const SCALE = 0.01;
+
 
 class SceneErrorBoundary extends Component<{ children: ReactNode }, { err: Error | null }> {
   state = { err: null as Error | null };
