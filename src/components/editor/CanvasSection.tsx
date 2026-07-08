@@ -89,6 +89,47 @@ export function CanvasSection() {
             dash={[8, 4]}
           />
 
+          {/* Roof profile */}
+          {plan.roof && (() => {
+            const wallCuts = cuts.filter((c) => c.type === "wall");
+            if (!wallCuts.length) return null;
+            const spanStart = Math.min(...wallCuts.map((c) => c.start));
+            const spanEnd = Math.max(...wallCuts.map((c) => c.end));
+            const ov = plan.roof.overhang;
+            const eave = plan.roof.eaveHeight;
+            const pitchRad = (plan.roof.pitch * Math.PI) / 180;
+            const half = (spanEnd - spanStart) / 2 + ov;
+            const ridgeH = plan.roof.kind === "flat" ? eave + 20 : eave + Math.tan(pitchRad) * half;
+            let poly: number[] = [];
+            const xL = spanStart - ov, xR = spanEnd + ov;
+            if (plan.roof.kind === "flat") {
+              poly = [toX(xL), toY(eave + 20), toX(xR), toY(eave + 20), toX(xR), toY(eave), toX(xL), toY(eave)];
+            } else if (plan.roof.kind === "mono") {
+              const hi = eave + Math.tan(pitchRad) * (xR - xL);
+              poly = [toX(xL), toY(eave), toX(xR), toY(hi), toX(xR), toY(hi - 15), toX(xL), toY(eave - 15)];
+            } else {
+              // gable / hip: symmetric ridge at center
+              const midX = (xL + xR) / 2;
+              poly = [
+                toX(xL), toY(eave),
+                toX(midX), toY(ridgeH),
+                toX(xR), toY(eave),
+                toX(xR), toY(eave - 15),
+                toX(midX), toY(ridgeH - 15),
+                toX(xL), toY(eave - 15),
+              ];
+            }
+            return (
+              <Group>
+                <Line points={poly} closed fill={theme.wallFill} stroke={theme.wallStroke} strokeWidth={1} opacity={0.9} />
+                {plan.roof.kind !== "flat" && sectionDisplay.showLevels && (
+                  <Text x={toX(-50) - 60} y={toY(ridgeH) - 6} text={`+ ${(ridgeH / 100).toFixed(2)}`} fontSize={10} fontFamily="JetBrains Mono" fill={theme.dimension} />
+                )}
+              </Group>
+            );
+          })()}
+
+
           {/* Furniture (elevation, behind walls) */}
           {sectionDisplay.showFurniture && data.furn.map((f, i) => {
             const item = CATALOG.find((c) => c.kind === f.furniture.kind);
