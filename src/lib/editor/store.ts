@@ -16,6 +16,8 @@ type State = {
   snapEnabled: boolean;
   showGrid: boolean;
   showDimensions: boolean;
+  showExteriorDims: boolean;
+  showInteriorDims: boolean;
   projectName: string;
   history: Plan[];
   future: Plan[];
@@ -36,6 +38,8 @@ type Actions = {
   toggleSnap: () => void;
   toggleGrid: () => void;
   toggleDimensions: () => void;
+  toggleExteriorDims: () => void;
+  toggleInteriorDims: () => void;
 
   addWall: (w: Omit<Wall, "id">) => string;
   updateWall: (id: string, patch: Partial<Wall>) => void;
@@ -93,6 +97,8 @@ export const useEditor = create<State & Actions>((set, get) => ({
   snapEnabled: true,
   showGrid: true,
   showDimensions: true,
+  showExteriorDims: true,
+  showInteriorDims: false,
   projectName: "Nouveau plan",
   history: [],
   future: [],
@@ -114,6 +120,8 @@ export const useEditor = create<State & Actions>((set, get) => ({
   toggleSnap: () => set((s) => ({ snapEnabled: !s.snapEnabled })),
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
   toggleDimensions: () => set((s) => ({ showDimensions: !s.showDimensions })),
+  toggleExteriorDims: () => set((s) => ({ showExteriorDims: !s.showExteriorDims })),
+  toggleInteriorDims: () => set((s) => ({ showInteriorDims: !s.showInteriorDims })),
 
   commit: () => set((s) => ({ history: [...s.history.slice(-49), s.plan], future: [] })),
 

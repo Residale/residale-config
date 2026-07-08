@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, Grid, ContactShadows } from "@react-three/drei";
 import { useEditor } from "@/lib/editor/store";
@@ -10,17 +11,58 @@ export function Canvas3D() {
   const { plan, wall3DColor, floor3DColor } = useEditor();
   const ceilingH = plan.ceilingHeight ?? 250;
 
+  // Auto-fit camera to plan bounds so we never spawn inside a wall.
+  const camera = useMemo(() => {
+    if (plan.walls.length === 0) {
+      return { position: [8, 8, 8] as [number, number, number], target: [0, 1, 0] as [number, number, number] };
+    }
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const w of plan.walls) {
+      minX = Math.min(minX, w.a.x, w.b.x);
+      maxX = Math.max(maxX, w.a.x, w.b.x);
+      minZ = Math.min(minZ, w.a.y, w.b.y);
+      maxZ = Math.max(maxZ, w.a.y, w.b.y);
+    }
+    const cx = ((minX + maxX) / 2) * SCALE;
+    const cz = ((minZ + maxZ) / 2) * SCALE;
+    const sizeX = (maxX - minX) * SCALE;
+    const sizeZ = (maxZ - minZ) * SCALE;
+    const diag = Math.hypot(sizeX, sizeZ);
+    const d = Math.max(6, diag * 1.15);
+    return {
+      position: [cx + d * 0.75, d * 0.85, cz + d * 0.75] as [number, number, number],
+      target: [cx, ceilingH * SCALE * 0.4, cz] as [number, number, number],
+    };
+  }, [plan.walls, ceilingH]);
+
   return (
     <div className="h-full w-full bg-gradient-to-b from-[#e8e4dc] to-[#c9c2b3]">
-      <Canvas camera={{ position: [8, 8, 8], fov: 45 }} shadows>
+      <Canvas camera={{ position: camera.position, fov: 45 }} shadows>
         <ambientLight intensity={0.55} />
-        <directionalLight position={[10, 15, 8]} intensity={1.2} castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} />
+        <directionalLight
+          position={[camera.position[0] + 4, 15, camera.position[2] + 4]}
+          intensity={1.2}
+          castShadow
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+        />
         <Environment preset="apartment" />
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[80, 80]} />
+          <planeGeometry args={[200, 200]} />
           <meshStandardMaterial color={floor3DColor} roughness={0.9} />
         </mesh>
-        <Grid args={[80, 80]} cellSize={0.2} cellThickness={0.5} cellColor="#c9b98a" sectionSize={1} sectionThickness={1} sectionColor="#8b7355" fadeDistance={50} fadeStrength={1.5} position={[0, 0.001, 0]} />
+        <Grid
+          args={[200, 200]}
+          cellSize={0.2}
+          cellThickness={0.5}
+          cellColor="#c9b98a"
+          sectionSize={1}
+          sectionThickness={1}
+          sectionColor="#8b7355"
+          fadeDistance={60}
+          fadeStrength={1.5}
+          position={[0, 0.001, 0]}
+        />
 
         {plan.walls.map((w) => {
           const rawLen = wallLength(w);
@@ -33,17 +75,10 @@ export function Canvas3D() {
           const wallColor = w.wallType === "interior" ? "#e8e0cc" : wall3DColor;
           const openings = plan.openings.filter((o) => o.wallId === w.id);
 
-          // Build wall as horizontal bands to visually carve out openings.
-          // For each opening we skip its extent in X and its vertical band.
-          const segments: Array<{ x: number; width: number; yBottom: number; height: number }> = [];
-          // Sort openings by t
           const sorted = [...openings].sort((a, b) => a.t - b.t);
-          // Full wall — subtract vertical opening rectangles by rendering wall in slices
-          let cursorX = -len / 2;
-          const endX = len / 2;
-          const rects: Array<{ x0: number; x1: number; y0: number; y1: number }> = [];
-          // start with one full rect
-          rects.push({ x0: cursorX, x1: endX, y0: 0, y1: wallH });
+          const rects: Array<{ x0: number; x1: number; y0: number; y1: number }> = [
+            { x0: -len / 2, x1: len / 2, y0: 0, y1: wallH },
+          ];
           for (const o of sorted) {
             const oW = o.width * SCALE;
             const oCenter = (o.t - 0.5) * rawLen * SCALE;
@@ -55,13 +90,9 @@ export function Canvas3D() {
             const openTop = sill + oH;
             const next: typeof rects = [];
             for (const r of rects) {
-              // if no X overlap, keep
               if (oX1 <= r.x0 || oX0 >= r.x1) { next.push(r); continue; }
-              // left part
               if (oX0 > r.x0) next.push({ x0: r.x0, x1: oX0, y0: r.y0, y1: r.y1 });
-              // right part
               if (oX1 < r.x1) next.push({ x0: oX1, x1: r.x1, y0: r.y0, y1: r.y1 });
-              // middle: split vertically around opening
               const midX0 = Math.max(oX0, r.x0);
               const midX1 = Math.min(oX1, r.x1);
               if (sill > r.y0) next.push({ x0: midX0, x1: midX1, y0: r.y0, y1: Math.min(sill, r.y1) });
@@ -70,24 +101,15 @@ export function Canvas3D() {
             rects.length = 0;
             rects.push(...next);
           }
-          for (const r of rects) {
-            segments.push({
-              x: (r.x0 + r.x1) / 2,
-              width: r.x1 - r.x0,
-              yBottom: r.y0,
-              height: r.y1 - r.y0,
-            });
-          }
 
           return (
             <group key={w.id} position={[cx, 0, cz]} rotation={[0, -ang, 0]}>
-              {segments.map((seg, i) => (
-                <mesh key={i} position={[seg.x, seg.yBottom + seg.height / 2, 0]} castShadow receiveShadow>
-                  <boxGeometry args={[Math.max(0.001, seg.width), Math.max(0.001, seg.height), thick]} />
+              {rects.map((r, i) => (
+                <mesh key={i} position={[(r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, 0]} castShadow receiveShadow>
+                  <boxGeometry args={[Math.max(0.001, r.x1 - r.x0), Math.max(0.001, r.y1 - r.y0), thick]} />
                   <meshStandardMaterial color={wallColor} roughness={0.9} />
                 </mesh>
               ))}
-              {/* window glass */}
               {openings.filter((o) => o.type === "window").map((o) => {
                 const oW = o.width * SCALE;
                 const oX = (o.t - 0.5) * rawLen * SCALE;
@@ -100,7 +122,6 @@ export function Canvas3D() {
                   </mesh>
                 );
               })}
-              {/* door leaf */}
               {openings.filter((o) => o.type === "door").map((o) => {
                 const oW = o.width * SCALE;
                 const oX = (o.t - 0.5) * rawLen * SCALE;
@@ -120,9 +141,23 @@ export function Canvas3D() {
           <FurnitureMesh3D key={f.id} f={f} />
         ))}
 
-        <ContactShadows position={[0, 0.01, 0]} opacity={0.4} scale={40} blur={2} far={4} />
-        <OrbitControls makeDefault enableDamping target={[0, 1, 0]} />
+        <ContactShadows position={[0, 0.01, 0]} opacity={0.4} scale={60} blur={2} far={4} />
+        <OrbitControls
+          makeDefault
+          enableDamping
+          dampingFactor={0.12}
+          target={camera.target}
+          zoomSpeed={0.55}
+          panSpeed={0.9}
+          rotateSpeed={0.7}
+          minDistance={1.5}
+          maxDistance={80}
+          maxPolarAngle={Math.PI / 2 - 0.02}
+        />
       </Canvas>
+      <div className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-card/90 px-2.5 py-1 text-[11px] text-muted-foreground shadow-panel backdrop-blur">
+        Clic gauche : orbite · Clic droit : déplacer · Molette : zoom
+      </div>
     </div>
   );
 }

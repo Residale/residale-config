@@ -5,6 +5,7 @@ export function RightPanel() {
   const {
     plan, selection, view, updateWall, updateFurniture, updateOpening, updateSection,
     deleteSelected, showGrid, showDimensions, snapEnabled, grid,
+    showExteriorDims, showInteriorDims, toggleExteriorDims, toggleInteriorDims,
     toggleGrid, toggleDimensions, toggleSnap, sectionDisplay, setSectionDisplay, setCeilingHeight,
   } = useEditor();
 
@@ -152,7 +153,9 @@ export function RightPanel() {
         <div className="border-t border-border pt-4">
           <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Affichage</div>
           <ToggleRow label="Grille" active={showGrid} onClick={toggleGrid} />
-          <ToggleRow label="Cotes" active={showDimensions} onClick={toggleDimensions} />
+          <ToggleRow label="Cotes des murs" active={showDimensions} onClick={toggleDimensions} />
+          <ToggleRow label="Emprise extérieure" active={showExteriorDims} onClick={toggleExteriorDims} />
+          <ToggleRow label="Emprise intérieure (chaîne)" active={showInteriorDims} onClick={toggleInteriorDims} />
           <ToggleRow label={`Aimantation (${grid} cm)`} active={snapEnabled} onClick={toggleSnap} />
         </div>
       </div>
