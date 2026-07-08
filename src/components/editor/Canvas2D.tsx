@@ -33,6 +33,7 @@ export function Canvas2D({ onExportRef }: Props) {
   const [dragHandle, setDragHandle] = useState<null | { wallId: string; end: "a" | "b" | "mid"; origA: Point; origB: Point; startPointer: Point }>(null);
   const [openingDrag, setOpeningDrag] = useState<null | { openingId: string; origWallId: string; origT: number; origWidth: number; mode: "move" | "resizeA" | "resizeB" }>(null);
   const [hoverWallForDrop, setHoverWallForDrop] = useState<string | null>(null);
+  const [dragPreview, setDragPreview] = useState<null | { kind: "opening" | "furniture"; pos: Point; width: number; height: number; wallId?: string; type?: "door" | "window" }>(null);
   const didFitRef = useRef(false);
 
 
@@ -366,20 +367,17 @@ export function Canvas2D({ onExportRef }: Props) {
           }
         }
         setHoverWallForDrop(null);
-        // Project cursor onto wall centerline for t
+        // Project cursor onto wall centerline for t (fine 1 cm precision)
         const info = pointOnWall(wp, wall);
         const wLen = wallLength(wall);
         const halfW = op.width / 2 / wLen + 0.02;
         let nt = Math.max(halfW, Math.min(1 - halfW, info.t));
-        if (snapEnabled) {
-          // Snap position along wall to 5 cm.
-          const raw = nt * wLen;
-          const snapped = Math.round(raw / 5) * 5;
-          nt = Math.max(halfW, Math.min(1 - halfW, snapped / wLen));
-        }
+        // Always round to 1 cm along wall — no coarse 5 cm/grid snapping during drag
+        const raw = nt * wLen;
+        nt = Math.max(halfW, Math.min(1 - halfW, Math.round(raw) / wLen));
         s.updateOpening(op.id, { t: nt });
       } else {
-        // Resize: project cursor along wall, compute new width from opposite anchor.
+        // Resize: project cursor along wall, compute new width from opposite anchor (1 cm step)
         const info = pointOnWall(wp, wall);
         const wLen = wallLength(wall);
         const anchorT = openingDrag.mode === "resizeA"
@@ -388,8 +386,7 @@ export function Canvas2D({ onExportRef }: Props) {
         const anchorDist = anchorT * wLen;
         const curDist = info.t * wLen;
         let newW = Math.abs(curDist - anchorDist);
-        if (snapEnabled) newW = Math.round(newW / 5) * 5;
-        newW = Math.max(40, Math.min(wLen - 10, newW));
+        newW = Math.max(40, Math.min(wLen - 10, Math.round(newW)));
         const newCenter = openingDrag.mode === "resizeA" ? anchorDist - newW / 2 : anchorDist + newW / 2;
         const halfW = newW / 2 / wLen + 0.02;
         const newT = Math.max(halfW, Math.min(1 - halfW, newCenter / wLen));
@@ -405,13 +402,21 @@ export function Canvas2D({ onExportRef }: Props) {
       if (dragHandle.end === "mid") {
         const dx = wp.x - dragHandle.startPointer.x;
         const dy = wp.y - dragHandle.startPointer.y;
-        let na = { x: dragHandle.origA.x + dx, y: dragHandle.origA.y + dy };
-        let nb = { x: dragHandle.origB.x + dx, y: dragHandle.origB.y + dy };
-        if (snapEnabled) { na = snapPoint(na, grid); nb = snapPoint(nb, grid); }
+        // Fine 1 cm translation (no coarse grid snap) — hold Shift on drop for grid alignment
+        const na = { x: Math.round(dragHandle.origA.x + dx), y: Math.round(dragHandle.origA.y + dy) };
+        const nb = { x: Math.round(dragHandle.origB.x + dx), y: Math.round(dragHandle.origB.y + dy) };
         updateWall(w.id, { a: na, b: nb });
       } else {
-        const snapped = applySnap(wp, dragHandle.end === "a" ? w.b : w.a, w.id);
-        updateWall(w.id, { [dragHandle.end]: snapped } as Partial<Wall>);
+        // Endpoint drag: 1 cm precision + snap to nearby wall corners for clean junctions
+        const threshold = 15 / scale;
+        let target: Point = { x: Math.round(wp.x), y: Math.round(wp.y) };
+        for (const wall of plan.walls) {
+          if (wall.id === w.id) continue;
+          for (const end of [wall.a, wall.b]) {
+            if (dist(end, wp) < threshold) target = { ...end };
+          }
+        }
+        updateWall(w.id, { [dragHandle.end]: target } as Partial<Wall>);
       }
       setCursor(wp);
       return;
@@ -735,12 +740,25 @@ export function Canvas2D({ onExportRef }: Props) {
           </>
         )}
         {isSel && (
-          <Rect
-            x={cx - dx - 2 / scale} y={cy - dy - w.thickness / 2 - 2 / scale}
-            width={o.width + 4 / scale} height={w.thickness + 4 / scale}
-            rotation={(ang * 180) / Math.PI}
-            stroke="#c9a961" strokeWidth={1 / scale} dash={[4 / scale, 3 / scale]} fill="transparent" listening={false}
-          />
+          <>
+            <Rect
+              x={cx - dx - 2 / scale} y={cy - dy - w.thickness / 2 - 2 / scale}
+              width={o.width + 4 / scale} height={w.thickness + 4 / scale}
+              rotation={(ang * 180) / Math.PI}
+              stroke="#c9a961" strokeWidth={1 / scale} dash={[4 / scale, 3 / scale]} fill="transparent" listening={false}
+            />
+            {/* End resize handles — chevron arrows aligned with the wall axis */}
+            {(["a", "b"] as const).map((end) => {
+              const ex = end === "a" ? cx - dx : cx + dx;
+              const ey = end === "a" ? cy - dy : cy + dy;
+              return (
+                <Group key={`h${end}`} x={ex} y={ey} listening={false}>
+                  <Circle radius={9 / scale} fill="#ffffff" stroke="#c9a961" strokeWidth={1.5 / scale} shadowColor="rgba(0,0,0,0.25)" shadowBlur={4 / scale} />
+                  <Text text="↔" fontSize={12 / scale} fontStyle="bold" fill="#3d2f22" offsetX={5 / scale} offsetY={6 / scale} rotation={(ang * 180) / Math.PI} />
+                </Group>
+              );
+            })}
+          </>
         )}
       </Group>
     );
@@ -1006,8 +1024,28 @@ export function Canvas2D({ onExportRef }: Props) {
       ref={containerRef}
       className="relative h-full w-full overflow-hidden"
       style={{ background: theme.background, cursor: cursorStyle }}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={onDropHtml}
+      onDragOver={(e) => {
+        e.preventDefault();
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const world = toWorld({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+        const types = e.dataTransfer.types;
+        if (types.includes("application/x-opening")) {
+          const hit = findWallNear(world);
+          if (hit) {
+            const ang = wallAngle(hit.wall);
+            const cx = hit.wall.a.x + Math.cos(ang) * wallLength(hit.wall) * hit.t;
+            const cy = hit.wall.a.y + Math.sin(ang) * wallLength(hit.wall) * hit.t;
+            setDragPreview({ kind: "opening", pos: { x: cx, y: cy }, width: 100, height: hit.wall.thickness, wallId: hit.wall.id });
+          } else {
+            setDragPreview({ kind: "opening", pos: world, width: 100, height: 30 });
+          }
+        } else if (types.includes("application/x-furniture")) {
+          setDragPreview({ kind: "furniture", pos: snapFurnitureToWalls(world, 60, 60), width: 60, height: 60 });
+        }
+      }}
+      onDragLeave={() => setDragPreview(null)}
+      onDrop={(e) => { setDragPreview(null); onDropHtml(e); }}
     >
       <Stage
         ref={stageRef}
@@ -1101,6 +1139,40 @@ export function Canvas2D({ onExportRef }: Props) {
               </Group>
             );
           })()}
+          {/* Drag preview overlay — shows where the item will land */}
+          {dragPreview && dragPreview.kind === "opening" && dragPreview.wallId && (() => {
+            const w = plan.walls.find((ww) => ww.id === dragPreview.wallId);
+            if (!w) return null;
+            const ang = wallAngle(w);
+            return (
+              <>
+                <Line
+                  points={[w.a.x, w.a.y, w.b.x, w.b.y]}
+                  stroke="#c9a961" strokeWidth={w.thickness + 4 / scale}
+                  opacity={0.28} lineCap="butt" listening={false}
+                />
+                <Rect
+                  x={dragPreview.pos.x - dragPreview.width / 2}
+                  y={dragPreview.pos.y - w.thickness / 2}
+                  width={dragPreview.width} height={w.thickness}
+                  rotation={(ang * 180) / Math.PI}
+                  offsetX={0} offsetY={0}
+                  stroke="#c9a961" strokeWidth={1.5 / scale} dash={[6 / scale, 4 / scale]}
+                  fill="rgba(201,169,97,0.15)" listening={false}
+                />
+              </>
+            );
+          })()}
+          {dragPreview && dragPreview.kind === "furniture" && (
+            <Rect
+              x={dragPreview.pos.x - dragPreview.width / 2}
+              y={dragPreview.pos.y - dragPreview.height / 2}
+              width={dragPreview.width} height={dragPreview.height}
+              stroke="#c9a961" strokeWidth={1.5 / scale} dash={[6 / scale, 4 / scale]}
+              fill="rgba(201,169,97,0.12)" listening={false}
+            />
+          )}
+
           {/* Wall highlight during opening transfer */}
           {hoverWallForDrop && (() => {
             const w = plan.walls.find((ww) => ww.id === hoverWallForDrop);
