@@ -36,10 +36,19 @@ function updateWallWithConnectedEndpoints(walls: Wall[], id: string, patch: Part
 function resizeWallAndOpposite(walls: Wall[], id: string, length: number) {
   const target = walls.find((w) => w.id === id);
   if (!target) return walls;
-  const cur = Math.hypot(target.b.x - target.a.x, target.b.y - target.a.y) || 1;
-  const ux = (target.b.x - target.a.x) / cur;
-  const uy = (target.b.y - target.a.y) / cur;
-  const newB = { x: target.a.x + ux * length, y: target.a.y + uy * length };
+  const dx = target.b.x - target.a.x;
+  const dy = target.b.y - target.a.y;
+  const cur = Math.hypot(dx, dy) || 1;
+  const angle = Math.abs((Math.atan2(dy, dx) * 180) / Math.PI) % 180;
+  const nearHorizontal = angle <= 10 || angle >= 170;
+  const nearVertical = Math.abs(angle - 90) <= 10;
+  const ux = dx / cur;
+  const uy = dy / cur;
+  const newB = nearHorizontal
+    ? { x: target.a.x + Math.sign(dx || 1) * length, y: target.a.y }
+    : nearVertical
+      ? { x: target.a.x, y: target.a.y + Math.sign(dy || 1) * length }
+      : { x: target.a.x + ux * length, y: target.a.y + uy * length };
   const delta = { x: newB.x - target.b.x, y: newB.y - target.b.y };
   if (Math.hypot(delta.x, delta.y) <= POINT_EPS) return walls;
 
