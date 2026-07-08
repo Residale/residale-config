@@ -142,26 +142,6 @@ export function CanvasSection() {
           })()}
 
 
-          {/* Furniture (elevation, behind walls) */}
-          {sectionDisplay.showFurniture && data.furn.map((f, i) => {
-            const item = CATALOG.find((c) => c.kind === f.furniture.kind);
-            const opacity = Math.max(0.25, 1 - Math.abs(f.depthFromLine) / 400);
-            return (
-              <Group key={i} opacity={opacity}>
-                <Rect
-                  x={toX(f.start)} y={toY(f.height)}
-                  width={(f.end - f.start) * scale} height={f.height * scale}
-                  fill="transparent" stroke={theme.furnitureStroke} strokeWidth={0.8}
-                />
-                <Text
-                  x={toX(f.start)} y={toY(f.height) - 14}
-                  text={item?.label ?? ""} fontSize={9}
-                  fontFamily="Inter" fill={theme.dimension}
-                />
-              </Group>
-            );
-          })}
-
           {/* Walls (poché) */}
           {cuts.filter((c) => c.type === "wall").map((c, i) => (
             <Rect
@@ -172,9 +152,12 @@ export function CanvasSection() {
             />
           ))}
 
-          {/* Openings — draw a "hole" over the wall */}
+          {/* Openings — draw a "hole" over the wall with exact dimensions */}
           {cuts.filter((c) => c.type !== "wall").map((c, i) => {
             const openH = (c.height - c.sillHeight);
+            const openW = c.opening?.width ?? (c.end - c.start);
+            const kindLabel = c.type === "door" ? "Porte" : "Fenêtre";
+            const dimLabel = `${kindLabel} ${Math.round(openW)}×${Math.round(openH)}`;
             return (
               <Group key={`o${i}`}>
                 {/* void */}
@@ -199,16 +182,15 @@ export function CanvasSection() {
                 )}
                 {sectionDisplay.showOpeningLabels && (
                   <Text
-                    x={toX((c.start + c.end) / 2) - 30}
-                    y={toY(c.height) - 16}
-                    width={60} align="center"
-                    text={c.type === "door" ? "Porte" : "Fenêtre"}
-                    fontSize={9} fontFamily="Inter" fill={theme.dimension}
+                    x={toX((c.start + c.end) / 2) - 80}
+                    y={toY(c.height) - 18}
+                    width={160} align="center"
+                    text={dimLabel}
+                    fontSize={10} fontFamily="Inter" fill={theme.dimension}
                   />
                 )}
                 {sectionDisplay.showVerticalDims && (
                   <>
-                    {/* height dim on the right */}
                     <VerticalDim
                       xPos={toX(c.end) + 12}
                       yTop={toY(c.height)} yBot={toY(c.sillHeight)}

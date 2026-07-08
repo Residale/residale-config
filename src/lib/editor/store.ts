@@ -147,7 +147,7 @@ const defaultSectionDisplay: SectionDisplay = {
   showHorizontalDims: true,
   showLevels: true,
   showFloorHatch: true,
-  showFurniture: true,
+  showFurniture: false,
   showOpeningLabels: true,
   showGround: true,
   showAxes: true,
