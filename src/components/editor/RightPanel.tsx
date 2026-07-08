@@ -131,6 +131,68 @@ export function RightPanel() {
 
         {opening && (
           <div className="space-y-3">
+            <div>
+              <div className="mb-1 block text-xs font-medium text-muted-foreground">Type d'ouverture</div>
+              <div className="grid grid-cols-2 gap-1 rounded border border-border bg-background p-0.5">
+                {(opening.type === "door"
+                  ? (["door_simple","door_double","door_slide","door_pocket","entrance"] as const)
+                  : (["window_1","window_2","window_oscillo","bay","bay_slide","fixed"] as const)
+                ).map((k) => (
+                  <button
+                    key={k}
+                    onClick={() => updateOpening(opening.id, { kind: k })}
+                    className={`rounded px-2 py-1 text-[10.5px] font-medium transition-colors ${
+                      (opening.kind ?? (opening.type === "door" ? "door_simple" : "window_1")) === k
+                        ? "bg-ink text-paper"
+                        : "text-muted-foreground hover:text-ink"
+                    }`}
+                  >
+                    {KIND_LABELS[k]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {opening.type === "door" && (
+              <div className="grid grid-cols-2 gap-2 rounded-md border border-border bg-background/50 p-2">
+                <button
+                  onClick={() => useEditor.getState().flipOpeningHinge(opening.id)}
+                  className="rounded border border-border bg-card py-1.5 text-[11px] font-medium hover:border-brass hover:bg-brass/10"
+                >
+                  ⇄ Charnière {opening.hingeSide === "b" ? "→ droite" : "← gauche"}
+                </button>
+                <button
+                  onClick={() => useEditor.getState().flipOpeningSwing(opening.id)}
+                  className="rounded border border-border bg-card py-1.5 text-[11px] font-medium hover:border-brass hover:bg-brass/10"
+                >
+                  ⇅ Sens {opening.swingSide === "n" ? "intérieur" : "extérieur"}
+                </button>
+                <div className="col-span-2 text-[10px] text-muted-foreground">
+                  Astuce&nbsp;: <kbd className="rounded border border-border bg-card px-1">Tab</kbd> cycle les 4 combinaisons · <kbd className="rounded border border-border bg-card px-1">←</kbd>/<kbd className="rounded border border-border bg-card px-1">→</kbd> déplace le long du mur.
+                </div>
+              </div>
+            )}
+
+            <div>
+              <div className="mb-1 block text-xs font-medium text-muted-foreground">Tailles standard NF</div>
+              <div className="flex flex-wrap gap-1">
+                {(opening.type === "door"
+                  ? [{ w: 63, h: 204 }, { w: 73, h: 204 }, { w: 83, h: 204 }, { w: 93, h: 215 }]
+                  : [{ w: 60, h: 75 }, { w: 80, h: 100 }, { w: 100, h: 100 }, { w: 100, h: 125 }, { w: 120, h: 125 }, { w: 140, h: 125 }, { w: 180, h: 215 }, { w: 240, h: 215 }]
+                ).map((sz) => (
+                  <button
+                    key={`${sz.w}x${sz.h}`}
+                    onClick={() => updateOpening(opening.id, { width: sz.w, height: sz.h })}
+                    className={`rounded border px-1.5 py-1 font-mono-tab text-[10px] hover:border-brass ${
+                      opening.width === sz.w && (opening.height ?? 0) === sz.h ? "border-brass bg-brass/10" : "border-border bg-card"
+                    }`}
+                  >
+                    {sz.w}×{sz.h}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <NumberField label="Largeur (cm)" value={opening.width} min={40} max={400} onChange={(v) => updateOpening(opening.id, { width: v })} />
             <NumberField label="Hauteur (cm)" value={opening.height ?? (opening.type === "door" ? 210 : 120)} min={40} max={300} onChange={(v) => updateOpening(opening.id, { height: v })} />
             {opening.type === "window" && (
