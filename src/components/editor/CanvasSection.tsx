@@ -39,9 +39,9 @@ export function CanvasSection() {
     return (
       <div ref={containerRef} className="flex h-full w-full items-center justify-center" style={{ background: theme.background }}>
         <div className="max-w-md rounded-md border border-dashed border-border bg-card/70 p-6 text-center">
-          <div className="mb-2 font-display text-lg">Aucune coupe définie</div>
+          <div className="mb-2 font-display text-lg">Aucun plan à couper</div>
           <p className="text-sm text-muted-foreground">
-            Sélectionnez l'outil <span className="font-medium text-ink">Coupe</span> dans la barre de gauche, puis tracez une ligne à travers votre plan pour générer une coupe architecturale.
+            Dessinez d'abord quelques murs pour générer automatiquement des vues en coupe (A-A' et B-B').
           </p>
         </div>
       </div>
