@@ -53,7 +53,33 @@ export function Canvas2D({ onExportRef }: Props) {
     return () => ro.disconnect();
   }, []);
 
+  // Fit-to-content at mount when the plan has walls.
   useEffect(() => {
+    if (didFitRef.current) return;
+    if (plan.walls.length === 0 || size.w < 100 || size.h < 100) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const w of plan.walls) {
+      minX = Math.min(minX, w.a.x, w.b.x);
+      minY = Math.min(minY, w.a.y, w.b.y);
+      maxX = Math.max(maxX, w.a.x, w.b.x);
+      maxY = Math.max(maxY, w.a.y, w.b.y);
+    }
+    const bboxW = maxX - minX;
+    const bboxH = maxY - minY;
+    if (bboxW < 1 || bboxH < 1) return;
+    const pad = 0.18;
+    const s = Math.min(size.w / (bboxW * (1 + pad)), size.h / (bboxH * (1 + pad)));
+    const clamped = Math.max(0.2, Math.min(5, s));
+    setScale(clamped);
+    setPos({
+      x: size.w / 2 - ((minX + maxX) / 2) * clamped,
+      y: size.h / 2 - ((minY + maxY) / 2) * clamped,
+    });
+    didFitRef.current = true;
+  }, [plan.walls, size.w, size.h]);
+
+  useEffect(() => {
+
     const kd = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
