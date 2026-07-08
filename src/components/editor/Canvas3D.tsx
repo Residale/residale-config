@@ -268,7 +268,8 @@ export function Canvas3D() {
     const totalArea = rooms.reduce((s, r) => s + r.area, 0);
     let maxWall = 0;
     for (const w of plan.walls) if ((w.height ?? hsp) > maxWall) maxWall = w.height ?? hsp;
-    const floor = plan.floorThickness ?? 20;
+    const floor = 20;
+
     const horsTout = maxWall + floor + (plan.roof ? (plan.roof.pitch ? 150 : 20) : 0);
     return { hsp, totalArea, horsTout };
   }, [plan]);
