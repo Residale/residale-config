@@ -7,6 +7,8 @@ import { Canvas2D } from "./Canvas2D";
 import { Canvas3D } from "./Canvas3D";
 import { CanvasSection } from "./CanvasSection";
 import { CommandPalette } from "./CommandPalette";
+import { exportDossierPDF, findStageDataURL } from "@/lib/editor/pdf-export";
+import { toast } from "sonner";
 
 export function EditorShell() {
   const view = useEditor((s) => s.view);
@@ -14,8 +16,6 @@ export function EditorShell() {
 
   useEffect(() => {
     const st = useEditor.getState();
-    // Only seed a starter plan on the very first ever load. Persisted state
-    // (including intentionally emptied plans) must not be overwritten.
     if (typeof window !== "undefined" && !localStorage.getItem("residale-seeded-v1") && st.plan.walls.length === 0) {
       const ext = st.wallSettings.exterior.thickness;
       const pts = [
@@ -72,9 +72,52 @@ export function EditorShell() {
     input.click();
   };
 
+  const handleExportDossier = async () => {
+    const state = useEditor.getState();
+    if (state.plan.walls.length === 0) {
+      toast.error("Dessinez d'abord un plan avant d'exporter le dossier.");
+      return;
+    }
+    toast.info("Génération du dossier en cours…");
+    try {
+      // Capture 2D plan by switching to 2D view briefly
+      const prevView = state.view;
+      let plan2DImage: string | null = null;
+      let view3DImage: string | null = null;
+
+      if (prevView !== "2d") state.setView("2d");
+      await new Promise((r) => setTimeout(r, 350));
+      plan2DImage = exportRef.current() ?? findStageDataURL();
+
+      state.setView("3d");
+      await new Promise((r) => setTimeout(r, 600));
+      view3DImage = findStageDataURL();
+
+      state.setView(prevView);
+      await new Promise((r) => setTimeout(r, 100));
+
+      await exportDossierPDF({
+        plan: state.plan,
+        projectName: state.projectName || "Plan",
+        theme: state.theme,
+        plan2DImage,
+        view3DImage,
+      });
+      toast.success("Dossier PDF téléchargé.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Erreur lors de la génération du PDF.");
+    }
+  };
+
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden">
-      <TopBar onExportPNG={handleExportPNG} onExportJSON={handleExportJSON} onImportJSON={handleImportJSON} />
+      <TopBar
+        onExportPNG={handleExportPNG}
+        onExportJSON={handleExportJSON}
+        onImportJSON={handleImportJSON}
+        onExportDossier={handleExportDossier}
+      />
       <div className="flex min-h-0 flex-1">
         <LeftPanel />
         <main className="relative flex min-w-0 flex-1">
