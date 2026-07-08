@@ -336,6 +336,7 @@ export function Canvas2D({ onExportRef }: Props) {
   };
 
   // Hit-test opening at world point — returns the opening + a hint whether the click is on an edge (for resize) or center (for move).
+  // For doors, the hit-box includes the arc of debattement area so clicking the swing curve selects the door.
   const findOpeningAt = (p: Point): { opening: Opening; wall: Wall; mode: "move" | "resizeA" | "resizeB" } | null => {
     for (let i = plan.openings.length - 1; i >= 0; i--) {
       const o = plan.openings[i];
@@ -352,13 +353,37 @@ export function Canvas2D({ onExportRef }: Props) {
       const ry = p.y - cy;
       const along = rx * ux + ry * uy;
       const perp = -rx * uy + ry * ux;
-      if (Math.abs(along) > o.width / 2 + 4) continue;
-      if (Math.abs(perp) > w.thickness / 2 + 6 / scale) continue;
-      // Edge zones: outer 20% of the width acts as resize handles.
+      const halfW = o.width / 2;
+      const halfT = w.thickness / 2 + 6 / scale;
+
+      // Primary hit-box: wall cut area
+      let hit = Math.abs(along) <= halfW + 4 && Math.abs(perp) <= halfT;
+
+      // Extended hit-box for doors: include arc quadrant so users can click near the swing curve
+      if (!hit && (o.type === "door") && (o.kind !== "door_slide" && o.kind !== "door_pocket")) {
+        const hinge: "a" | "b" = o.hingeSide ?? "a";
+        const swing: "p" | "n" = o.swingSide ?? "p";
+        const swingSign = swing === "p" ? 1 : -1;
+        // Hinge in local (along, perp) coords: (-halfW, 0) if hinge==a, else (+halfW, 0)
+        const ha = hinge === "a" ? -halfW : halfW;
+        const dAlong = along - ha;
+        const dPerp = perp;
+        const r = Math.hypot(dAlong, dPerp);
+        // Point must be inside disc of radius = width, on the swing side, and on the leaf side (toward the far end)
+        const onSwingSide = swingSign > 0 ? dPerp >= -halfT : dPerp <= halfT;
+        const onLeafSide = hinge === "a" ? dAlong >= -6 : dAlong <= 6;
+        if (r <= o.width + 6 / scale && onSwingSide && onLeafSide) hit = true;
+      }
+
+      if (!hit) continue;
+
+      // Edge zones: outer 20% of the width acts as resize handles (only when on the cut itself)
       const edgeZone = Math.max(6, o.width * 0.2);
       let mode: "move" | "resizeA" | "resizeB" = "move";
-      if (along < -o.width / 2 + edgeZone) mode = "resizeA";
-      else if (along > o.width / 2 - edgeZone) mode = "resizeB";
+      if (Math.abs(perp) <= halfT) {
+        if (along < -halfW + edgeZone) mode = "resizeA";
+        else if (along > halfW - edgeZone) mode = "resizeB";
+      }
       return { opening: o, wall: w, mode };
     }
     return null;
