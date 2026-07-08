@@ -6,11 +6,12 @@ import { autoSectionsFromPlan, computeSection } from "@/lib/editor/sections";
 import type { SectionLine } from "@/lib/editor/types";
 
 const NAME_MAP: Record<string, string> = {
-  N: "Coupe Nord",
-  S: "Coupe Sud",
-  E: "Coupe Est",
-  O: "Coupe Ouest",
+  N: "Coupe — Façade Nord",
+  S: "Coupe — Façade Sud",
+  E: "Coupe — Façade Est",
+  O: "Coupe — Façade Ouest",
 };
+
 
 export function CanvasSection() {
   const { plan, theme } = useEditor();
@@ -60,12 +61,16 @@ function SectionPanel({ section }: { section: SectionLine }) {
 
   useEffect(() => {
     if (!containerRef.current) return;
+    // Sync initial size synchronously to avoid the "empty at first render" flash.
+    const rect = containerRef.current.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) setSize({ w: rect.width, h: rect.height });
     const ro = new ResizeObserver((entries) => {
       for (const e of entries) setSize({ w: e.contentRect.width, h: e.contentRect.height });
     });
     ro.observe(containerRef.current);
     return () => ro.disconnect();
   }, []);
+
 
   const data = useMemo(() => computeSection(plan, section), [plan, section]);
 

@@ -31,6 +31,10 @@ export function Canvas2D({ onExportRef }: Props) {
   const [sectionStart, setSectionStart] = useState<Point | null>(null);
   const [spaceDown, setSpaceDown] = useState(false);
   const [dragHandle, setDragHandle] = useState<null | { wallId: string; end: "a" | "b" | "mid"; origA: Point; origB: Point; startPointer: Point }>(null);
+  const [openingDrag, setOpeningDrag] = useState<null | { openingId: string; origWallId: string; origT: number; origWidth: number; mode: "move" | "resizeA" | "resizeB" }>(null);
+  const [hoverWallForDrop, setHoverWallForDrop] = useState<string | null>(null);
+  const didFitRef = useRef(false);
+
 
   const s = useEditor();
   const {
@@ -49,7 +53,33 @@ export function Canvas2D({ onExportRef }: Props) {
     return () => ro.disconnect();
   }, []);
 
+  // Fit-to-content at mount when the plan has walls.
   useEffect(() => {
+    if (didFitRef.current) return;
+    if (plan.walls.length === 0 || size.w < 100 || size.h < 100) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const w of plan.walls) {
+      minX = Math.min(minX, w.a.x, w.b.x);
+      minY = Math.min(minY, w.a.y, w.b.y);
+      maxX = Math.max(maxX, w.a.x, w.b.x);
+      maxY = Math.max(maxY, w.a.y, w.b.y);
+    }
+    const bboxW = maxX - minX;
+    const bboxH = maxY - minY;
+    if (bboxW < 1 || bboxH < 1) return;
+    const pad = 0.18;
+    const s = Math.min(size.w / (bboxW * (1 + pad)), size.h / (bboxH * (1 + pad)));
+    const clamped = Math.max(0.2, Math.min(5, s));
+    setScale(clamped);
+    setPos({
+      x: size.w / 2 - ((minX + maxX) / 2) * clamped,
+      y: size.h / 2 - ((minY + maxY) / 2) * clamped,
+    });
+    didFitRef.current = true;
+  }, [plan.walls, size.w, size.h]);
+
+  useEffect(() => {
+
     const kd = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
@@ -162,6 +192,44 @@ export function Canvas2D({ onExportRef }: Props) {
     return null;
   };
 
+  // Hit-test opening at world point — returns the opening + a hint whether the click is on an edge (for resize) or center (for move).
+  const findOpeningAt = (p: Point): { opening: Opening; wall: Wall; mode: "move" | "resizeA" | "resizeB" } | null => {
+    for (let i = plan.openings.length - 1; i >= 0; i--) {
+      const o = plan.openings[i];
+      const w = plan.walls.find((ww) => ww.id === o.wallId);
+      if (!w) continue;
+      const ang = wallAngle(w);
+      const len = wallLength(w);
+      const cx = w.a.x + Math.cos(ang) * len * o.t;
+      const cy = w.a.y + Math.sin(ang) * len * o.t;
+      const ux = Math.cos(ang);
+      const uy = Math.sin(ang);
+      // Local coords along wall
+      const rx = p.x - cx;
+      const ry = p.y - cy;
+      const along = rx * ux + ry * uy;
+      const perp = -rx * uy + ry * ux;
+      if (Math.abs(along) > o.width / 2 + 4) continue;
+      if (Math.abs(perp) > w.thickness / 2 + 6 / scale) continue;
+      // Edge zones: outer 20% of the width acts as resize handles.
+      const edgeZone = Math.max(6, o.width * 0.2);
+      let mode: "move" | "resizeA" | "resizeB" = "move";
+      if (along < -o.width / 2 + edgeZone) mode = "resizeA";
+      else if (along > o.width / 2 - edgeZone) mode = "resizeB";
+      return { opening: o, wall: w, mode };
+    }
+    return null;
+  };
+
+  // Endpoint zone check — returns "a", "b" or null based on cursor proximity to wall ends.
+  const wallEndpointHit = (p: Point, w: Wall): "a" | "b" | null => {
+    const zone = 22 / scale; // ~22 world cm at 1x zoom
+    if (dist(p, w.a) < zone) return "a";
+    if (dist(p, w.b) < zone) return "b";
+    return null;
+  };
+
+
   const onMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (spaceDown || e.evt.button === 1) return;
     const wp = getWorldPointer();
@@ -225,11 +293,48 @@ export function Canvas2D({ onExportRef }: Props) {
       return;
     }
     if (tool === "select") {
+      // Priority order: furniture → opening (edges then body) → wall endpoint → wall body → section
       const f = findFurnitureAt(wp);
       if (f) { setSelection({ type: "furniture", id: f.id }); return; }
+
+      const oh = findOpeningAt(wp);
+      if (oh) {
+        setSelection({ type: "opening", id: oh.opening.id });
+        commit();
+        setOpeningDrag({
+          openingId: oh.opening.id,
+          origWallId: oh.wall.id,
+          origT: oh.opening.t,
+          origWidth: oh.opening.width,
+          mode: oh.mode,
+        });
+        return;
+      }
+
       const wh = findWallNear(wp);
-      if (wh) { setSelection({ type: "wall", id: wh.wall.id }); return; }
-      // section click
+      if (wh) {
+        setSelection({ type: "wall", id: wh.wall.id });
+        const endHit = wallEndpointHit(wp, wh.wall);
+        if (endHit) {
+          setDragHandle({
+            wallId: wh.wall.id,
+            end: endHit,
+            origA: { ...wh.wall.a },
+            origB: { ...wh.wall.b },
+            startPointer: wp,
+          });
+        } else {
+          setDragHandle({
+            wallId: wh.wall.id,
+            end: "mid",
+            origA: { ...wh.wall.a },
+            origB: { ...wh.wall.b },
+            startPointer: wp,
+          });
+        }
+        commit();
+        return;
+      }
       for (const sec of plan.sections) {
         const info = pointOnWall(wp, { ...sec, id: sec.id, thickness: 30 } as Wall);
         if (info.dist < 15 / scale) { setSelection({ type: "section", id: sec.id }); return; }
@@ -241,7 +346,59 @@ export function Canvas2D({ onExportRef }: Props) {
   const onMouseMove = () => {
     const wp = getWorldPointer();
     if (!wp) return;
-    // handle drag
+    // Opening drag (move along wall, resize, or transfer to another wall)
+    if (openingDrag) {
+      const op = plan.openings.find((o) => o.id === openingDrag.openingId);
+      const wall = plan.walls.find((w) => w.id === (op?.wallId ?? ""));
+      if (!op || !wall) return;
+      if (openingDrag.mode === "move") {
+        // Check for wall transfer: is cursor closer to a different wall?
+        const hit = findWallNear(wp);
+        if (hit && hit.wall.id !== wall.id) {
+          const wLen = wallLength(hit.wall);
+          if (wLen >= op.width + 20) {
+            const halfW = op.width / 2 / wLen + 0.02;
+            const nt = Math.max(halfW, Math.min(1 - halfW, hit.t));
+            s.updateOpening(op.id, { wallId: hit.wall.id, t: nt });
+            setHoverWallForDrop(hit.wall.id);
+            setCursor(wp);
+            return;
+          }
+        }
+        setHoverWallForDrop(null);
+        // Project cursor onto wall centerline for t
+        const info = pointOnWall(wp, wall);
+        const wLen = wallLength(wall);
+        const halfW = op.width / 2 / wLen + 0.02;
+        let nt = Math.max(halfW, Math.min(1 - halfW, info.t));
+        if (snapEnabled) {
+          // Snap position along wall to 5 cm.
+          const raw = nt * wLen;
+          const snapped = Math.round(raw / 5) * 5;
+          nt = Math.max(halfW, Math.min(1 - halfW, snapped / wLen));
+        }
+        s.updateOpening(op.id, { t: nt });
+      } else {
+        // Resize: project cursor along wall, compute new width from opposite anchor.
+        const info = pointOnWall(wp, wall);
+        const wLen = wallLength(wall);
+        const anchorT = openingDrag.mode === "resizeA"
+          ? openingDrag.origT + openingDrag.origWidth / 2 / wLen
+          : openingDrag.origT - openingDrag.origWidth / 2 / wLen;
+        const anchorDist = anchorT * wLen;
+        const curDist = info.t * wLen;
+        let newW = Math.abs(curDist - anchorDist);
+        if (snapEnabled) newW = Math.round(newW / 5) * 5;
+        newW = Math.max(40, Math.min(wLen - 10, newW));
+        const newCenter = openingDrag.mode === "resizeA" ? anchorDist - newW / 2 : anchorDist + newW / 2;
+        const halfW = newW / 2 / wLen + 0.02;
+        const newT = Math.max(halfW, Math.min(1 - halfW, newCenter / wLen));
+        s.updateOpening(op.id, { width: newW, t: newT });
+      }
+      setCursor(wp);
+      return;
+    }
+    // Wall handle drag
     if (dragHandle) {
       const w = plan.walls.find((ww) => ww.id === dragHandle.wallId);
       if (!w) return;
@@ -267,7 +424,10 @@ export function Canvas2D({ onExportRef }: Props) {
 
   const onMouseUp = () => {
     if (dragHandle) setDragHandle(null);
+    if (openingDrag) setOpeningDrag(null);
+    if (hoverWallForDrop) setHoverWallForDrop(null);
   };
+
 
   const onDblClick = () => { if (tool === "wall") { setDrawing(null); setTool("select"); } };
 
@@ -816,11 +976,36 @@ export function Canvas2D({ onExportRef }: Props) {
 
   const selectedWall = selection?.type === "wall" ? plan.walls.find((w) => w.id === selection.id) : null;
 
+  // Cursor hint based on what's under the pointer (select mode only).
+  const cursorStyle = (() => {
+    if (spaceDown) return "grab";
+    if (tool !== "select") return "crosshair";
+    if (dragHandle || openingDrag) return "grabbing";
+    if (!cursor) return "default";
+    // Hover checks
+    const oh = findOpeningAt(cursor);
+    if (oh) return oh.mode === "move" ? "move" : "ew-resize";
+    const wh = findWallNear(cursor);
+    if (wh) {
+      const end = wallEndpointHit(cursor, wh.wall);
+      if (end) {
+        // Direction hint based on wall orientation.
+        const ang = wallAngle(wh.wall);
+        const deg = Math.abs((ang * 180) / Math.PI) % 180;
+        return deg < 22 || deg > 158 ? "ew-resize" : deg > 68 && deg < 112 ? "ns-resize" : "nwse-resize";
+      }
+      return "move";
+    }
+    return "default";
+  })();
+
+  const stageDraggable = (spaceDown || tool === "select") && !dragHandle && !openingDrag;
+
   return (
     <div
       ref={containerRef}
       className="relative h-full w-full overflow-hidden"
-      style={{ background: theme.background, cursor: spaceDown ? "grab" : tool === "select" ? "grab" : "crosshair" }}
+      style={{ background: theme.background, cursor: cursorStyle }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDropHtml}
     >
@@ -828,17 +1013,16 @@ export function Canvas2D({ onExportRef }: Props) {
         ref={stageRef}
         width={size.w} height={size.h}
         scaleX={scale} scaleY={scale} x={pos.x} y={pos.y}
-        draggable={spaceDown || tool === "select"}
+        draggable={stageDraggable}
         onDragStart={(e) => {
-          // Only allow stage panning when the drag originated from the stage itself
-          // (not from a shape). Otherwise cancel so shape drag/select works.
-          if (e.target !== e.target.getStage() && !spaceDown) {
+          if (e.target !== e.target.getStage() || !spaceDown) {
             e.target.stopDrag();
           }
         }}
         onDragEnd={(e) => { if (e.target === e.target.getStage()) setPos({ x: e.target.x(), y: e.target.y() }); }}
         onWheel={onWheel} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onDblClick={onDblClick}
       >
+
         <Layer listening={false}>{gridLines}</Layer>
         <Layer>
           {floorRect && (
@@ -861,64 +1045,78 @@ export function Canvas2D({ onExportRef }: Props) {
           {drawing?.map((p, i) => (
             <Circle key={i} x={p.x} y={p.y} radius={4 / scale} fill="#c9a961" listening={false} />
           ))}
-          {/* wall handles when selected */}
-          {selectedWall && tool === "select" && (
+          {/* Wall endpoint indicators (visual only, not interactive — drag is direct on the wall body). */}
+          {selectedWall && tool === "select" && !dragHandle && (
             <>
-              {(["a", "b", "mid"] as const).map((end) => {
-                const pt = end === "mid" ? { x: (selectedWall.a.x + selectedWall.b.x) / 2, y: (selectedWall.a.y + selectedWall.b.y) / 2 } : selectedWall[end];
-                const isMid = end === "mid";
+              {(["a", "b"] as const).map((end) => {
+                const pt = selectedWall[end];
                 return (
-                  <Group key={end}>
-                    <Circle
-                      x={pt.x} y={pt.y}
-                      radius={(isMid ? 9 : 13) / scale}
-                      fill="#ffffff" stroke="#c9a961"
-                      strokeWidth={2.5 / scale}
-                      shadowColor="rgba(0,0,0,0.25)" shadowBlur={4 / scale} shadowOffset={{ x: 0, y: 1 / scale }}
-                      onMouseDown={(e) => {
-                        e.cancelBubble = true;
-                        const wp = getWorldPointer();
-                        if (!wp) return;
-                        setDragHandle({ wallId: selectedWall.id, end, origA: { ...selectedWall.a }, origB: { ...selectedWall.b }, startPointer: wp });
-                        commit();
-                      }}
-                    />
-                    {!isMid && (
-                      <Line
-                        points={[pt.x - 4 / scale, pt.y, pt.x + 4 / scale, pt.y]}
-                        stroke="#c9a961" strokeWidth={1.5 / scale} listening={false}
-                      />
-                    )}
-                    {!isMid && (
-                      <Line
-                        points={[pt.x, pt.y - 4 / scale, pt.x, pt.y + 4 / scale]}
-                        stroke="#c9a961" strokeWidth={1.5 / scale} listening={false}
-                      />
-                    )}
-                  </Group>
+                  <Circle
+                    key={end}
+                    x={pt.x} y={pt.y}
+                    radius={5 / scale}
+                    fill="#c9a961"
+                    stroke="#ffffff" strokeWidth={1.5 / scale}
+                    listening={false}
+                  />
                 );
               })}
-              {/* live length badge during drag */}
-              {dragHandle && (
-                <Group
-                  x={(selectedWall.a.x + selectedWall.b.x) / 2}
-                  y={(selectedWall.a.y + selectedWall.b.y) / 2 - 24 / scale}
-                >
-                  <Rect
-                    x={-30 / scale} y={-9 / scale}
-                    width={60 / scale} height={18 / scale}
-                    fill="#1a1a1a" cornerRadius={3 / scale} listening={false}
-                  />
-                  <Text
-                    text={`${(wallLength(selectedWall) / 100).toFixed(2)} m`}
-                    fontSize={11 / scale} fontFamily="JetBrains Mono"
-                    fill="#ffffff" width={60 / scale} align="center"
-                    x={-30 / scale} y={-6 / scale} listening={false}
-                  />
-                </Group>
-              )}
             </>
           )}
+          {/* Live length badge during wall drag */}
+          {selectedWall && dragHandle && (
+            <Group
+              x={(selectedWall.a.x + selectedWall.b.x) / 2}
+              y={(selectedWall.a.y + selectedWall.b.y) / 2 - 24 / scale}
+              listening={false}
+            >
+              <Rect
+                x={-32 / scale} y={-9 / scale}
+                width={64 / scale} height={18 / scale}
+                fill="#1a1a1a" cornerRadius={3 / scale}
+              />
+              <Text
+                text={`${(wallLength(selectedWall) / 100).toFixed(2)} m`}
+                fontSize={11 / scale} fontFamily="JetBrains Mono"
+                fill="#ffffff" width={64 / scale} align="center"
+                x={-32 / scale} y={-6 / scale}
+              />
+            </Group>
+          )}
+          {/* Live width badge during opening drag */}
+          {openingDrag && (() => {
+            const op = plan.openings.find((o) => o.id === openingDrag.openingId);
+            const w = plan.walls.find((ww) => ww.id === (op?.wallId ?? ""));
+            if (!op || !w) return null;
+            const len = wallLength(w);
+            const cx = w.a.x + (w.b.x - w.a.x) * op.t;
+            const cy = w.a.y + (w.b.y - w.a.y) * op.t;
+            const label = openingDrag.mode === "move"
+              ? `${Math.round(op.t * len)} / ${Math.round(len)} cm`
+              : `${Math.round(op.width)} cm`;
+            return (
+              <Group x={cx} y={cy - 30 / scale} listening={false}>
+                <Rect x={-42 / scale} y={-9 / scale} width={84 / scale} height={18 / scale} fill="#1a1a1a" cornerRadius={3 / scale} />
+                <Text text={label} fontSize={11 / scale} fontFamily="JetBrains Mono" fill="#ffffff" width={84 / scale} align="center" x={-42 / scale} y={-6 / scale} />
+              </Group>
+            );
+          })()}
+          {/* Wall highlight during opening transfer */}
+          {hoverWallForDrop && (() => {
+            const w = plan.walls.find((ww) => ww.id === hoverWallForDrop);
+            if (!w) return null;
+            return (
+              <Line
+                points={[w.a.x, w.a.y, w.b.x, w.b.y]}
+                stroke="#c9a961"
+                strokeWidth={w.thickness + 4 / scale}
+                opacity={0.35}
+                lineCap="butt"
+                listening={false}
+              />
+            );
+          })()}
+
         </Layer>
       </Stage>
 

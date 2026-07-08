@@ -3,6 +3,8 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, Grid, ContactShadows } from "@react-three/drei";
 import { useEditor } from "@/lib/editor/store";
 import { wallAngle, wallLength } from "@/lib/editor/geometry";
+import { openingHeight, openingSill } from "@/lib/editor/opening-defaults";
+
 import { FurnitureMesh3D } from "./FurnitureMesh3D";
 
 const SCALE = 0.01;
@@ -33,7 +35,7 @@ class SceneErrorBoundary extends Component<{ children: ReactNode }, { err: Error
 }
 
 function Scene() {
-  const { plan, wall3DColor, floor3DColor, show3DRoof } = useEditor();
+  const { plan, wall3DColor, floor3DColor, show3DRoof, wallSettings } = useEditor();
   const ceilingH = plan.ceilingHeight ?? 250;
 
   const camera = useMemo(() => {
@@ -58,6 +60,7 @@ function Scene() {
       target: [cx, ceilingH * SCALE * 0.4, cz] as [number, number, number],
     };
   }, [plan.walls, ceilingH]);
+
 
   // Bounding box for roof
   const roofBox = useMemo(() => {
@@ -130,9 +133,9 @@ function Scene() {
           const oCenter = (o.t - 0.5) * rawLen * SCALE;
           const oX0 = oCenter - oW / 2;
           const oX1 = oCenter + oW / 2;
-          const isDoor = o.type === "door";
-          const oH = (o.height ?? (isDoor ? 210 : 120)) * SCALE;
-          const sill = (o.sillHeight ?? (isDoor ? 0 : 100)) * SCALE;
+          const oH = openingHeight(o) * SCALE;
+          const sill = openingSill(o) * SCALE;
+
           const openTop = sill + oH;
           const next: typeof rects = [];
           for (const r of rects) {
@@ -159,8 +162,9 @@ function Scene() {
             {openings.filter((o) => o.type === "window").map((o) => {
               const oW = o.width * SCALE;
               const oX = (o.t - 0.5) * rawLen * SCALE;
-              const oH = (o.height ?? 120) * SCALE;
-              const sill = (o.sillHeight ?? 100) * SCALE;
+              const oH = openingHeight(o) * SCALE;
+              const sill = openingSill(o) * SCALE;
+
               return (
                 <mesh key={o.id} position={[oX, sill + oH / 2, 0]}>
                   <boxGeometry args={[oW * 0.95, oH * 0.95, thick * 0.15]} />
@@ -171,7 +175,7 @@ function Scene() {
             {openings.filter((o) => o.type === "door").map((o) => {
               const oW = o.width * SCALE;
               const oX = (o.t - 0.5) * rawLen * SCALE;
-              const oH = (o.height ?? 210) * SCALE;
+              const oH = openingHeight(o) * SCALE;
               return (
                 <mesh key={o.id} position={[oX - oW * 0.35, oH / 2, thick / 2 + 0.005]} castShadow>
                   <boxGeometry args={[oW * 0.95, oH, 0.03]} />
