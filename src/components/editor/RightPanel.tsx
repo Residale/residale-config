@@ -40,11 +40,17 @@ export function RightPanel() {
           <div className="mt-1 font-display text-lg">Options</div>
         </div>
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
-          <NumberField
-            label="H.S.P. plafond (cm)"
-            value={plan.ceilingHeight ?? 250} min={200} max={600}
-            onChange={(v) => setCeilingHeight(v)}
-          />
+          <div>
+            <NumberField
+              label="Hauteur sous plafond (cm)"
+              value={plan.ceilingHeight ?? 250} min={200} max={600}
+              onChange={(v) => setCeilingHeight(v)}
+            />
+            <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
+              HSP = hauteur intérieure entre sol fini et plafond. La hauteur hors-tout (extérieure) est calculée automatiquement en ajoutant la dalle et la toiture.
+            </p>
+          </div>
+
 
           <div className="rounded-md border border-border bg-background/60 p-3 space-y-2">
             <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Toiture</div>
@@ -83,12 +89,13 @@ export function RightPanel() {
             <ToggleRow label="Axes de repère" active={sectionDisplay.showAxes} onClick={() => setSectionDisplay({ showAxes: !sectionDisplay.showAxes })} />
           </div>
           <div className="rounded-md border border-border bg-background/40 p-3 text-[11px] text-muted-foreground">
-            Astuce : sélectionnez l'outil <span className="font-medium text-ink">Coupe</span> dans la barre de gauche puis tracez une ligne à travers votre plan. Vous pouvez créer plusieurs coupes (A-A', B-B'...).
+            Les 4 coupes (Nord, Sud, Est, Ouest) sont générées automatiquement à partir du plan. Molette pour zoomer, clic-glisser pour déplacer.
           </div>
         </div>
       </aside>
     );
   }
+
 
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-l border-border bg-card/60 backdrop-blur">

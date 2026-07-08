@@ -1,6 +1,6 @@
 import type { Furniture, Opening, Plan, Point, SectionLine, Wall } from "./types";
 
-/** Auto-generate two section lines from the plan bounding box (transverse + longitudinal). */
+/** Auto-generate 4 section lines (N/S/E/W) from the plan bounding box. */
 export function autoSectionsFromPlan(plan: Plan): SectionLine[] {
   if (plan.walls.length === 0) return [];
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -11,13 +11,21 @@ export function autoSectionsFromPlan(plan: Plan): SectionLine[] {
     maxY = Math.max(maxY, w.a.y, w.b.y);
   }
   const pad = 50;
-  const midY = (minY + maxY) / 2;
-  const midX = (minX + maxX) / 2;
+  const w = maxX - minX;
+  const h = maxY - minY;
+  // 4 sections: two horizontal (Nord and Sud) at 1/3 and 2/3, two vertical (Ouest, Est)
+  const yN = minY + h * 0.33;
+  const yS = minY + h * 0.66;
+  const xW = minX + w * 0.33;
+  const xE = minX + w * 0.66;
   return [
-    { id: "__auto_A", name: "A", a: { x: minX - pad, y: midY }, b: { x: maxX + pad, y: midY } },
-    { id: "__auto_B", name: "B", a: { x: midX, y: minY - pad }, b: { x: midX, y: maxY + pad } },
+    { id: "__auto_N", name: "N", a: { x: minX - pad, y: yN }, b: { x: maxX + pad, y: yN } },
+    { id: "__auto_S", name: "S", a: { x: minX - pad, y: yS }, b: { x: maxX + pad, y: yS } },
+    { id: "__auto_O", name: "O", a: { x: xW, y: minY - pad }, b: { x: xW, y: maxY + pad } },
+    { id: "__auto_E", name: "E", a: { x: xE, y: minY - pad }, b: { x: xE, y: maxY + pad } },
   ];
 }
+
 
 
 export type CutSegment = {
