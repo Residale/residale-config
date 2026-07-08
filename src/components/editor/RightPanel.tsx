@@ -165,7 +165,9 @@ export function RightPanel() {
               Supprimer le mur
             </button>
           </div>
-        )}
+          );
+        })()}
+
 
         {furn && (
           <div className="space-y-3">
