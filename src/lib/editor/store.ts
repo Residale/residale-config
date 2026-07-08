@@ -101,6 +101,11 @@ export const useEditor = create<State & Actions>((set, get) => ({
   floor3DColor: "#e8dcc4",
   activeSectionId: null,
   sectionDisplay: defaultSectionDisplay,
+  wallSettings: {
+    interior: { thickness: 10, height: 250 },
+    exterior: { thickness: 30, height: 270 },
+  },
+  currentWallType: "exterior",
 
   setTool: (tool) => set({ tool, selection: null }),
   setView: (view) => set({ view }),
