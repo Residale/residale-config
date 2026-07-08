@@ -173,6 +173,8 @@ export const useEditor = create<State & Actions>((set, get) => ({
     exterior: { thickness: 30, height: 270 },
   },
   currentWallType: "exterior",
+  show3DRoof: true,
+
 
   setTool: (tool) => set({ tool, selection: null }),
   setView: (view) => set({ view }),
