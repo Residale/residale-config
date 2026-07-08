@@ -3,7 +3,7 @@ import { Stage, Layer, Line, Rect, Circle, Group, Text, Path } from "react-konva
 import type Konva from "konva";
 import { useEditor } from "@/lib/editor/store";
 import { CATALOG } from "@/lib/editor/furniture-catalog";
-import type { Furniture, Opening, Point, SectionLine, Wall } from "@/lib/editor/types";
+import type { Furniture, Opening, Point, SectionLine, SelectionItem, Wall } from "@/lib/editor/types";
 import {
   dist,
   pointOnWall,
@@ -32,9 +32,13 @@ export function Canvas2D({ onExportRef }: Props) {
   const [spaceDown, setSpaceDown] = useState(false);
   const [dragHandle, setDragHandle] = useState<null | { wallId: string; end: "a" | "b" | "mid"; origA: Point; origB: Point; startPointer: Point }>(null);
   const [openingDrag, setOpeningDrag] = useState<null | { openingId: string; origWallId: string; origT: number; origWidth: number; mode: "move" | "resizeA" | "resizeB" }>(null);
+  const [furnitureTransform, setFurnitureTransform] = useState<null | { furnitureId: string; mode: "nw" | "ne" | "se" | "sw" | "rotate"; orig: Furniture }>(null);
+  const [moveDrag, setMoveDrag] = useState<null | { items: SelectionItem[]; startPointer: Point; furniture: Furniture[]; walls: Wall[]; sections: SectionLine[] }>(null);
+  const [selectionRect, setSelectionRect] = useState<null | { start: Point; current: Point }>(null);
   const [hoverWallForDrop, setHoverWallForDrop] = useState<string | null>(null);
   const [dragPreview, setDragPreview] = useState<null | { kind: "opening" | "furniture"; pos: Point; width: number; height: number; wallId?: string; type?: "door" | "window" }>(null);
   const didFitRef = useRef(false);
+  const clipboardRef = useRef<SelectionItem[]>([]);
 
 
   const s = useEditor();
