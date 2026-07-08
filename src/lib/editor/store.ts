@@ -46,6 +46,10 @@ type Actions = {
   addLabel: (l: Omit<RoomLabel, "id">) => string;
   updateLabel: (id: string, patch: Partial<RoomLabel>) => void;
 
+  setWallSettings: (patch: Partial<WallSettings>) => void;
+  setCurrentWallType: (t: WallType) => void;
+  applyWallTypeToAll: () => void;
+
   addSection: (s: Omit<SectionLine, "id">) => string;
   updateSection: (id: string, patch: Partial<SectionLine>) => void;
   setActiveSection: (id: string | null) => void;
