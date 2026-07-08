@@ -105,11 +105,12 @@ export function computeSection(plan: Plan, sec: SectionLine) {
   const secLen = Math.hypot(sec.b.x - sec.a.x, sec.b.y - sec.a.y);
   const ceilingH = plan.ceilingHeight ?? 250;
   const cuts: CutSegment[] = [];
+  const cutWallIds = new Set<string>();
 
   for (const w of plan.walls) {
     const inter = segIntersectWall(sec, w);
     if (!inter) continue;
-    // Full wall cut
+    cutWallIds.add(w.id);
     cuts.push({
       type: "wall",
       start: inter.s0,
@@ -118,13 +119,8 @@ export function computeSection(plan: Plan, sec: SectionLine) {
       sillHeight: 0,
       wall: w,
     });
-    // Openings inside this wall may also be cut
     const wLen = Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y);
     for (const o of plan.openings.filter((oo) => oo.wallId === w.id)) {
-      const cx = w.a.x + (w.b.x - w.a.x) * o.t;
-      const cy = w.a.y + (w.b.y - w.a.y) * o.t;
-      // Check if section line passes within opening width along wall
-      // Project intersection midpoint back onto wall
       const midS = (inter.s0 + inter.s1) / 2;
       const midX = sec.a.x + (sec.b.x - sec.a.x) * (midS / secLen);
       const midY = sec.a.y + (sec.b.y - sec.a.y) * (midS / secLen);
@@ -146,26 +142,42 @@ export function computeSection(plan: Plan, sec: SectionLine) {
     }
   }
 
-  // Furniture behind the section line — within a certain range behind (positive perp)
-  const furn: ElevationFurniture[] = [];
-  const range = 400; // cm behind
-  for (const f of plan.furniture) {
-    const pr = project({ x: f.x, y: f.y }, sec.a, sec.b);
-    if (pr.along < -f.width && pr.along > secLen + f.width) continue;
-    if (pr.perp < -range || pr.perp > range) continue;
-    const fh = f.zHeight ?? furnitureDefaultHeight(f.kind);
-    furn.push({
-      furniture: f,
-      start: pr.along - Math.max(f.width, f.height) / 2,
-      end: pr.along + Math.max(f.width, f.height) / 2,
-      height: fh,
-      depthFromLine: pr.perp,
-    });
+  // Elevation openings: on walls roughly parallel to the section line (not cut),
+  // project each opening onto the section and draw it as elevation.
+  for (const w of plan.walls) {
+    if (cutWallIds.has(w.id)) continue;
+    const openingsOnWall = plan.openings.filter((oo) => oo.wallId === w.id);
+    if (openingsOnWall.length === 0) continue;
+    const wdx = w.b.x - w.a.x, wdy = w.b.y - w.a.y;
+    const wlen = Math.hypot(wdx, wdy) || 1;
+    const wux = wdx / wlen, wuy = wdy / wlen;
+    const sdx = sec.b.x - sec.a.x, sdy = sec.b.y - sec.a.y;
+    const slen = Math.hypot(sdx, sdy) || 1;
+    const sux = sdx / slen, suy = sdy / slen;
+    const dot = Math.abs(wux * sux + wuy * suy);
+    if (dot < 0.85) continue;
+    for (const o of openingsOnWall) {
+      const cx = w.a.x + wdx * o.t;
+      const cy = w.a.y + wdy * o.t;
+      const pr = project({ x: cx, y: cy }, sec.a, sec.b);
+      if (pr.along < -o.width || pr.along > secLen + o.width) continue;
+      const isDoor = o.type === "door";
+      cuts.push({
+        type: o.type,
+        start: pr.along - o.width / 2,
+        end: pr.along + o.width / 2,
+        height: (o.height ?? (isDoor ? DOOR_H : WIN_H)) + (o.sillHeight ?? (isDoor ? 0 : WIN_SILL)),
+        sillHeight: o.sillHeight ?? (isDoor ? 0 : WIN_SILL),
+        wall: w,
+        opening: o,
+      });
+    }
   }
-  furn.sort((a, b) => Math.abs(b.depthFromLine) - Math.abs(a.depthFromLine));
 
+  const furn: ElevationFurniture[] = [];
   return { length: secLen, ceilingH, cuts, furn };
 }
+
 
 export function furnitureDefaultHeight(kind: string): number {
   const map: Record<string, number> = {
