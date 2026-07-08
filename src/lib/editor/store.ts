@@ -24,6 +24,8 @@ type State = {
   floor3DColor: string;
   activeSectionId: string | null;
   sectionDisplay: SectionDisplay;
+  wallSettings: WallSettings;
+  currentWallType: WallType;
 };
 
 type Actions = {
