@@ -172,6 +172,9 @@ export function LeftPanel() {
                       onDragStart={(e) => {
                         e.dataTransfer.setData("application/x-opening", JSON.stringify(o));
                         e.dataTransfer.effectAllowed = "copy";
+                        const img = new Image();
+                        img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+                        e.dataTransfer.setDragImage(img, 0, 0);
                       }}
                       className="group cursor-grab select-none rounded border border-border bg-card p-2 text-[11px] transition-all hover:border-brass hover:shadow-panel active:cursor-grabbing"
                     >
@@ -206,6 +209,9 @@ export function LeftPanel() {
                           e.dataTransfer.setData("application/x-furniture", c.kind);
                           e.dataTransfer.setData("application/x-furniture-label", c.label);
                           e.dataTransfer.effectAllowed = "copy";
+                          const img = new Image();
+                          img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+                          e.dataTransfer.setDragImage(img, 0, 0);
                         }}
                         className="group cursor-grab select-none rounded border border-border bg-card p-2 text-[11px] transition-all hover:border-brass hover:shadow-panel active:cursor-grabbing"
                       >
