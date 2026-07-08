@@ -736,7 +736,7 @@ export function Canvas2D({ onExportRef }: Props) {
     snapped = snapFurnitureToWalls(snapped, item.width, item.height);
     addFurniture({
       kind: item.kind, x: snapped.x, y: snapped.y,
-      width: item.width, height: item.height, rotation: 0, label: item.label,
+      width: item.width, height: item.height, rotation: snapped.rotation, label: item.label,
     });
   };
 
@@ -1189,7 +1189,7 @@ export function Canvas2D({ onExportRef }: Props) {
   };
 
   const renderSection = (sec: SectionLine) => {
-    const isSel = selection?.type === "section" && selection.id === sec.id;
+    const isSel = isSelected("section", sec.id);
     const ang = Math.atan2(sec.b.y - sec.a.y, sec.b.x - sec.a.x);
     const nx = Math.cos(ang - Math.PI / 2);
     const ny = Math.sin(ang - Math.PI / 2);
@@ -1201,7 +1201,7 @@ export function Canvas2D({ onExportRef }: Props) {
           stroke={isSel ? "#c9a961" : "#d94747"}
           strokeWidth={2 / scale}
           dash={[18 / scale, 6 / scale, 2 / scale, 6 / scale]}
-          onClick={() => tool === "select" && setSelection({ type: "section", id: sec.id })}
+          onClick={(e) => tool === "select" && selectItem({ type: "section", id: sec.id }, e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey)}
           hitStrokeWidth={20 / scale}
         />
         {[sec.a, sec.b].map((p, i) => (
@@ -1261,7 +1261,7 @@ export function Canvas2D({ onExportRef }: Props) {
     return "default";
   })();
 
-  const stageDraggable = (spaceDown || tool === "select") && !dragHandle && !openingDrag;
+  const stageDraggable = (spaceDown || tool === "select") && !dragHandle && !openingDrag && !moveDrag && !furnitureTransform && !selectionRect;
 
   return (
     <div
@@ -1297,7 +1297,7 @@ export function Canvas2D({ onExportRef }: Props) {
         scaleX={scale} scaleY={scale} x={pos.x} y={pos.y}
         draggable={stageDraggable}
         onDragStart={(e) => {
-          if (e.target !== e.target.getStage() || !spaceDown) {
+          if (e.target !== e.target.getStage()) {
             e.target.stopDrag();
           }
         }}
