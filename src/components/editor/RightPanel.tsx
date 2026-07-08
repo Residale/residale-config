@@ -79,7 +79,18 @@ export function RightPanel() {
 
         {wall && (
           <div className="space-y-3">
-            <Field label="Longueur"><span className="font-mono-tab">{(wallLength(wall) / 100).toFixed(2)} m</span></Field>
+            <NumberField
+              label="Longueur (cm)"
+              value={Math.round(wallLength(wall))}
+              min={10} max={5000}
+              onChange={(v) => {
+                const dx = wall.b.x - wall.a.x;
+                const dy = wall.b.y - wall.a.y;
+                const cur = Math.hypot(dx, dy) || 1;
+                const k = v / cur;
+                updateWall(wall.id, { b: { x: wall.a.x + dx * k, y: wall.a.y + dy * k } });
+              }}
+            />
             <div>
               <div className="mb-1 block text-xs font-medium text-muted-foreground">Type</div>
               <div className="grid grid-cols-2 gap-1 rounded border border-border bg-background p-0.5">
