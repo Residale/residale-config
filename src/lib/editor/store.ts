@@ -5,6 +5,59 @@ import type {
 import { uid } from "./geometry";
 import { DEFAULT_THEME, type Theme2D } from "./theme";
 
+const POINT_EPS = 1.5;
+
+function samePoint(a: { x: number; y: number }, b: { x: number; y: number }) {
+  return Math.hypot(a.x - b.x, a.y - b.y) <= POINT_EPS;
+}
+
+function applyEndpointMoves(walls: Wall[], moves: Array<{ from: Wall["a"]; to: Wall["a"] }>) {
+  if (!moves.length) return walls;
+  const movedPoint = (p: Wall["a"]) => {
+    const move = moves.find((m) => samePoint(p, m.from));
+    return move ? { ...move.to } : p;
+  };
+  return walls.map((w) => ({ ...w, a: movedPoint(w.a), b: movedPoint(w.b) }));
+}
+
+function updateWallWithConnectedEndpoints(walls: Wall[], id: string, patch: Partial<Wall>) {
+  const target = walls.find((w) => w.id === id);
+  if (!target) return walls;
+  const moves: Array<{ from: Wall["a"]; to: Wall["a"] }> = [];
+  if (patch.a && !samePoint(target.a, patch.a)) moves.push({ from: target.a, to: patch.a });
+  if (patch.b && !samePoint(target.b, patch.b)) moves.push({ from: target.b, to: patch.b });
+  const connected = applyEndpointMoves(walls, moves);
+  return connected.map((w) => (w.id === id ? { ...w, ...patch } : w));
+}
+
+function resizeWallAndOpposite(walls: Wall[], id: string, length: number) {
+  const target = walls.find((w) => w.id === id);
+  if (!target) return walls;
+  const cur = Math.hypot(target.b.x - target.a.x, target.b.y - target.a.y) || 1;
+  const ux = (target.b.x - target.a.x) / cur;
+  const uy = (target.b.y - target.a.y) / cur;
+  const newB = { x: target.a.x + ux * length, y: target.a.y + uy * length };
+  const delta = { x: newB.x - target.b.x, y: newB.y - target.b.y };
+  if (Math.hypot(delta.x, delta.y) <= POINT_EPS) return walls;
+
+  const moves: Array<{ from: Wall["a"]; to: Wall["a"] }> = [{ from: target.b, to: newB }];
+  const connectedCarriers = walls.filter((w) => {
+    if (w.id === id) return false;
+    const touchesMovedEnd = samePoint(w.a, target.b) || samePoint(w.b, target.b);
+    if (!touchesMovedEnd) return false;
+    const wLen = Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y) || 1;
+    const dot = Math.abs(((w.b.x - w.a.x) / wLen) * ux + ((w.b.y - w.a.y) / wLen) * uy);
+    return dot < 0.35;
+  });
+
+  for (const w of connectedCarriers) {
+    moves.push({ from: w.a, to: { x: w.a.x + delta.x, y: w.a.y + delta.y } });
+    moves.push({ from: w.b, to: { x: w.b.x + delta.x, y: w.b.y + delta.y } });
+  }
+
+  return applyEndpointMoves(walls, moves);
+}
+
 type View = "2d" | "3d" | "split" | "section";
 
 type State = {
@@ -43,6 +96,7 @@ type Actions = {
 
   addWall: (w: Omit<Wall, "id">) => string;
   updateWall: (id: string, patch: Partial<Wall>) => void;
+  resizeWallLength: (id: string, length: number) => void;
   addOpening: (o: Omit<Opening, "id">) => string;
   updateOpening: (id: string, patch: Partial<Opening>) => void;
   flipOpeningHinge: (id: string) => void;
@@ -148,7 +202,9 @@ export const useEditor = create<State & Actions>((set, get) => ({
     return id;
   },
   updateWall: (id, patch) =>
-    set((s) => ({ plan: { ...s.plan, walls: s.plan.walls.map((w) => (w.id === id ? { ...w, ...patch } : w)) } })),
+    set((s) => ({ plan: { ...s.plan, walls: updateWallWithConnectedEndpoints(s.plan.walls, id, patch) } })),
+  resizeWallLength: (id, length) =>
+    set((s) => ({ plan: { ...s.plan, walls: resizeWallAndOpposite(s.plan.walls, id, Math.max(10, length)) } })),
 
   setWallSettings: (patch) =>
     set((s) => {

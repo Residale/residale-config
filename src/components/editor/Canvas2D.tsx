@@ -12,7 +12,6 @@ import {
   wallAngle,
   wallLength,
 } from "@/lib/editor/geometry";
-import { collectJunctions } from "@/lib/editor/wall-geometry";
 import { FurnitureShape2D } from "./FurnitureShape2D";
 
 
@@ -844,9 +843,9 @@ export function Canvas2D({ onExportRef }: Props) {
           )}
           {plan.furniture.map(renderFurniture)}
           {plan.walls.map(renderWall)}
-          {/* corner disks to seal wall junctions */}
+          {/* square junction patches: clean architectural corners, no rounded wall caps */}
           {junctions.map((j, i) => (
-            <Circle key={`j${i}`} x={j.p.x} y={j.p.y} radius={j.radius} fill={theme.wallFill} listening={false} />
+            <Rect key={`j${i}`} x={j.p.x - j.radius} y={j.p.y - j.radius} width={j.radius * 2} height={j.radius * 2} fill={theme.wallFill} listening={false} />
           ))}
           {plan.openings.map(renderOpening)}
           {!(showExteriorDims || showInteriorDims) && plan.walls.map(renderDim)}
