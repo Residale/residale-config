@@ -402,11 +402,15 @@ export const useEditor = create<State & Actions>()(persist((set, get) => ({
       }
     }
 
+    const explicitlyCopiedOpeningIds = new Set(items.filter((item) => item.type === "opening").map((item) => item.id));
     for (const wall of nextWalls) {
       for (const opening of state.plan.openings) {
         const mappedWallId = wallIds.get(opening.wallId);
         if (mappedWallId !== wall.id) continue;
-        nextOpenings.push({ ...opening, id: uid(), wallId: wall.id });
+        if (explicitlyCopiedOpeningIds.has(opening.id)) continue;
+        const id = uid();
+        nextOpenings.push({ ...opening, id, wallId: wall.id });
+        selected.push({ type: "opening", id });
       }
     }
 
