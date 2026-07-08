@@ -775,7 +775,7 @@ export function Canvas2D({ onExportRef }: Props) {
   }, [plan.walls]);
 
   const renderWall = (w: Wall) => {
-    const isSel = selection?.type === "wall" && selection.id === w.id;
+    const isSel = isSelected("wall", w.id);
     return (
       <Line
         key={w.id}
@@ -783,8 +783,8 @@ export function Canvas2D({ onExportRef }: Props) {
         stroke={isSel ? "#c9a961" : theme.wallFill}
         strokeWidth={w.thickness}
         lineCap="butt"
-        onClick={() => tool === "select" && setSelection({ type: "wall", id: w.id })}
-        onTap={() => tool === "select" && setSelection({ type: "wall", id: w.id })}
+        onClick={(e) => tool === "select" && selectItem({ type: "wall", id: w.id }, e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey)}
+        onTap={() => tool === "select" && selectItem({ type: "wall", id: w.id }, false)}
         hitStrokeWidth={Math.max(w.thickness, 16 / scale)}
       />
     );
@@ -803,7 +803,7 @@ export function Canvas2D({ onExportRef }: Props) {
     const uy = Math.sin(ang);
     const dx = ux * o.width / 2;
     const dy = uy * o.width / 2;
-    const isSel = selection?.type === "opening" && selection.id === o.id;
+    const isSel = isSelected("opening", o.id);
     const hinge: "a" | "b" = o.hingeSide ?? "a";
     const swing: "p" | "n" = o.swingSide ?? "p";
     const swingSign = swing === "p" ? 1 : -1;
@@ -950,7 +950,7 @@ export function Canvas2D({ onExportRef }: Props) {
     }
 
     return (
-      <Group key={o.id} onClick={() => tool === "select" && setSelection({ type: "opening", id: o.id })} onTap={() => tool === "select" && setSelection({ type: "opening", id: o.id })}>
+      <Group key={o.id} onClick={(e) => tool === "select" && selectItem({ type: "opening", id: o.id }, e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey)} onTap={() => tool === "select" && selectItem({ type: "opening", id: o.id }, false)}>
         {wallCut}
         {symbol}
         {isSel && (kind === "door_simple" || kind === "door_double" || kind === "entrance") && (
