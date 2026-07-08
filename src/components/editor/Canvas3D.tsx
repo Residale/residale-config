@@ -133,9 +133,9 @@ function Scene() {
           const oCenter = (o.t - 0.5) * rawLen * SCALE;
           const oX0 = oCenter - oW / 2;
           const oX1 = oCenter + oW / 2;
-          const isDoor = o.type === "door";
-          const oH = (o.height ?? (isDoor ? 210 : 120)) * SCALE;
-          const sill = (o.sillHeight ?? (isDoor ? 0 : 100)) * SCALE;
+          const oH = openingHeight(o) * SCALE;
+          const sill = openingSill(o) * SCALE;
+
           const openTop = sill + oH;
           const next: typeof rects = [];
           for (const r of rects) {
