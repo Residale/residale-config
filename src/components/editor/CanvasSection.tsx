@@ -3,7 +3,7 @@ import { Stage, Layer, Line, Rect, Group, Text } from "react-konva";
 import type Konva from "konva";
 import { useEditor } from "@/lib/editor/store";
 import { CATALOG } from "@/lib/editor/furniture-catalog";
-import { computeSection } from "@/lib/editor/sections";
+import { autoSectionsFromPlan, computeSection } from "@/lib/editor/sections";
 
 const MARGIN_X = 90;
 const MARGIN_Y = 90;
