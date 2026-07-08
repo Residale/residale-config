@@ -60,12 +60,16 @@ function SectionPanel({ section }: { section: SectionLine }) {
 
   useEffect(() => {
     if (!containerRef.current) return;
+    // Sync initial size synchronously to avoid the "empty at first render" flash.
+    const rect = containerRef.current.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) setSize({ w: rect.width, h: rect.height });
     const ro = new ResizeObserver((entries) => {
       for (const e of entries) setSize({ w: e.contentRect.width, h: e.contentRect.height });
     });
     ro.observe(containerRef.current);
     return () => ro.disconnect();
   }, []);
+
 
   const data = useMemo(() => computeSection(plan, section), [plan, section]);
 
