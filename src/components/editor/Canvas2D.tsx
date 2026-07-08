@@ -1242,9 +1242,16 @@ export function Canvas2D({ onExportRef }: Props) {
   const cursorStyle = (() => {
     if (spaceDown) return "grab";
     if (tool !== "select") return "crosshair";
-    if (dragHandle || openingDrag) return "grabbing";
+    if (dragHandle || openingDrag || moveDrag || furnitureTransform) return "grabbing";
+    if (selectionRect) return "crosshair";
     if (!cursor) return "default";
     // Hover checks
+    const fh = findFurnitureHandleAt(cursor);
+    if (fh) {
+      if (fh.mode === "rotate") return "grab";
+      return fh.mode === "nw" || fh.mode === "se" ? "nwse-resize" : "nesw-resize";
+    }
+    if (findFurnitureAt(cursor)) return "move";
     const oh = findOpeningAt(cursor);
     if (oh) return oh.mode === "move" ? "move" : "ew-resize";
     const wh = findWallNear(cursor);
