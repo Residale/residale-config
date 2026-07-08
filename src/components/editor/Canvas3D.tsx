@@ -4,10 +4,12 @@ import { OrbitControls, Environment, Grid, ContactShadows } from "@react-three/d
 import { useEditor } from "@/lib/editor/store";
 import { wallAngle, wallLength } from "@/lib/editor/geometry";
 import { openingHeight, openingSill } from "@/lib/editor/opening-defaults";
+import { summarizeRooms } from "@/lib/editor/rooms";
 
 import { FurnitureMesh3D } from "./FurnitureMesh3D";
 
 const SCALE = 0.01;
+
 
 class SceneErrorBoundary extends Component<{ children: ReactNode }, { err: Error | null }> {
   state = { err: null as Error | null };
@@ -260,6 +262,17 @@ function RoofMesh({ box }: { box: { cx: number; cz: number; w: number; d: number
 
 export function Canvas3D() {
   const { show3DRoof, toggle3DRoof, plan } = useEditor();
+  const stats = useMemo(() => {
+    const hsp = plan.ceilingHeight ?? 250;
+    const rooms = summarizeRooms(plan);
+    const totalArea = rooms.reduce((s, r) => s + r.area, 0);
+    let maxWall = 0;
+    for (const w of plan.walls) if ((w.height ?? hsp) > maxWall) maxWall = w.height ?? hsp;
+    const floor = 20;
+
+    const horsTout = maxWall + floor + (plan.roof ? (plan.roof.pitch ? 150 : 20) : 0);
+    return { hsp, totalArea, horsTout };
+  }, [plan]);
   return (
     <div className="relative h-full w-full bg-gradient-to-b from-[#e8e4dc] to-[#c9c2b3]">
       <SceneErrorBoundary>
@@ -273,9 +286,19 @@ export function Canvas3D() {
           {show3DRoof ? "Masquer la toiture" : "Afficher la toiture"}
         </button>
       )}
+      {plan.walls.length > 0 && (
+        <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-card/95 px-3 py-2 text-[11px] shadow-panel backdrop-blur">
+          <div className="flex flex-col gap-0.5 font-mono">
+            <div><span className="text-muted-foreground">Surface :</span> <span className="font-semibold">{stats.totalArea.toFixed(1)} m²</span></div>
+            <div><span className="text-muted-foreground">HSP :</span> <span className="font-semibold">{(stats.hsp / 100).toFixed(2)} m</span></div>
+            <div><span className="text-muted-foreground">Hors-tout :</span> <span className="font-semibold">{(stats.horsTout / 100).toFixed(2)} m</span></div>
+          </div>
+        </div>
+      )}
       <div className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-card/90 px-2.5 py-1 text-[11px] text-muted-foreground shadow-panel backdrop-blur">
         Clic gauche : orbite · Clic droit : déplacer · Molette : zoom
       </div>
     </div>
   );
 }
+
