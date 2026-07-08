@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useEditor } from "@/lib/editor/store";
 import { wallLength } from "@/lib/editor/geometry";
+import { openingHeight, openingSill } from "@/lib/editor/opening-defaults";
 import type { OpeningKind } from "@/lib/editor/types";
+
 
 
 const KIND_LABELS: Record<OpeningKind, string> = {
