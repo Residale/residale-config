@@ -976,11 +976,36 @@ export function Canvas2D({ onExportRef }: Props) {
 
   const selectedWall = selection?.type === "wall" ? plan.walls.find((w) => w.id === selection.id) : null;
 
+  // Cursor hint based on what's under the pointer (select mode only).
+  const cursorStyle = (() => {
+    if (spaceDown) return "grab";
+    if (tool !== "select") return "crosshair";
+    if (dragHandle || openingDrag) return "grabbing";
+    if (!cursor) return "default";
+    // Hover checks
+    const oh = findOpeningAt(cursor);
+    if (oh) return oh.mode === "move" ? "move" : "ew-resize";
+    const wh = findWallNear(cursor);
+    if (wh) {
+      const end = wallEndpointHit(cursor, wh.wall);
+      if (end) {
+        // Direction hint based on wall orientation.
+        const ang = wallAngle(wh.wall);
+        const deg = Math.abs((ang * 180) / Math.PI) % 180;
+        return deg < 22 || deg > 158 ? "ew-resize" : deg > 68 && deg < 112 ? "ns-resize" : "nwse-resize";
+      }
+      return "move";
+    }
+    return "default";
+  })();
+
+  const stageDraggable = spaceDown && !dragHandle && !openingDrag;
+
   return (
     <div
       ref={containerRef}
       className="relative h-full w-full overflow-hidden"
-      style={{ background: theme.background, cursor: spaceDown ? "grab" : tool === "select" ? "grab" : "crosshair" }}
+      style={{ background: theme.background, cursor: cursorStyle }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDropHtml}
     >
@@ -988,17 +1013,16 @@ export function Canvas2D({ onExportRef }: Props) {
         ref={stageRef}
         width={size.w} height={size.h}
         scaleX={scale} scaleY={scale} x={pos.x} y={pos.y}
-        draggable={spaceDown || tool === "select"}
+        draggable={stageDraggable}
         onDragStart={(e) => {
-          // Only allow stage panning when the drag originated from the stage itself
-          // (not from a shape). Otherwise cancel so shape drag/select works.
-          if (e.target !== e.target.getStage() && !spaceDown) {
+          if (e.target !== e.target.getStage() || !spaceDown) {
             e.target.stopDrag();
           }
         }}
         onDragEnd={(e) => { if (e.target === e.target.getStage()) setPos({ x: e.target.x(), y: e.target.y() }); }}
         onWheel={onWheel} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onDblClick={onDblClick}
       >
+
         <Layer listening={false}>{gridLines}</Layer>
         <Layer>
           {floorRect && (
