@@ -877,12 +877,22 @@ export function Canvas2D({ onExportRef }: Props) {
     );
 
     // Door-family renderers
+    // Jambages (short perpendicular ticks at both ends of the cut), typical architectural convention.
+    const jambageLen = w.thickness * 0.9;
+    const jambages = (kind === "door_simple" || kind === "door_double" || kind === "entrance" || kind === "door_slide" || kind === "door_pocket") ? (
+      <>
+        <Line points={[cx - dx - (-uy) * jambageLen / 2, cy - dy - ux * jambageLen / 2, cx - dx + (-uy) * jambageLen / 2, cy - dy + ux * jambageLen / 2]} stroke={stroke} strokeWidth={sw * 0.7} listening={false} />
+        <Line points={[cx + dx - (-uy) * jambageLen / 2, cy + dy - ux * jambageLen / 2, cx + dx + (-uy) * jambageLen / 2, cy + dy + ux * jambageLen / 2]} stroke={stroke} strokeWidth={sw * 0.7} listening={false} />
+      </>
+    ) : null;
+
     let symbol: React.ReactNode = null;
     if (kind === "door_simple" || kind === "entrance") {
       symbol = (
         <>
-          <Path data={arcOnly} stroke={stroke} strokeWidth={sw * 0.6} fill="transparent" dash={[4 / scale, 3 / scale]} />
-          <Line points={[hx, hy, tipX, tipY]} stroke={stroke} strokeWidth={sw} />
+          {jambages}
+          <Path data={arcOnly} stroke={stroke} strokeWidth={sw * 0.7} fill="transparent" />
+          <Line points={[hx, hy, tipX, tipY]} stroke={stroke} strokeWidth={sw * 1.6} lineCap="round" />
           {kind === "entrance" && (
             <Rect x={cx - dx} y={cy - dy - w.thickness / 3} width={o.width} height={w.thickness / 1.5} rotation={(ang * 180) / Math.PI} stroke={stroke} strokeWidth={sw * 0.6} fill="transparent" />
           )}
@@ -897,10 +907,11 @@ export function Canvas2D({ onExportRef }: Props) {
       const swB = (hinge === "a" ? 0 : 1) ^ (swing === "p" ? 0 : 1);
       symbol = (
         <>
-          <Path data={`M ${hx} ${hy} A ${o.width / 2} ${o.width / 2} 0 0 ${swA} ${tipL.x} ${tipL.y}`} stroke={stroke} strokeWidth={sw * 0.6} fill="transparent" dash={[4 / scale, 3 / scale]} />
-          <Path data={`M ${lx} ${ly} A ${o.width / 2} ${o.width / 2} 0 0 ${swB} ${tipR.x} ${tipR.y}`} stroke={stroke} strokeWidth={sw * 0.6} fill="transparent" dash={[4 / scale, 3 / scale]} />
-          <Line points={[hx, hy, midX, midY]} stroke={stroke} strokeWidth={sw} />
-          <Line points={[midX, midY, lx, ly]} stroke={stroke} strokeWidth={sw} />
+          {jambages}
+          <Path data={`M ${hx} ${hy} A ${o.width / 2} ${o.width / 2} 0 0 ${swA} ${tipL.x} ${tipL.y}`} stroke={stroke} strokeWidth={sw * 0.7} fill="transparent" />
+          <Path data={`M ${lx} ${ly} A ${o.width / 2} ${o.width / 2} 0 0 ${swB} ${tipR.x} ${tipR.y}`} stroke={stroke} strokeWidth={sw * 0.7} fill="transparent" />
+          <Line points={[hx, hy, midX, midY]} stroke={stroke} strokeWidth={sw * 1.6} lineCap="round" />
+          <Line points={[midX, midY, lx, ly]} stroke={stroke} strokeWidth={sw * 1.6} lineCap="round" />
         </>
       );
     } else if (kind === "door_slide") {
