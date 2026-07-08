@@ -406,10 +406,16 @@ export function Canvas2D({ onExportRef }: Props) {
         const nb = { x: Math.round(dragHandle.origB.x + dx), y: Math.round(dragHandle.origB.y + dy) };
         updateWall(w.id, { a: na, b: nb });
       } else {
-        // Endpoint drag: 1 cm precision + endpoint-snap to nearby wall corners (via applySnap)
-        const raw = applySnap(wp, dragHandle.end === "a" ? w.b : w.a, w.id);
-        const snapped = { x: Math.round(raw.x), y: Math.round(raw.y) };
-        updateWall(w.id, { [dragHandle.end]: snapped } as Partial<Wall>);
+        // Endpoint drag: 1 cm precision + snap to nearby wall corners for clean junctions
+        const threshold = 15 / scale;
+        let target: Point = { x: Math.round(wp.x), y: Math.round(wp.y) };
+        for (const wall of plan.walls) {
+          if (wall.id === w.id) continue;
+          for (const end of [wall.a, wall.b]) {
+            if (dist(end, wp) < threshold) target = { ...end };
+          }
+        }
+        updateWall(w.id, { [dragHandle.end]: target } as Partial<Wall>);
       }
       setCursor(wp);
       return;
