@@ -197,36 +197,43 @@ export function CanvasSection() {
             />
           )}
 
-          {/* Horizontal dimensions along the top */}
-          {sectionDisplay.showHorizontalDims && (
-            <Group>
-              <Line
-                points={[toX(0), MARGIN_Y - 30, toX(totalLen), MARGIN_Y - 30]}
-                stroke={theme.dimension} strokeWidth={1}
-              />
-              <Line points={[toX(0), MARGIN_Y - 24, toX(0), MARGIN_Y - 36]} stroke={theme.dimension} strokeWidth={1} />
-              <Line points={[toX(totalLen), MARGIN_Y - 24, toX(totalLen), MARGIN_Y - 36]} stroke={theme.dimension} strokeWidth={1} />
-              <Text
-                x={toX(totalLen / 2) - 40}
-                y={MARGIN_Y - 46}
-                width={80} align="center"
-                text={`${(totalLen / 100).toFixed(2)} m`}
-                fontSize={11} fontFamily="JetBrains Mono" fill={theme.dimension}
-              />
-              {/* per-cut widths */}
-              {cuts.map((c, i) => (
-                <Group key={`hd${i}`}>
-                  <Line points={[toX(c.start), MARGIN_Y - 12, toX(c.end), MARGIN_Y - 12]} stroke={theme.dimension} strokeWidth={0.6} />
-                  <Text
-                    x={toX((c.start + c.end) / 2) - 20} y={MARGIN_Y - 24}
-                    width={40} align="center"
-                    text={`${Math.round(c.end - c.start)}`}
-                    fontSize={9} fontFamily="JetBrains Mono" fill={theme.dimension} opacity={0.8}
-                  />
-                </Group>
-              ))}
-            </Group>
-          )}
+          {/* Horizontal dimensions along the top — based on actual cut extents (not the padded section line) */}
+          {sectionDisplay.showHorizontalDims && cuts.length > 0 && (() => {
+            const wallCuts = cuts.filter((c) => c.type === "wall");
+            const spanStart = wallCuts.length ? Math.min(...wallCuts.map((c) => c.start)) : cuts[0].start;
+            const spanEnd = wallCuts.length ? Math.max(...wallCuts.map((c) => c.end)) : cuts[cuts.length - 1].end;
+            const spanLen = spanEnd - spanStart;
+            return (
+              <Group>
+                <Line
+                  points={[toX(spanStart), MARGIN_Y - 30, toX(spanEnd), MARGIN_Y - 30]}
+                  stroke={theme.dimension} strokeWidth={1}
+                />
+                <Line points={[toX(spanStart), MARGIN_Y - 24, toX(spanStart), MARGIN_Y - 36]} stroke={theme.dimension} strokeWidth={1} />
+                <Line points={[toX(spanEnd), MARGIN_Y - 24, toX(spanEnd), MARGIN_Y - 36]} stroke={theme.dimension} strokeWidth={1} />
+                <Text
+                  x={toX((spanStart + spanEnd) / 2) - 40}
+                  y={MARGIN_Y - 46}
+                  width={80} align="center"
+                  text={`${(spanLen / 100).toFixed(2)} m`}
+                  fontSize={11} fontFamily="JetBrains Mono" fill={theme.dimension}
+                />
+                {/* per-cut widths (walls only) */}
+                {wallCuts.map((c, i) => (
+                  <Group key={`hd${i}`}>
+                    <Line points={[toX(c.start), MARGIN_Y - 12, toX(c.end), MARGIN_Y - 12]} stroke={theme.dimension} strokeWidth={0.6} />
+                    <Text
+                      x={toX((c.start + c.end) / 2) - 20} y={MARGIN_Y - 24}
+                      width={40} align="center"
+                      text={`${Math.round(c.end - c.start)}`}
+                      fontSize={9} fontFamily="JetBrains Mono" fill={theme.dimension} opacity={0.8}
+                    />
+                  </Group>
+                ))}
+              </Group>
+            );
+          })()}
+
 
           {/* Title */}
           <Text
