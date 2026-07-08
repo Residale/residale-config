@@ -533,22 +533,57 @@ export function Canvas2D({ onExportRef }: Props) {
             <>
               {(["a", "b", "mid"] as const).map((end) => {
                 const pt = end === "mid" ? { x: (selectedWall.a.x + selectedWall.b.x) / 2, y: (selectedWall.a.y + selectedWall.b.y) / 2 } : selectedWall[end];
+                const isMid = end === "mid";
                 return (
-                  <Circle
-                    key={end}
-                    x={pt.x} y={pt.y}
-                    radius={(end === "mid" ? 6 : 8) / scale}
-                    fill="#ffffff" stroke="#c9a961" strokeWidth={2 / scale}
-                    onMouseDown={(e) => {
-                      e.cancelBubble = true;
-                      const wp = getWorldPointer();
-                      if (!wp) return;
-                      setDragHandle({ wallId: selectedWall.id, end, origA: { ...selectedWall.a }, origB: { ...selectedWall.b }, startPointer: wp });
-                      commit();
-                    }}
-                  />
+                  <Group key={end}>
+                    <Circle
+                      x={pt.x} y={pt.y}
+                      radius={(isMid ? 9 : 13) / scale}
+                      fill="#ffffff" stroke="#c9a961"
+                      strokeWidth={2.5 / scale}
+                      shadowColor="rgba(0,0,0,0.25)" shadowBlur={4 / scale} shadowOffset={{ x: 0, y: 1 / scale }}
+                      onMouseDown={(e) => {
+                        e.cancelBubble = true;
+                        const wp = getWorldPointer();
+                        if (!wp) return;
+                        setDragHandle({ wallId: selectedWall.id, end, origA: { ...selectedWall.a }, origB: { ...selectedWall.b }, startPointer: wp });
+                        commit();
+                      }}
+                    />
+                    {!isMid && (
+                      <Line
+                        points={[pt.x - 4 / scale, pt.y, pt.x + 4 / scale, pt.y]}
+                        stroke="#c9a961" strokeWidth={1.5 / scale} listening={false}
+                      />
+                    )}
+                    {!isMid && (
+                      <Line
+                        points={[pt.x, pt.y - 4 / scale, pt.x, pt.y + 4 / scale]}
+                        stroke="#c9a961" strokeWidth={1.5 / scale} listening={false}
+                      />
+                    )}
+                  </Group>
                 );
               })}
+              {/* live length badge during drag */}
+              {dragHandle && (
+                <Group
+                  x={(selectedWall.a.x + selectedWall.b.x) / 2}
+                  y={(selectedWall.a.y + selectedWall.b.y) / 2 - 24 / scale}
+                >
+                  <Rect
+                    x={-30 / scale} y={-9 / scale}
+                    width={60 / scale} height={18 / scale}
+                    fill="#1a1a1a" cornerRadius={3 / scale} listening={false}
+                  />
+                  <Text
+                    text={`${(wallLength(selectedWall) / 100).toFixed(2)} m`}
+                    fontSize={11 / scale} fontFamily="JetBrains Mono"
+                    fill="#ffffff" width={60 / scale} align="center"
+                    x={-30 / scale} y={-6 / scale} listening={false}
+                  />
+                </Group>
+              )}
             </>
           )}
         </Layer>
