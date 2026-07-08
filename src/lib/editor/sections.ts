@@ -46,8 +46,17 @@ export type ElevationFurniture = {
   start: number;
   end: number;
   height: number;
-  depthFromLine: number; // signed distance for depth ordering (behind cut)
+  depthFromLine: number;
 };
+
+export type ElevationWall = {
+  start: number;
+  end: number;
+  height: number;
+  depth: number; // signed perp distance for depth ordering
+  wall: Wall;
+};
+
 
 /** Project point onto section line, return signed distance from A along AB, and perpendicular distance. */
 function project(p: Point, a: Point, b: Point) {
