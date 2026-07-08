@@ -1021,64 +1021,78 @@ export function Canvas2D({ onExportRef }: Props) {
           {drawing?.map((p, i) => (
             <Circle key={i} x={p.x} y={p.y} radius={4 / scale} fill="#c9a961" listening={false} />
           ))}
-          {/* wall handles when selected */}
-          {selectedWall && tool === "select" && (
+          {/* Wall endpoint indicators (visual only, not interactive — drag is direct on the wall body). */}
+          {selectedWall && tool === "select" && !dragHandle && (
             <>
-              {(["a", "b", "mid"] as const).map((end) => {
-                const pt = end === "mid" ? { x: (selectedWall.a.x + selectedWall.b.x) / 2, y: (selectedWall.a.y + selectedWall.b.y) / 2 } : selectedWall[end];
-                const isMid = end === "mid";
+              {(["a", "b"] as const).map((end) => {
+                const pt = selectedWall[end];
                 return (
-                  <Group key={end}>
-                    <Circle
-                      x={pt.x} y={pt.y}
-                      radius={(isMid ? 9 : 13) / scale}
-                      fill="#ffffff" stroke="#c9a961"
-                      strokeWidth={2.5 / scale}
-                      shadowColor="rgba(0,0,0,0.25)" shadowBlur={4 / scale} shadowOffset={{ x: 0, y: 1 / scale }}
-                      onMouseDown={(e) => {
-                        e.cancelBubble = true;
-                        const wp = getWorldPointer();
-                        if (!wp) return;
-                        setDragHandle({ wallId: selectedWall.id, end, origA: { ...selectedWall.a }, origB: { ...selectedWall.b }, startPointer: wp });
-                        commit();
-                      }}
-                    />
-                    {!isMid && (
-                      <Line
-                        points={[pt.x - 4 / scale, pt.y, pt.x + 4 / scale, pt.y]}
-                        stroke="#c9a961" strokeWidth={1.5 / scale} listening={false}
-                      />
-                    )}
-                    {!isMid && (
-                      <Line
-                        points={[pt.x, pt.y - 4 / scale, pt.x, pt.y + 4 / scale]}
-                        stroke="#c9a961" strokeWidth={1.5 / scale} listening={false}
-                      />
-                    )}
-                  </Group>
+                  <Circle
+                    key={end}
+                    x={pt.x} y={pt.y}
+                    radius={5 / scale}
+                    fill="#c9a961"
+                    stroke="#ffffff" strokeWidth={1.5 / scale}
+                    listening={false}
+                  />
                 );
               })}
-              {/* live length badge during drag */}
-              {dragHandle && (
-                <Group
-                  x={(selectedWall.a.x + selectedWall.b.x) / 2}
-                  y={(selectedWall.a.y + selectedWall.b.y) / 2 - 24 / scale}
-                >
-                  <Rect
-                    x={-30 / scale} y={-9 / scale}
-                    width={60 / scale} height={18 / scale}
-                    fill="#1a1a1a" cornerRadius={3 / scale} listening={false}
-                  />
-                  <Text
-                    text={`${(wallLength(selectedWall) / 100).toFixed(2)} m`}
-                    fontSize={11 / scale} fontFamily="JetBrains Mono"
-                    fill="#ffffff" width={60 / scale} align="center"
-                    x={-30 / scale} y={-6 / scale} listening={false}
-                  />
-                </Group>
-              )}
             </>
           )}
+          {/* Live length badge during wall drag */}
+          {selectedWall && dragHandle && (
+            <Group
+              x={(selectedWall.a.x + selectedWall.b.x) / 2}
+              y={(selectedWall.a.y + selectedWall.b.y) / 2 - 24 / scale}
+              listening={false}
+            >
+              <Rect
+                x={-32 / scale} y={-9 / scale}
+                width={64 / scale} height={18 / scale}
+                fill="#1a1a1a" cornerRadius={3 / scale}
+              />
+              <Text
+                text={`${(wallLength(selectedWall) / 100).toFixed(2)} m`}
+                fontSize={11 / scale} fontFamily="JetBrains Mono"
+                fill="#ffffff" width={64 / scale} align="center"
+                x={-32 / scale} y={-6 / scale}
+              />
+            </Group>
+          )}
+          {/* Live width badge during opening drag */}
+          {openingDrag && (() => {
+            const op = plan.openings.find((o) => o.id === openingDrag.openingId);
+            const w = plan.walls.find((ww) => ww.id === (op?.wallId ?? ""));
+            if (!op || !w) return null;
+            const len = wallLength(w);
+            const cx = w.a.x + (w.b.x - w.a.x) * op.t;
+            const cy = w.a.y + (w.b.y - w.a.y) * op.t;
+            const label = openingDrag.mode === "move"
+              ? `${Math.round(op.t * len)} / ${Math.round(len)} cm`
+              : `${Math.round(op.width)} cm`;
+            return (
+              <Group x={cx} y={cy - 30 / scale} listening={false}>
+                <Rect x={-42 / scale} y={-9 / scale} width={84 / scale} height={18 / scale} fill="#1a1a1a" cornerRadius={3 / scale} />
+                <Text text={label} fontSize={11 / scale} fontFamily="JetBrains Mono" fill="#ffffff" width={84 / scale} align="center" x={-42 / scale} y={-6 / scale} />
+              </Group>
+            );
+          })()}
+          {/* Wall highlight during opening transfer */}
+          {hoverWallForDrop && (() => {
+            const w = plan.walls.find((ww) => ww.id === hoverWallForDrop);
+            if (!w) return null;
+            return (
+              <Line
+                points={[w.a.x, w.a.y, w.b.x, w.b.y]}
+                stroke="#c9a961"
+                strokeWidth={w.thickness + 4 / scale}
+                opacity={0.35}
+                lineCap="butt"
+                listening={false}
+              />
+            );
+          })()}
+
         </Layer>
       </Stage>
 
