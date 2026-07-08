@@ -372,6 +372,30 @@ export function Canvas2D({ onExportRef }: Props) {
     return null;
   };
 
+  const findFurnitureHandleAt = (p: Point): { furniture: Furniture; mode: "nw" | "ne" | "se" | "sw" | "rotate" } | null => {
+    for (let i = plan.furniture.length - 1; i >= 0; i--) {
+      const f = plan.furniture[i];
+      if (!isSelected("furniture", f.id)) continue;
+      const cos = Math.cos((-f.rotation * Math.PI) / 180);
+      const sin = Math.sin((-f.rotation * Math.PI) / 180);
+      const dx = p.x - f.x, dy = p.y - f.y;
+      const lx = dx * cos - dy * sin;
+      const ly = dx * sin + dy * cos;
+      const hit = 10 / scale;
+      const handles = [
+        { mode: "nw" as const, x: -f.width / 2, y: -f.height / 2 },
+        { mode: "ne" as const, x: f.width / 2, y: -f.height / 2 },
+        { mode: "se" as const, x: f.width / 2, y: f.height / 2 },
+        { mode: "sw" as const, x: -f.width / 2, y: f.height / 2 },
+        { mode: "rotate" as const, x: 0, y: -f.height / 2 - 28 / scale },
+      ];
+      for (const h of handles) {
+        if (Math.hypot(lx - h.x, ly - h.y) <= hit) return { furniture: f, mode: h.mode };
+      }
+    }
+    return null;
+  };
+
 
   const onMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (spaceDown || e.evt.button === 1) return;
@@ -437,6 +461,13 @@ export function Canvas2D({ onExportRef }: Props) {
     }
     if (tool === "select") {
       const additive = e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey;
+      const fh = findFurnitureHandleAt(wp);
+      if (fh) {
+        commit();
+        setSelection({ type: "furniture", id: fh.furniture.id });
+        setFurnitureTransform({ furnitureId: fh.furniture.id, mode: fh.mode, orig: { ...fh.furniture } });
+        return;
+      }
       // Priority order: furniture → opening (edges then body) → wall endpoint → wall body → section
       const f = findFurnitureAt(wp);
       if (f) {
