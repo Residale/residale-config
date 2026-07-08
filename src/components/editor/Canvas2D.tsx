@@ -31,6 +31,10 @@ export function Canvas2D({ onExportRef }: Props) {
   const [sectionStart, setSectionStart] = useState<Point | null>(null);
   const [spaceDown, setSpaceDown] = useState(false);
   const [dragHandle, setDragHandle] = useState<null | { wallId: string; end: "a" | "b" | "mid"; origA: Point; origB: Point; startPointer: Point }>(null);
+  const [openingDrag, setOpeningDrag] = useState<null | { openingId: string; origWallId: string; origT: number; origWidth: number; mode: "move" | "resizeA" | "resizeB" }>(null);
+  const [hoverWallForDrop, setHoverWallForDrop] = useState<string | null>(null);
+  const didFitRef = useRef(false);
+
 
   const s = useEditor();
   const {
