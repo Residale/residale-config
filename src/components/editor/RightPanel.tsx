@@ -18,7 +18,7 @@ const KIND_LABELS: Record<OpeningKind, string> = {
 
 export function RightPanel() {
   const {
-    plan, selection, view, updateWall, updateFurniture, updateOpening, updateSection,
+    plan, selection, view, updateWall, resizeWallLength, updateFurniture, updateOpening, updateSection,
     deleteSelected, showGrid, showDimensions, snapEnabled, grid,
     showExteriorDims, showInteriorDims, toggleExteriorDims, toggleInteriorDims,
     toggleGrid, toggleDimensions, toggleSnap, sectionDisplay, setSectionDisplay, setCeilingHeight, setRoof,
@@ -110,13 +110,7 @@ export function RightPanel() {
               label="Longueur (cm)"
               value={Math.round(wallLength(wall))}
               min={10} max={5000}
-              onChange={(v) => {
-                const dx = wall.b.x - wall.a.x;
-                const dy = wall.b.y - wall.a.y;
-                const cur = Math.hypot(dx, dy) || 1;
-                const k = v / cur;
-                updateWall(wall.id, { b: { x: wall.a.x + dx * k, y: wall.a.y + dy * k } });
-              }}
+              onChange={(v) => resizeWallLength(wall.id, v)}
             />
             <div>
               <div className="mb-1 block text-xs font-medium text-muted-foreground">Type</div>

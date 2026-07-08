@@ -6,7 +6,8 @@ import { CATALOG } from "@/lib/editor/furniture-catalog";
 import { autoSectionsFromPlan, computeSection } from "@/lib/editor/sections";
 
 const MARGIN_X = 90;
-const MARGIN_Y = 90;
+const TOP_MARGIN = 130;
+const BOTTOM_MARGIN = 90;
 
 export function CanvasSection() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -49,20 +50,32 @@ export function CanvasSection() {
   }
 
   const totalLen = data.length;
-  const totalH = data.ceilingH + 60; // include some ground below
+  const cuts = [...data.cuts].sort((a, b) => a.start - b.start || a.end - b.end);
+  const wallCuts = cuts.filter((c) => c.type === "wall");
+  const roofMaxH = (() => {
+    if (!plan.roof || !wallCuts.length) return data.ceilingH;
+    const spanStart = Math.min(...wallCuts.map((c) => c.start));
+    const spanEnd = Math.max(...wallCuts.map((c) => c.end));
+    const xL = spanStart - plan.roof.overhang;
+    const xR = spanEnd + plan.roof.overhang;
+    if (plan.roof.kind === "flat") return Math.max(data.ceilingH, plan.roof.eaveHeight + 20);
+    if (plan.roof.kind === "mono") return Math.max(data.ceilingH, plan.roof.eaveHeight + Math.tan((plan.roof.pitch * Math.PI) / 180) * (xR - xL));
+    return Math.max(data.ceilingH, plan.roof.eaveHeight + Math.tan((plan.roof.pitch * Math.PI) / 180) * ((spanEnd - spanStart) / 2 + plan.roof.overhang));
+  })();
+  const belowGround = 70;
+  const totalH = roofMaxH + belowGround;
 
   // Fit-to-view scale
   const availW = Math.max(200, size.w - MARGIN_X * 2 - 120);
-  const availH = Math.max(200, size.h - MARGIN_Y * 2 - 80);
+  const availH = Math.max(200, size.h - TOP_MARGIN - BOTTOM_MARGIN);
   const scale = Math.min(availW / totalLen, availH / totalH);
   const originX = MARGIN_X;
-  const originY = MARGIN_Y + totalH * scale; // ground line (y=0 world) sits here; up is negative y in canvas
+  const originY = TOP_MARGIN + roofMaxH * scale; // ground line (y=0 world) sits here; up is negative y in canvas
 
   const toX = (cm: number) => originX + cm * scale;
   const toY = (heightCm: number) => originY - heightCm * scale;
 
-  // Sort cuts along the line
-  const cuts = [...data.cuts].sort((a, b) => a.start - b.start || a.end - b.end);
+  const topDimY = Math.max(24, TOP_MARGIN - 34);
 
   return (
     <div ref={containerRef} className="relative h-full w-full overflow-hidden" style={{ background: theme.background }}>
@@ -91,7 +104,6 @@ export function CanvasSection() {
 
           {/* Roof profile */}
           {plan.roof && (() => {
-            const wallCuts = cuts.filter((c) => c.type === "wall");
             if (!wallCuts.length) return null;
             const spanStart = Math.min(...wallCuts.map((c) => c.start));
             const spanEnd = Math.max(...wallCuts.map((c) => c.end));
@@ -240,21 +252,20 @@ export function CanvasSection() {
 
           {/* Horizontal dimensions along the top — based on actual cut extents (not the padded section line) */}
           {sectionDisplay.showHorizontalDims && cuts.length > 0 && (() => {
-            const wallCuts = cuts.filter((c) => c.type === "wall");
             const spanStart = wallCuts.length ? Math.min(...wallCuts.map((c) => c.start)) : cuts[0].start;
             const spanEnd = wallCuts.length ? Math.max(...wallCuts.map((c) => c.end)) : cuts[cuts.length - 1].end;
             const spanLen = spanEnd - spanStart;
             return (
               <Group>
                 <Line
-                  points={[toX(spanStart), MARGIN_Y - 30, toX(spanEnd), MARGIN_Y - 30]}
+                  points={[toX(spanStart), topDimY, toX(spanEnd), topDimY]}
                   stroke={theme.dimension} strokeWidth={1}
                 />
-                <Line points={[toX(spanStart), MARGIN_Y - 24, toX(spanStart), MARGIN_Y - 36]} stroke={theme.dimension} strokeWidth={1} />
-                <Line points={[toX(spanEnd), MARGIN_Y - 24, toX(spanEnd), MARGIN_Y - 36]} stroke={theme.dimension} strokeWidth={1} />
+                <Line points={[toX(spanStart), topDimY + 6, toX(spanStart), topDimY - 6]} stroke={theme.dimension} strokeWidth={1} />
+                <Line points={[toX(spanEnd), topDimY + 6, toX(spanEnd), topDimY - 6]} stroke={theme.dimension} strokeWidth={1} />
                 <Text
                   x={toX((spanStart + spanEnd) / 2) - 40}
-                  y={MARGIN_Y - 46}
+                  y={topDimY - 16}
                   width={80} align="center"
                   text={`${(spanLen / 100).toFixed(2)} m`}
                   fontSize={11} fontFamily="JetBrains Mono" fill={theme.dimension}
@@ -262,9 +273,9 @@ export function CanvasSection() {
                 {/* per-cut widths (walls only) */}
                 {wallCuts.map((c, i) => (
                   <Group key={`hd${i}`}>
-                    <Line points={[toX(c.start), MARGIN_Y - 12, toX(c.end), MARGIN_Y - 12]} stroke={theme.dimension} strokeWidth={0.6} />
+                    <Line points={[toX(c.start), topDimY + 18, toX(c.end), topDimY + 18]} stroke={theme.dimension} strokeWidth={0.6} />
                     <Text
-                      x={toX((c.start + c.end) / 2) - 20} y={MARGIN_Y - 24}
+                      x={toX((c.start + c.end) / 2) - 20} y={topDimY + 6}
                       width={40} align="center"
                       text={`${Math.round(c.end - c.start)}`}
                       fontSize={9} fontFamily="JetBrains Mono" fill={theme.dimension} opacity={0.8}
