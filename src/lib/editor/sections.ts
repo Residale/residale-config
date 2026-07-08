@@ -1,6 +1,11 @@
 import type { Furniture, Opening, Plan, Point, SectionLine, Wall } from "./types";
+import { openingHeight, openingSill } from "./opening-defaults";
 
-/** Auto-generate 4 section lines (N/S/E/W) from the plan bounding box. */
+/**
+ * Auto-generate 4 section lines passing through the geometric center of the plan.
+ * Each section is a horizontal or vertical line across the entire bbox with padding.
+ * Names encode the viewing direction: N = looking north (from south), etc.
+ */
 export function autoSectionsFromPlan(plan: Plan): SectionLine[] {
   if (plan.walls.length === 0) return [];
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -10,21 +15,19 @@ export function autoSectionsFromPlan(plan: Plan): SectionLine[] {
     maxX = Math.max(maxX, w.a.x, w.b.x);
     maxY = Math.max(maxY, w.a.y, w.b.y);
   }
-  const pad = 50;
-  const w = maxX - minX;
-  const h = maxY - minY;
-  // 4 sections: two horizontal (Nord and Sud) at 1/3 and 2/3, two vertical (Ouest, Est)
-  const yN = minY + h * 0.33;
-  const yS = minY + h * 0.66;
-  const xW = minX + w * 0.33;
-  const xE = minX + w * 0.66;
+  const pad = 80;
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  // 2 horizontal cuts (looking N and S) at y = cy, 2 vertical cuts (looking E and O) at x = cx.
+  // We build them slightly offset so both directions can be rendered from the same axis.
   return [
-    { id: "__auto_N", name: "N", a: { x: minX - pad, y: yN }, b: { x: maxX + pad, y: yN } },
-    { id: "__auto_S", name: "S", a: { x: minX - pad, y: yS }, b: { x: maxX + pad, y: yS } },
-    { id: "__auto_O", name: "O", a: { x: xW, y: minY - pad }, b: { x: xW, y: maxY + pad } },
-    { id: "__auto_E", name: "E", a: { x: xE, y: minY - pad }, b: { x: xE, y: maxY + pad } },
+    { id: "__auto_N", name: "N", a: { x: minX - pad, y: cy }, b: { x: maxX + pad, y: cy } },
+    { id: "__auto_S", name: "S", a: { x: maxX + pad, y: cy }, b: { x: minX - pad, y: cy } },
+    { id: "__auto_O", name: "O", a: { x: cx, y: maxY + pad }, b: { x: cx, y: minY - pad } },
+    { id: "__auto_E", name: "E", a: { x: cx, y: minY - pad }, b: { x: cx, y: maxY + pad } },
   ];
 }
+
 
 
 
