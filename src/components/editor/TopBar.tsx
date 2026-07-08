@@ -1,9 +1,10 @@
 import { useEditor } from "@/lib/editor/store";
 
-export function TopBar({ onExportPNG, onExportJSON, onImportJSON }: {
+export function TopBar({ onExportPNG, onExportJSON, onImportJSON, onExportDossier }: {
   onExportPNG: () => void;
   onExportJSON: () => void;
   onImportJSON: () => void;
+  onExportDossier: () => void;
 }) {
   const { projectName, setProjectName, view, setView, undo, redo, clearAll } = useEditor();
 
@@ -34,7 +35,7 @@ export function TopBar({ onExportPNG, onExportJSON, onImportJSON }: {
             onClick={() => setView(v)}
             className={`rounded px-3 py-1 text-xs font-medium transition-colors ${view === v ? "bg-ink text-paper" : "text-muted-foreground hover:text-ink"}`}
           >
-            {v === "2d" ? "Plan 2D" : v === "3d" ? "Vue 3D" : v === "section" ? "Coupe" : "Split"}
+            {v === "2d" ? "Plan 2D" : v === "3d" ? "Vue 3D" : v === "section" ? "Coupes" : "Split"}
           </button>
         ))}
       </div>
@@ -45,11 +46,17 @@ export function TopBar({ onExportPNG, onExportJSON, onImportJSON }: {
         <div className="mx-1 h-6 w-px bg-border" />
         <IconBtn onClick={onImportJSON} label="Importer"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></IconBtn>
         <IconBtn onClick={onExportJSON} label="Exporter JSON"><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M4 21h16"/></IconBtn>
-        <button onClick={onExportPNG} className="ml-1 flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-paper transition-colors hover:bg-ink/85">
+        <button onClick={onExportPNG} className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-ink transition-colors hover:border-brass hover:bg-brass/5" title="Exporter la vue courante en PNG">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5">
             <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/>
           </svg>
-          Exporter PNG
+          PNG
+        </button>
+        <button onClick={onExportDossier} className="ml-1 flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-paper transition-colors hover:bg-ink/85" title="Télécharger le dossier PDF complet (plan 2D, coupes, 3D, tableau des surfaces)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5">
+            <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M12 18v-6"/><path d="M9 15l3 3 3-3"/>
+          </svg>
+          Dossier PDF
         </button>
         <button
           onClick={() => confirm("Effacer tout le plan ?") && clearAll()}
