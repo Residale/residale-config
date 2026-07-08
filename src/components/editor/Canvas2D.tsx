@@ -505,9 +505,22 @@ export function Canvas2D({ onExportRef }: Props) {
       const wh = findWallNear(wp);
       if (wh) {
         const item: SelectionItem = { type: "wall", id: wh.wall.id };
+        const alreadySelected = isSelected("wall", wh.wall.id);
         selectItem(item, additive);
         if (additive) return;
         const endHit = wallEndpointHit(wp, wh.wall);
+        if (!endHit && alreadySelected && selectionItems.length > 1) {
+          commit();
+          const items = selectionItems;
+          setMoveDrag({
+            items,
+            startPointer: wp,
+            furniture: plan.furniture.filter((x) => items.some((it) => it.type === "furniture" && it.id === x.id)),
+            walls: plan.walls.filter((x) => items.some((it) => it.type === "wall" && it.id === x.id)),
+            sections: plan.sections.filter((x) => items.some((it) => it.type === "section" && it.id === x.id)),
+          });
+          return;
+        }
         if (endHit) {
           setDragHandle({
             wallId: wh.wall.id,
