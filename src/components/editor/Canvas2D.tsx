@@ -1531,6 +1531,66 @@ export function Canvas2D({ onExportRef }: Props) {
       <div className="pointer-events-none absolute bottom-3 right-3 rounded-md bg-card/90 px-2.5 py-1 font-mono-tab text-[11px] text-muted-foreground shadow-panel backdrop-blur">
         {Math.round(scale * 100)}% · échelle 1:{Math.round(100 / scale)}
       </div>
+
+      {contextMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }} />
+          <div
+            className="absolute z-50 min-w-[200px] rounded-md border border-border bg-card/95 py-1 text-xs shadow-panel backdrop-blur"
+            style={{ left: contextMenu.screen.x, top: contextMenu.screen.y }}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            {contextMenu.target ? (() => {
+              const t = contextMenu.target;
+              const furn = t.type === "furniture" ? plan.furniture.find((x) => x.id === t.id) : null;
+              const op = t.type === "opening" ? plan.openings.find((x) => x.id === t.id) : null;
+              const close = () => setContextMenu(null);
+              const Item = ({ label, onClick, danger }: { label: string; onClick: () => void; danger?: boolean }) => (
+                <button
+                  onClick={() => { onClick(); close(); }}
+                  className={`flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-brass/10 ${danger ? "text-destructive" : ""}`}
+                >{label}</button>
+              );
+              return (
+                <>
+                  <Item label="Dupliquer" onClick={() => s.duplicateItems([t])} />
+                  <Item label="Copier" onClick={() => { clipboardRef.current = [t]; }} />
+                  {furn && (
+                    <>
+                      <div className="my-1 h-px bg-border" />
+                      <Item label="Pivoter 90°" onClick={() => updateFurniture(furn.id, { rotation: (furn.rotation + 90) % 360 })} />
+                      <Item label="Retourner 180°" onClick={() => updateFurniture(furn.id, { rotation: (furn.rotation + 180) % 360 })} />
+                      <Item label={furn.locked ? "Déverrouiller" : "Verrouiller"} onClick={() => updateFurniture(furn.id, { locked: !furn.locked })} />
+                      <Item label={furn.anchorToWall ? "Détacher du mur" : "Ancrer au mur"} onClick={() => updateFurniture(furn.id, { anchorToWall: !furn.anchorToWall })} />
+                    </>
+                  )}
+                  {op && op.type === "door" && (
+                    <>
+                      <div className="my-1 h-px bg-border" />
+                      <Item label="Inverser charnière" onClick={() => s.flipOpeningHinge(op.id)} />
+                      <Item label="Inverser sens" onClick={() => s.flipOpeningSwing(op.id)} />
+                    </>
+                  )}
+                  <div className="my-1 h-px bg-border" />
+                  <Item label="Supprimer" danger onClick={() => deleteSelected()} />
+                </>
+              );
+            })() : (
+              <>
+                <button onClick={() => { setTool("wall"); setContextMenu(null); }} className="flex w-full px-3 py-1.5 text-left hover:bg-brass/10">Tracer un mur</button>
+                <button onClick={() => { setTool("rectangle"); setContextMenu(null); }} className="flex w-full px-3 py-1.5 text-left hover:bg-brass/10">Créer une pièce</button>
+                <button onClick={() => { setTool("section"); setContextMenu(null); }} className="flex w-full px-3 py-1.5 text-left hover:bg-brass/10">Ligne de coupe</button>
+                {clipboardRef.current.length > 0 && (
+                  <>
+                    <div className="my-1 h-px bg-border" />
+                    <button onClick={() => { s.duplicateItems(clipboardRef.current); setContextMenu(null); }} className="flex w-full px-3 py-1.5 text-left hover:bg-brass/10">Coller</button>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
