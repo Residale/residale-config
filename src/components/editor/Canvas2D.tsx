@@ -33,6 +33,7 @@ export function Canvas2D({ onExportRef }: Props) {
   const [dragHandle, setDragHandle] = useState<null | { wallId: string; end: "a" | "b" | "mid"; origA: Point; origB: Point; startPointer: Point }>(null);
   const [openingDrag, setOpeningDrag] = useState<null | { openingId: string; origWallId: string; origT: number; origWidth: number; mode: "move" | "resizeA" | "resizeB" }>(null);
   const [hoverWallForDrop, setHoverWallForDrop] = useState<string | null>(null);
+  const [dragPreview, setDragPreview] = useState<null | { kind: "opening" | "furniture"; pos: Point; width: number; height: number; wallId?: string; type?: "door" | "window" }>(null);
   const didFitRef = useRef(false);
 
 
@@ -1010,8 +1011,28 @@ export function Canvas2D({ onExportRef }: Props) {
       ref={containerRef}
       className="relative h-full w-full overflow-hidden"
       style={{ background: theme.background, cursor: cursorStyle }}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={onDropHtml}
+      onDragOver={(e) => {
+        e.preventDefault();
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const world = toWorld({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+        const types = e.dataTransfer.types;
+        if (types.includes("application/x-opening")) {
+          const hit = findWallNear(world);
+          if (hit) {
+            const ang = wallAngle(hit.wall);
+            const cx = hit.wall.a.x + Math.cos(ang) * wallLength(hit.wall) * hit.t;
+            const cy = hit.wall.a.y + Math.sin(ang) * wallLength(hit.wall) * hit.t;
+            setDragPreview({ kind: "opening", pos: { x: cx, y: cy }, width: 100, height: hit.wall.thickness, wallId: hit.wall.id });
+          } else {
+            setDragPreview({ kind: "opening", pos: world, width: 100, height: 30 });
+          }
+        } else if (types.includes("application/x-furniture")) {
+          setDragPreview({ kind: "furniture", pos: snapFurnitureToWalls(world, 60, 60), width: 60, height: 60 });
+        }
+      }}
+      onDragLeave={() => setDragPreview(null)}
+      onDrop={(e) => { setDragPreview(null); onDropHtml(e); }}
     >
       <Stage
         ref={stageRef}
