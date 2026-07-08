@@ -93,6 +93,32 @@ export function Canvas2D({ onExportRef }: Props) {
       if ((e.key === "Delete" || e.key === "Backspace") && selection) { e.preventDefault(); deleteSelected(); }
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
       if ((e.metaKey || e.ctrlKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) { e.preventDefault(); redo(); }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "c" && selectionItems.length) {
+        e.preventDefault();
+        clipboardRef.current = selectionItems;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "v" && clipboardRef.current.length) {
+        e.preventDefault();
+        s.duplicateItems(clipboardRef.current);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d" && selectionItems.length) {
+        e.preventDefault();
+        s.duplicateItems(selectionItems);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        const items: SelectionItem[] = [
+          ...s.plan.walls.map((w) => ({ type: "wall" as const, id: w.id })),
+          ...s.plan.openings.map((o) => ({ type: "opening" as const, id: o.id })),
+          ...s.plan.furniture.map((f) => ({ type: "furniture" as const, id: f.id })),
+          ...s.plan.labels.map((l) => ({ type: "label" as const, id: l.id })),
+          ...s.plan.sections.map((sec) => ({ type: "section" as const, id: sec.id })),
+        ];
+        setSelection(items.length ? { type: "multi", items } : null);
+      }
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === "+") { e.preventDefault(); setScale((v) => Math.min(6, v * 1.1)); }
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === "-") { e.preventDefault(); setScale((v) => Math.max(0.15, v / 1.1)); }
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === "0") { e.preventDefault(); fitToContent(); }
 
       // Tool shortcuts (no modifier)
       if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
@@ -130,7 +156,7 @@ export function Canvas2D({ onExportRef }: Props) {
     window.addEventListener("keydown", kd);
     window.addEventListener("keyup", ku);
     return () => { window.removeEventListener("keydown", kd); window.removeEventListener("keyup", ku); };
-  }, [selection, deleteSelected, undo, redo, setSelection, setTool, drawing, s, tool]);
+  }, [selection, selectionItems, deleteSelected, undo, redo, setSelection, setTool, drawing, s, tool, fitToContent]);
 
   const toWorld = useCallback(
     (p: Point): Point => ({ x: (p.x - pos.x) / scale, y: (p.y - pos.y) / scale }),
