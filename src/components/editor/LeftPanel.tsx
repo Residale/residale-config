@@ -20,7 +20,6 @@ const TOOLS: ToolDef[] = [
   { id: "select", label: "Sélection", hint: "V", icon: <Icon><path d="M4 4l7 16 2-7 7-2z"/></Icon> },
   { id: "wall", label: "Mur", hint: "W · clic-clic · Échap pour terminer", icon: <Icon><path d="M3 20h18"/><path d="M6 20V8h12v12"/></Icon> },
   { id: "rectangle", label: "Pièce", hint: "R · 2 clics", icon: <Icon><rect x="4" y="5" width="16" height="14" rx="1"/></Icon> },
-  { id: "section", label: "Coupe", hint: "S · 2 clics", icon: <Icon><path d="M3 12h18"/><path d="M6 8l-3 4 3 4"/><path d="M18 8l3 4-3 4"/></Icon> },
   { id: "eraser", label: "Gomme", hint: "E", icon: <Icon><path d="M3 17l6 6h12v-2H10.4L4.4 15z"/><path d="M20 8L14 2 3 13l6 6"/></Icon> },
 ];
 
