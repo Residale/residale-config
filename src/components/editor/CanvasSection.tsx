@@ -13,10 +13,10 @@ export function CanvasSection() {
   const stageRef = useRef<Konva.Stage | null>(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
 
-  const { plan, sections, activeSectionId, setActiveSection, sectionDisplay, theme } = {
-    ...useEditor(),
-    sections: useEditor((s) => s.plan.sections),
-  };
+  const { plan, activeSectionId, setActiveSection, sectionDisplay, theme } = useEditor();
+  const userSections = plan.sections;
+  const autoSections = useMemo(() => (userSections.length ? [] : autoSectionsFromPlan(plan)), [plan, userSections.length]);
+  const sections = userSections.length ? userSections : autoSections;
 
   useEffect(() => {
     if (!containerRef.current) return;
