@@ -86,6 +86,7 @@ export function EditorShell() {
         </main>
         <RightPanel />
       </div>
+      <CommandPalette />
     </div>
   );
 }
