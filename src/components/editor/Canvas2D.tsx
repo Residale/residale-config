@@ -1125,6 +1125,7 @@ export function Canvas2D({ onExportRef }: Props) {
                 <Text text={label} fontSize={11 / scale} fontFamily="JetBrains Mono" fill="#ffffff" width={84 / scale} align="center" x={-42 / scale} y={-6 / scale} />
               </Group>
             );
+          })()}
           {/* Drag preview overlay — shows where the item will land */}
           {dragPreview && dragPreview.kind === "opening" && dragPreview.wallId && (() => {
             const w = plan.walls.find((ww) => ww.id === dragPreview.wallId);
