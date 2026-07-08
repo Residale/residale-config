@@ -638,59 +638,87 @@ export function Canvas2D({ onExportRef }: Props) {
     );
   };
 
-  // Overall perimeter dimensions (unique X and Y extents of walls)
+  // Overall perimeter dimensions — aligned on real wall faces (outer for "extérieur", inner for "intérieur")
   const perimeterDims = useMemo(() => {
     if (!showExteriorDims && !showInteriorDims) return null;
     if (plan.walls.length === 0) return null;
-    // Collect distinct X and Y values
-    const xs = new Set<number>();
-    const ys = new Set<number>();
+
+    let outMinX = Infinity, outMinY = Infinity, outMaxX = -Infinity, outMaxY = -Infinity;
+    let cenMinX = Infinity, cenMinY = Infinity, cenMaxX = -Infinity, cenMaxY = -Infinity;
+    let maxT = 0;
     for (const w of plan.walls) {
-      xs.add(Math.round(w.a.x)); xs.add(Math.round(w.b.x));
-      ys.add(Math.round(w.a.y)); ys.add(Math.round(w.b.y));
+      const dx = w.b.x - w.a.x, dy = w.b.y - w.a.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len, ny = dx / len;
+      const h = w.thickness / 2;
+      const corners: Point[] = [
+        { x: w.a.x + nx * h, y: w.a.y + ny * h },
+        { x: w.a.x - nx * h, y: w.a.y - ny * h },
+        { x: w.b.x + nx * h, y: w.b.y + ny * h },
+        { x: w.b.x - nx * h, y: w.b.y - ny * h },
+      ];
+      for (const c of corners) {
+        outMinX = Math.min(outMinX, c.x); outMinY = Math.min(outMinY, c.y);
+        outMaxX = Math.max(outMaxX, c.x); outMaxY = Math.max(outMaxY, c.y);
+      }
+      cenMinX = Math.min(cenMinX, w.a.x, w.b.x);
+      cenMinY = Math.min(cenMinY, w.a.y, w.b.y);
+      cenMaxX = Math.max(cenMaxX, w.a.x, w.b.x);
+      cenMaxY = Math.max(cenMaxY, w.a.y, w.b.y);
+      if (w.thickness > maxT) maxT = w.thickness;
     }
-    const xArr = [...xs].sort((a, b) => a - b);
-    const yArr = [...ys].sort((a, b) => a - b);
-    const minX = xArr[0], maxX = xArr[xArr.length - 1];
-    const minY = yArr[0], maxY = yArr[yArr.length - 1];
-    const OFFSET = 60 / scale + 40; // outside offset
+    const inMinX = cenMinX + maxT / 2;
+    const inMaxX = cenMaxX - maxT / 2;
+    const inMinY = cenMinY + maxT / 2;
+    const inMaxY = cenMaxY - maxT / 2;
+
     const col = theme.dimension;
     const nodes: React.ReactNode[] = [];
+    const tick = 5 / scale;
+    const gap = 3 / scale;
 
-    const drawSegment = (x0: number, y0: number, x1: number, y1: number, len: number, horizontal: boolean, key: string) => {
+    const drawH = (x0: number, x1: number, yFace: number, yDim: number, key: string) => {
+      const len = Math.abs(x1 - x0);
       const label = len >= 100 ? `${(len / 100).toFixed(2)} m` : `${Math.round(len)} cm`;
-      const tick = 5 / scale;
-      nodes.push(<Line key={`ln${key}`} points={[x0, y0, x1, y1]} stroke={col} strokeWidth={0.8 / scale} listening={false} />);
-      // Ticks
-      if (horizontal) {
-        nodes.push(<Line key={`t1${key}`} points={[x0, y0 - tick, x0, y0 + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
-        nodes.push(<Line key={`t2${key}`} points={[x1, y0 - tick, x1, y0 + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
-        nodes.push(<Text key={`tx${key}`} x={(x0 + x1) / 2} y={y0 - 4 / scale} text={label} fontSize={11 / scale} fontFamily="JetBrains Mono" fill={col} align="center" offsetX={30 / scale} width={60 / scale} offsetY={13 / scale} listening={false} />);
-      } else {
-        nodes.push(<Line key={`t1${key}`} points={[x0 - tick, y0, x0 + tick, y0]} stroke={col} strokeWidth={1 / scale} listening={false} />);
-        nodes.push(<Line key={`t2${key}`} points={[x1 - tick, y1, x1 + tick, y1]} stroke={col} strokeWidth={1 / scale} listening={false} />);
-        nodes.push(<Text key={`tx${key}`} x={x0 - 6 / scale} y={(y0 + y1) / 2} text={label} fontSize={11 / scale} fontFamily="JetBrains Mono" fill={col} rotation={-90} offsetY={0} listening={false} />);
-      }
+      const dir = yDim >= yFace ? 1 : -1;
+      nodes.push(<Line key={`e1${key}`} points={[x0, yFace + dir * gap, x0, yDim + dir * tick]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
+      nodes.push(<Line key={`e2${key}`} points={[x1, yFace + dir * gap, x1, yDim + dir * tick]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
+      nodes.push(<Line key={`d${key}`} points={[x0, yDim, x1, yDim]} stroke={col} strokeWidth={0.8 / scale} listening={false} />);
+      nodes.push(<Line key={`t1${key}`} points={[x0 - tick, yDim - tick, x0 + tick, yDim + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
+      nodes.push(<Line key={`t2${key}`} points={[x1 - tick, yDim - tick, x1 + tick, yDim + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
+      nodes.push(
+        <Text key={`x${key}`} x={(x0 + x1) / 2 - 60 / scale} y={yDim + (dir > 0 ? 5 / scale : -18 / scale)}
+          width={120 / scale} align="center" text={label}
+          fontSize={11 / scale} fontFamily="JetBrains Mono" fill={col} listening={false} />
+      );
     };
 
+    const drawV = (y0: number, y1: number, xFace: number, xDim: number, key: string) => {
+      const len = Math.abs(y1 - y0);
+      const label = len >= 100 ? `${(len / 100).toFixed(2)} m` : `${Math.round(len)} cm`;
+      const dir = xDim >= xFace ? 1 : -1;
+      nodes.push(<Line key={`e1${key}`} points={[xFace + dir * gap, y0, xDim + dir * tick, y0]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
+      nodes.push(<Line key={`e2${key}`} points={[xFace + dir * gap, y1, xDim + dir * tick, y1]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
+      nodes.push(<Line key={`d${key}`} points={[xDim, y0, xDim, y1]} stroke={col} strokeWidth={0.8 / scale} listening={false} />);
+      nodes.push(<Line key={`t1${key}`} points={[xDim - tick, y0 - tick, xDim + tick, y0 + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
+      nodes.push(<Line key={`t2${key}`} points={[xDim - tick, y1 - tick, xDim + tick, y1 + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
+      nodes.push(
+        <Text key={`x${key}`} x={xDim + (dir > 0 ? 5 / scale : -18 / scale)} y={(y0 + y1) / 2 + 60 / scale}
+          text={label} fontSize={11 / scale} fontFamily="JetBrains Mono" fill={col}
+          rotation={-90} width={120 / scale} align="center" listening={false} />
+      );
+    };
+
+    const OFF1 = 40 / scale;
+    const OFF2 = 40 / scale;
+
     if (showExteriorDims) {
-      // Overall bottom (horizontal) — total width
-      const yBottom = maxY + OFFSET;
-      drawSegment(minX, yBottom, maxX, yBottom, maxX - minX, true, "extH");
-      // Left overall (vertical)
-      const xLeft = minX - OFFSET;
-      drawSegment(xLeft, minY, xLeft, maxY, maxY - minY, false, "extV");
+      drawH(outMinX, outMaxX, outMaxY, outMaxY + OFF1, "extH_bot");
+      drawV(outMinY, outMaxY, outMinX, outMinX - OFF1, "extV_left");
     }
     if (showInteriorDims) {
-      // Chained dimensions between successive x values (top) and y values (right)
-      const yTop = minY - OFFSET;
-      for (let i = 0; i < xArr.length - 1; i++) {
-        drawSegment(xArr[i], yTop, xArr[i + 1], yTop, xArr[i + 1] - xArr[i], true, `chH${i}`);
-      }
-      const xRight = maxX + OFFSET;
-      for (let i = 0; i < yArr.length - 1; i++) {
-        drawSegment(xRight, yArr[i], xRight, yArr[i + 1], yArr[i + 1] - yArr[i], false, `chV${i}`);
-      }
+      drawH(inMinX, inMaxX, outMinY, outMinY - OFF2, "intH_top");
+      drawV(inMinY, inMaxY, outMaxX, outMaxX + OFF2, "intV_right");
     }
     return nodes;
   }, [plan.walls, scale, theme.dimension, showExteriorDims, showInteriorDims]);
