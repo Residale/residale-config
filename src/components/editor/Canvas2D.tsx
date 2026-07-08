@@ -408,7 +408,9 @@ export function Canvas2D({ onExportRef }: Props) {
   const findFurnitureHandleAt = (p: Point): { furniture: Furniture; mode: "nw" | "ne" | "se" | "sw" | "rotate" } | null => {
     for (let i = plan.furniture.length - 1; i >= 0; i--) {
       const f = plan.furniture[i];
+      if (f.locked) continue;
       if (!isSelected("furniture", f.id)) continue;
+
       const cos = Math.cos((-f.rotation * Math.PI) / 180);
       const sin = Math.sin((-f.rotation * Math.PI) / 180);
       const dx = p.x - f.x, dy = p.y - f.y;
