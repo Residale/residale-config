@@ -849,7 +849,7 @@ export function Canvas2D({ onExportRef }: Props) {
             <Rect key={`j${i}`} x={j.p.x - j.radius} y={j.p.y - j.radius} width={j.radius * 2} height={j.radius * 2} fill={theme.wallFill} listening={false} />
           ))}
           {plan.openings.map(renderOpening)}
-          {!(showExteriorDims || showInteriorDims) && plan.walls.map(renderDim)}
+          {/* per-wall dims removed — only overall exterior/interior perimeter dims are shown */}
           {perimeterDims}
           {plan.sections.map(renderSection)}
           {previewLine}{previewRect}{previewSection}
