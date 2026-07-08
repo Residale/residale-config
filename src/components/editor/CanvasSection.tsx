@@ -6,11 +6,12 @@ import { autoSectionsFromPlan, computeSection } from "@/lib/editor/sections";
 import type { SectionLine } from "@/lib/editor/types";
 
 const NAME_MAP: Record<string, string> = {
-  N: "Coupe Nord",
-  S: "Coupe Sud",
-  E: "Coupe Est",
-  O: "Coupe Ouest",
+  N: "Coupe — Façade Nord",
+  S: "Coupe — Façade Sud",
+  E: "Coupe — Façade Est",
+  O: "Coupe — Façade Ouest",
 };
+
 
 export function CanvasSection() {
   const { plan, theme } = useEditor();
