@@ -1125,7 +1125,40 @@ export function Canvas2D({ onExportRef }: Props) {
                 <Text text={label} fontSize={11 / scale} fontFamily="JetBrains Mono" fill="#ffffff" width={84 / scale} align="center" x={-42 / scale} y={-6 / scale} />
               </Group>
             );
+          {/* Drag preview overlay — shows where the item will land */}
+          {dragPreview && dragPreview.kind === "opening" && dragPreview.wallId && (() => {
+            const w = plan.walls.find((ww) => ww.id === dragPreview.wallId);
+            if (!w) return null;
+            const ang = wallAngle(w);
+            return (
+              <>
+                <Line
+                  points={[w.a.x, w.a.y, w.b.x, w.b.y]}
+                  stroke="#c9a961" strokeWidth={w.thickness + 4 / scale}
+                  opacity={0.28} lineCap="butt" listening={false}
+                />
+                <Rect
+                  x={dragPreview.pos.x - dragPreview.width / 2}
+                  y={dragPreview.pos.y - w.thickness / 2}
+                  width={dragPreview.width} height={w.thickness}
+                  rotation={(ang * 180) / Math.PI}
+                  offsetX={0} offsetY={0}
+                  stroke="#c9a961" strokeWidth={1.5 / scale} dash={[6 / scale, 4 / scale]}
+                  fill="rgba(201,169,97,0.15)" listening={false}
+                />
+              </>
+            );
           })()}
+          {dragPreview && dragPreview.kind === "furniture" && (
+            <Rect
+              x={dragPreview.pos.x - dragPreview.width / 2}
+              y={dragPreview.pos.y - dragPreview.height / 2}
+              width={dragPreview.width} height={dragPreview.height}
+              stroke="#c9a961" strokeWidth={1.5 / scale} dash={[6 / scale, 4 / scale]}
+              fill="rgba(201,169,97,0.12)" listening={false}
+            />
+          )}
+
           {/* Wall highlight during opening transfer */}
           {hoverWallForDrop && (() => {
             const w = plan.walls.find((ww) => ww.id === hoverWallForDrop);
