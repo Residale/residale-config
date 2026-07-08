@@ -333,6 +333,33 @@ export function Canvas2D({ onExportRef }: Props) {
     return { a, b };
   };
 
+  const wallAxisKind = (a: Point, b: Point): "horizontal" | "vertical" | null => {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1) return null;
+    const deg = Math.abs((Math.atan2(dy, dx) * 180) / Math.PI) % 180;
+    if (deg <= 10 || deg >= 170) return "horizontal";
+    if (Math.abs(deg - 90) <= 10) return "vertical";
+    return null;
+  };
+
+  const translateWallBody = (origA: Point, origB: Point, dx: number, dy: number) => {
+    const axis = wallAxisKind(origA, origB);
+    if (axis === "horizontal") {
+      const y = Math.round(origA.y + dy);
+      return { a: { x: Math.round(origA.x), y }, b: { x: Math.round(origB.x), y } };
+    }
+    if (axis === "vertical") {
+      const x = Math.round(origA.x + dx);
+      return { a: { x, y: Math.round(origA.y) }, b: { x, y: Math.round(origB.y) } };
+    }
+    return normalizeWallAxis(
+      { x: Math.round(origA.x + dx), y: Math.round(origA.y + dy) },
+      { x: Math.round(origB.x + dx), y: Math.round(origB.y + dy) },
+    );
+  };
+
   const snapWallEndpointToNode = (p: Point, ignoreWallId: string) => {
     const threshold = 18 / scale;
     let best: { d: number; p: Point } | null = null;
@@ -748,12 +775,8 @@ export function Canvas2D({ onExportRef }: Props) {
       if (dragHandle.end === "mid") {
         const dx = wp.x - dragHandle.startPointer.x;
         const dy = wp.y - dragHandle.startPointer.y;
-        // Fine 1 cm translation (no coarse grid snap) — hold Shift on drop for grid alignment
-        const axisLocked = normalizeWallAxis(
-          { x: Math.round(dragHandle.origA.x + dx), y: Math.round(dragHandle.origA.y + dy) },
-          { x: Math.round(dragHandle.origB.x + dx), y: Math.round(dragHandle.origB.y + dy) },
-        );
-        updateWall(w.id, snapWallMove(axisLocked.a, axisLocked.b, new Set([w.id])));
+        const moved = translateWallBody(dragHandle.origA, dragHandle.origB, dx, dy);
+        updateWall(w.id, snapWallMove(moved.a, moved.b, new Set([w.id])));
       } else {
         const fixed = dragHandle.end === "a" ? dragHandle.origB : dragHandle.origA;
         const target = snapWallEndpoint(fixed, { x: Math.round(wp.x), y: Math.round(wp.y) }, w.id);
