@@ -425,7 +425,7 @@ export function Canvas2D({ onExportRef }: Props) {
     // Arc from (hx,hy) → sweep by 90° toward perp side, radius = o.width
     // Konva Path arc: A rx ry x-axis-rot large-arc sweep x y
     const sweep = (hinge === "a" ? 1 : 0) ^ (swing === "p" ? 0 : 1); // choose correct arc side
-    const arcPath = `M ${hx} ${hy} L ${lx} ${ly} M ${hx} ${hy} A ${o.width} ${o.width} 0 0 ${sweep} ${tipX} ${tipY}`;
+    const arcOnly = `M ${hx} ${hy} A ${o.width} ${o.width} 0 0 ${sweep} ${tipX} ${tipY}`;
 
     const wallCut = (
       <Line
@@ -442,7 +442,7 @@ export function Canvas2D({ onExportRef }: Props) {
     if (kind === "door_simple" || kind === "entrance") {
       symbol = (
         <>
-          <Path data={arcPath.split(" M ").slice(1).map((s) => "M " + s).join(" ")} stroke={stroke} strokeWidth={sw * 0.6} fill="transparent" dash={[4 / scale, 3 / scale]} />
+          <Path data={arcOnly} stroke={stroke} strokeWidth={sw * 0.6} fill="transparent" dash={[4 / scale, 3 / scale]} />
           <Line points={[hx, hy, tipX, tipY]} stroke={stroke} strokeWidth={sw} />
           {kind === "entrance" && (
             <Rect x={cx - dx} y={cy - dy - w.thickness / 3} width={o.width} height={w.thickness / 1.5} rotation={(ang * 180) / Math.PI} stroke={stroke} strokeWidth={sw * 0.6} fill="transparent" />
