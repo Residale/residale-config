@@ -687,11 +687,12 @@ export function Canvas2D({ onExportRef }: Props) {
       nodes.push(<Line key={`d${key}`} points={[x0, yDim, x1, yDim]} stroke={col} strokeWidth={0.8 / scale} listening={false} />);
       nodes.push(<Line key={`t1${key}`} points={[x0 - tick, yDim - tick, x0 + tick, yDim + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
       nodes.push(<Line key={`t2${key}`} points={[x1 - tick, yDim - tick, x1 + tick, yDim + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
-      // centered label above the dim line
+      // centered label placed just OUTSIDE the dim line (opposite side from the wall)
+      const labelY = dir > 0 ? yDim + 5 / scale : yDim - 17 / scale;
       nodes.push(
         <Text key={`x${key}`}
           x={(x0 + x1) / 2 - 80 / scale}
-          y={yDim - 16 / scale}
+          y={labelY}
           width={160 / scale} align="center" text={label}
           fontSize={11 / scale} fontFamily="JetBrains Mono" fill={col} listening={false} />
       );
