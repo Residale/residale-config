@@ -1424,6 +1424,20 @@ export function Canvas2D({ onExportRef }: Props) {
             />
           )}
 
+          {selectionRect && (
+            <Rect
+              x={Math.min(selectionRect.start.x, selectionRect.current.x)}
+              y={Math.min(selectionRect.start.y, selectionRect.current.y)}
+              width={Math.abs(selectionRect.current.x - selectionRect.start.x)}
+              height={Math.abs(selectionRect.current.y - selectionRect.start.y)}
+              fill="rgba(201,169,97,0.10)"
+              stroke="#c9a961"
+              strokeWidth={1.2 / scale}
+              dash={[6 / scale, 4 / scale]}
+              listening={false}
+            />
+          )}
+
           {/* Wall highlight during opening transfer */}
           {hoverWallForDrop && (() => {
             const w = plan.walls.find((ww) => ww.id === hoverWallForDrop);
