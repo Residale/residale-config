@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import { useEditor } from "@/lib/editor/store";
 import { wallLength } from "@/lib/editor/geometry";
 import type { OpeningKind } from "@/lib/editor/types";
+
 
 const KIND_LABELS: Record<OpeningKind, string> = {
   door_simple: "Simple",
