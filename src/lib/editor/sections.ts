@@ -49,10 +49,6 @@ export type ElevationFurniture = {
   depthFromLine: number; // signed distance for depth ordering (behind cut)
 };
 
-const DOOR_H = 210;
-const WIN_H = 120;
-const WIN_SILL = 100;
-
 /** Project point onto section line, return signed distance from A along AB, and perpendicular distance. */
 function project(p: Point, a: Point, b: Point) {
   const dx = b.x - a.x;
@@ -69,7 +65,6 @@ function project(p: Point, a: Point, b: Point) {
 
 /** Intersect segment AB with wall polygon (thick line) — returns t range along AB inside wall. */
 function segIntersectWall(sec: SectionLine, wall: Wall): { s0: number; s1: number } | null {
-  // wall is an infinite? no — segment. Approach: check line-line intersection between sec and wall centerline extended by thickness in normal direction; treat wall as an oriented box.
   const wdx = wall.b.x - wall.a.x;
   const wdy = wall.b.y - wall.a.y;
   const wlen = Math.hypot(wdx, wdy) || 1;
@@ -78,7 +73,6 @@ function segIntersectWall(sec: SectionLine, wall: Wall): { s0: number; s1: numbe
   const wnx = -wuy;
   const wny = wux;
   const half = wall.thickness / 2;
-  // Corners of the wall box
   const box: Point[] = [
     { x: wall.a.x + wnx * half, y: wall.a.y + wny * half },
     { x: wall.b.x + wnx * half, y: wall.b.y + wny * half },
@@ -88,10 +82,7 @@ function segIntersectWall(sec: SectionLine, wall: Wall): { s0: number; s1: numbe
   const secDx = sec.b.x - sec.a.x;
   const secDy = sec.b.y - sec.a.y;
   const secLen = Math.hypot(secDx, secDy) || 1;
-  const sux = secDx / secLen;
-  const suy = secDy / secLen;
 
-  // Find intersections of section line with each of the 4 box edges
   const ts: number[] = [];
   for (let i = 0; i < 4; i++) {
     const p1 = box[i];
@@ -118,6 +109,7 @@ export function computeSection(plan: Plan, sec: SectionLine) {
   const cuts: CutSegment[] = [];
   const cutWallIds = new Set<string>();
 
+  // Walls traversed by the cut line — draw as filled poché with openings carved out.
   for (const w of plan.walls) {
     const inter = segIntersectWall(sec, w);
     if (!inter) continue;
@@ -139,13 +131,14 @@ export function computeSection(plan: Plan, sec: SectionLine) {
       const opStart = wLen * o.t - o.width / 2;
       const opEnd = wLen * o.t + o.width / 2;
       if (distAlongWall >= opStart && distAlongWall <= opEnd) {
-        const isDoor = o.type === "door";
+        const sill = openingSill(o);
+        const h = openingHeight(o);
         cuts.push({
           type: o.type,
           start: inter.s0,
           end: inter.s1,
-          height: (o.height ?? (isDoor ? DOOR_H : WIN_H)) + (o.sillHeight ?? (isDoor ? 0 : WIN_SILL)),
-          sillHeight: o.sillHeight ?? (isDoor ? 0 : WIN_SILL),
+          height: h + sill,
+          sillHeight: sill,
           wall: w,
           opening: o,
         });
@@ -153,8 +146,9 @@ export function computeSection(plan: Plan, sec: SectionLine) {
     }
   }
 
-  // Elevation openings: on walls roughly parallel to the section line (not cut),
-  // project each opening onto the section and draw it as elevation.
+  // Elevation: openings on walls NOT traversed by the cut but whose center projects
+  // within the section span (± opening width). Uses a permissive dot-product threshold
+  // (0.4) so oblique walls also project — depth-order handled by |perp| implicitly.
   for (const w of plan.walls) {
     if (cutWallIds.has(w.id)) continue;
     const openingsOnWall = plan.openings.filter((oo) => oo.wallId === w.id);
@@ -166,19 +160,20 @@ export function computeSection(plan: Plan, sec: SectionLine) {
     const slen = Math.hypot(sdx, sdy) || 1;
     const sux = sdx / slen, suy = sdy / slen;
     const dot = Math.abs(wux * sux + wuy * suy);
-    if (dot < 0.85) continue;
+    if (dot < 0.4) continue;
     for (const o of openingsOnWall) {
       const cx = w.a.x + wdx * o.t;
       const cy = w.a.y + wdy * o.t;
       const pr = project({ x: cx, y: cy }, sec.a, sec.b);
       if (pr.along < -o.width || pr.along > secLen + o.width) continue;
-      const isDoor = o.type === "door";
+      const sill = openingSill(o);
+      const h = openingHeight(o);
       cuts.push({
         type: o.type,
         start: pr.along - o.width / 2,
         end: pr.along + o.width / 2,
-        height: (o.height ?? (isDoor ? DOOR_H : WIN_H)) + (o.sillHeight ?? (isDoor ? 0 : WIN_SILL)),
-        sillHeight: o.sillHeight ?? (isDoor ? 0 : WIN_SILL),
+        height: h + sill,
+        sillHeight: sill,
         wall: w,
         opening: o,
       });
@@ -188,6 +183,7 @@ export function computeSection(plan: Plan, sec: SectionLine) {
   const furn: ElevationFurniture[] = [];
   return { length: secLen, ceilingH, cuts, furn };
 }
+
 
 
 export function furnitureDefaultHeight(kind: string): number {
