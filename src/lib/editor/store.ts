@@ -125,6 +125,8 @@ type Actions = {
   setFloor3DColor: (c: string) => void;
   setCeilingHeight: (h: number) => void;
   setRoof: (r: Partial<import("./types").Roof> | null) => void;
+  toggle3DRoof: () => void;
+
 
   deleteSelected: () => void;
   clearAll: () => void;
