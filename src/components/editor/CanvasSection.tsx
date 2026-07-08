@@ -237,7 +237,18 @@ function SectionPanel({ section, fullscreen = false, onExpand }: { section: Sect
             return <Line points={poly} closed fill={theme.wallFill} stroke={theme.wallStroke} strokeWidth={1} opacity={0.9} />;
           })()}
 
-          {/* Walls */}
+          {/* Elevation walls (behind — draw first, greyed) */}
+          {data.elevationWalls?.map((ew, i) => (
+            <Rect
+              key={`ew${i}`}
+              x={toX(ew.start)} y={toY(ew.height)}
+              width={(ew.end - ew.start) * s} height={ew.height * s}
+              fill={theme.wallFill} stroke={theme.wallStroke} strokeWidth={0.6}
+              opacity={0.35}
+            />
+          ))}
+
+          {/* Cut walls (poché) */}
           {cuts.filter((c) => c.type === "wall").map((c, i) => (
             <Rect
               key={`w${i}`}
@@ -246,6 +257,7 @@ function SectionPanel({ section, fullscreen = false, onExpand }: { section: Sect
               fill={theme.wallFill} stroke={theme.wallStroke} strokeWidth={1}
             />
           ))}
+
 
           {/* Openings */}
           {cuts.filter((c) => c.type !== "wall").map((c, i) => {
