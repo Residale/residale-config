@@ -1,9 +1,11 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type {
   Furniture, Opening, Plan, RoomLabel, Selection, Tool, Wall, SectionLine, SectionDisplay, WallType, WallSettings,
 } from "./types";
 import { uid } from "./geometry";
 import { DEFAULT_THEME, type Theme2D } from "./theme";
+
 
 const POINT_EPS = 1.5;
 
