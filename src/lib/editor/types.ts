@@ -16,12 +16,29 @@ export type WallSettings = {
 };
 
 export type OpeningType = "door" | "window";
+export type OpeningKind =
+  | "door_simple"
+  | "door_double"
+  | "door_slide"
+  | "door_pocket"
+  | "entrance"
+  | "window_1"
+  | "window_2"
+  | "window_oscillo"
+  | "bay"
+  | "bay_slide"
+  | "fixed";
+export type HingeSide = "a" | "b"; // which wall endpoint the hinge is closest to
+export type SwingSide = "p" | "n"; // which side of the wall the leaf swings toward (positive/negative normal)
 export type Opening = {
   id: string;
   wallId: string;
   t: number; // 0..1 along the wall
   width: number; // cm
   type: OpeningType;
+  kind?: OpeningKind;
+  hingeSide?: HingeSide;
+  swingSide?: SwingSide;
   height?: number; // cm — default door 210, window 120
   sillHeight?: number; // cm — default door 0, window 100
 };
