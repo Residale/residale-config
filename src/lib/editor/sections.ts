@@ -118,7 +118,7 @@ export function computeSection(plan: Plan, sec: SectionLine) {
   const cuts: CutSegment[] = [];
   const cutWallIds = new Set<string>();
 
-  // Walls traversed by the cut line — draw as filled poché with openings carved out.
+  const secLenSafe = secLen || 1;
   for (const w of plan.walls) {
     const inter = segIntersectWall(sec, w);
     if (!inter) continue;
@@ -134,8 +134,8 @@ export function computeSection(plan: Plan, sec: SectionLine) {
     const wLen = Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y);
     for (const o of plan.openings.filter((oo) => oo.wallId === w.id)) {
       const midS = (inter.s0 + inter.s1) / 2;
-      const midX = sec.a.x + (sec.b.x - sec.a.x) * (midS / secLen);
-      const midY = sec.a.y + (sec.b.y - sec.a.y) * (midS / secLen);
+      const midX = sec.a.x + (sec.b.x - sec.a.x) * (midS / secLenSafe);
+      const midY = sec.a.y + (sec.b.y - sec.a.y) * (midS / secLenSafe);
       const distAlongWall = Math.hypot(midX - w.a.x, midY - w.a.y);
       const opStart = wLen * o.t - o.width / 2;
       const opEnd = wLen * o.t + o.width / 2;
@@ -155,22 +155,33 @@ export function computeSection(plan: Plan, sec: SectionLine) {
     }
   }
 
-  // Elevation: openings on walls NOT traversed by the cut but whose center projects
-  // within the section span (± opening width). Uses a permissive dot-product threshold
-  // (0.4) so oblique walls also project — depth-order handled by |perp| implicitly.
+  // Elevation: all non-cut walls whose projection overlaps the section span.
+  // We draw the wall silhouette as background, then openings on top as facade views.
+  const elevationWalls: ElevationWall[] = [];
   for (const w of plan.walls) {
     if (cutWallIds.has(w.id)) continue;
-    const openingsOnWall = plan.openings.filter((oo) => oo.wallId === w.id);
-    if (openingsOnWall.length === 0) continue;
+    const prA = project(w.a, sec.a, sec.b);
+    const prB = project(w.b, sec.a, sec.b);
+    const s0 = Math.min(prA.along, prB.along);
+    const s1 = Math.max(prA.along, prB.along);
+    // Skip walls entirely off-screen
+    if (s1 < -50 || s0 > secLen + 50) continue;
+    // Only include walls somewhat aligned with the cut (visible facade)
     const wdx = w.b.x - w.a.x, wdy = w.b.y - w.a.y;
     const wlen = Math.hypot(wdx, wdy) || 1;
-    const wux = wdx / wlen, wuy = wdy / wlen;
     const sdx = sec.b.x - sec.a.x, sdy = sec.b.y - sec.a.y;
     const slen = Math.hypot(sdx, sdy) || 1;
-    const sux = sdx / slen, suy = sdy / slen;
-    const dot = Math.abs(wux * sux + wuy * suy);
-    if (dot < 0.4) continue;
-    for (const o of openingsOnWall) {
+    const dot = Math.abs((wdx / wlen) * (sdx / slen) + (wdy / wlen) * (sdy / slen));
+    if (dot < 0.2) continue;
+    const depth = (prA.perp + prB.perp) / 2;
+    elevationWalls.push({
+      start: s0,
+      end: s1,
+      height: w.height ?? ceilingH,
+      depth,
+      wall: w,
+    });
+    for (const o of plan.openings.filter((oo) => oo.wallId === w.id)) {
       const cx = w.a.x + wdx * o.t;
       const cy = w.a.y + wdy * o.t;
       const pr = project({ x: cx, y: cy }, sec.a, sec.b);
@@ -188,10 +199,13 @@ export function computeSection(plan: Plan, sec: SectionLine) {
       });
     }
   }
+  // Sort elevation walls back-to-front (further first, so nearer overlay them)
+  elevationWalls.sort((a, b) => Math.abs(b.depth) - Math.abs(a.depth));
 
   const furn: ElevationFurniture[] = [];
-  return { length: secLen, ceilingH, cuts, furn };
+  return { length: secLen, ceilingH, cuts, elevationWalls, furn };
 }
+
 
 
 
