@@ -64,6 +64,25 @@ export function RightPanel() {
         {wall && (
           <div className="space-y-3">
             <Field label="Longueur"><span className="font-mono-tab">{(wallLength(wall) / 100).toFixed(2)} m</span></Field>
+            <div>
+              <div className="mb-1 block text-xs font-medium text-muted-foreground">Type</div>
+              <div className="grid grid-cols-2 gap-1 rounded border border-border bg-background p-0.5">
+                {(["exterior", "interior"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => {
+                      const spec = useEditor.getState().wallSettings[t];
+                      updateWall(wall.id, { wallType: t, thickness: spec.thickness, height: spec.height });
+                    }}
+                    className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
+                      (wall.wallType ?? "exterior") === t ? "bg-ink text-paper" : "text-muted-foreground hover:text-ink"
+                    }`}
+                  >
+                    {t === "exterior" ? "Extérieur" : "Intérieur"}
+                  </button>
+                ))}
+              </div>
+            </div>
             <NumberField label="Épaisseur (cm)" value={wall.thickness} min={5} max={80} onChange={(v) => updateWall(wall.id, { thickness: v })} />
             <NumberField label="Hauteur (cm)" value={wall.height ?? 250} min={100} max={600} onChange={(v) => updateWall(wall.id, { height: v })} />
             <div className="grid grid-cols-2 gap-2">
