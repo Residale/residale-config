@@ -41,6 +41,7 @@ export type Opening = {
   swingSide?: SwingSide;
   height?: number; // cm — default door 210, window 120
   sillHeight?: number; // cm — default door 0, window 100
+  openAngle?: number; // degrees, 0-120, default 90 — arc/leaf opening angle
 };
 
 export type FurnitureKind =
@@ -68,6 +69,8 @@ export type Furniture = {
   rotation: number; // deg
   label?: string;
   zHeight?: number; // cm (elevation height)
+  locked?: boolean;
+  anchorToWall?: boolean;
 };
 
 export type RoomLabel = {

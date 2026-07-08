@@ -336,6 +336,7 @@ export function Canvas2D({ onExportRef }: Props) {
   };
 
   // Hit-test opening at world point — returns the opening + a hint whether the click is on an edge (for resize) or center (for move).
+  // For doors, the hit-box includes the arc of debattement area so clicking the swing curve selects the door.
   const findOpeningAt = (p: Point): { opening: Opening; wall: Wall; mode: "move" | "resizeA" | "resizeB" } | null => {
     for (let i = plan.openings.length - 1; i >= 0; i--) {
       const o = plan.openings[i];
@@ -352,13 +353,37 @@ export function Canvas2D({ onExportRef }: Props) {
       const ry = p.y - cy;
       const along = rx * ux + ry * uy;
       const perp = -rx * uy + ry * ux;
-      if (Math.abs(along) > o.width / 2 + 4) continue;
-      if (Math.abs(perp) > w.thickness / 2 + 6 / scale) continue;
-      // Edge zones: outer 20% of the width acts as resize handles.
+      const halfW = o.width / 2;
+      const halfT = w.thickness / 2 + 6 / scale;
+
+      // Primary hit-box: wall cut area
+      let hit = Math.abs(along) <= halfW + 4 && Math.abs(perp) <= halfT;
+
+      // Extended hit-box for doors: include arc quadrant so users can click near the swing curve
+      if (!hit && (o.type === "door") && (o.kind !== "door_slide" && o.kind !== "door_pocket")) {
+        const hinge: "a" | "b" = o.hingeSide ?? "a";
+        const swing: "p" | "n" = o.swingSide ?? "p";
+        const swingSign = swing === "p" ? 1 : -1;
+        // Hinge in local (along, perp) coords: (-halfW, 0) if hinge==a, else (+halfW, 0)
+        const ha = hinge === "a" ? -halfW : halfW;
+        const dAlong = along - ha;
+        const dPerp = perp;
+        const r = Math.hypot(dAlong, dPerp);
+        // Point must be inside disc of radius = width, on the swing side, and on the leaf side (toward the far end)
+        const onSwingSide = swingSign > 0 ? dPerp >= -halfT : dPerp <= halfT;
+        const onLeafSide = hinge === "a" ? dAlong >= -6 : dAlong <= 6;
+        if (r <= o.width + 6 / scale && onSwingSide && onLeafSide) hit = true;
+      }
+
+      if (!hit) continue;
+
+      // Edge zones: outer 20% of the width acts as resize handles (only when on the cut itself)
       const edgeZone = Math.max(6, o.width * 0.2);
       let mode: "move" | "resizeA" | "resizeB" = "move";
-      if (along < -o.width / 2 + edgeZone) mode = "resizeA";
-      else if (along > o.width / 2 - edgeZone) mode = "resizeB";
+      if (Math.abs(perp) <= halfT) {
+        if (along < -halfW + edgeZone) mode = "resizeA";
+        else if (along > halfW - edgeZone) mode = "resizeB";
+      }
       return { opening: o, wall: w, mode };
     }
     return null;
@@ -796,9 +821,7 @@ export function Canvas2D({ onExportRef }: Props) {
         stroke={isSel ? "#c9a961" : theme.wallFill}
         strokeWidth={w.thickness}
         lineCap="butt"
-        onClick={(e) => tool === "select" && selectItem({ type: "wall", id: w.id }, e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey)}
-        onTap={() => tool === "select" && selectItem({ type: "wall", id: w.id }, false)}
-        hitStrokeWidth={Math.max(w.thickness, 16 / scale)}
+        listening={false}
       />
     );
   };
@@ -854,12 +877,22 @@ export function Canvas2D({ onExportRef }: Props) {
     );
 
     // Door-family renderers
+    // Jambages (short perpendicular ticks at both ends of the cut), typical architectural convention.
+    const jambageLen = w.thickness * 0.9;
+    const jambages = (kind === "door_simple" || kind === "door_double" || kind === "entrance" || kind === "door_slide" || kind === "door_pocket") ? (
+      <>
+        <Line points={[cx - dx - (-uy) * jambageLen / 2, cy - dy - ux * jambageLen / 2, cx - dx + (-uy) * jambageLen / 2, cy - dy + ux * jambageLen / 2]} stroke={stroke} strokeWidth={sw * 0.7} listening={false} />
+        <Line points={[cx + dx - (-uy) * jambageLen / 2, cy + dy - ux * jambageLen / 2, cx + dx + (-uy) * jambageLen / 2, cy + dy + ux * jambageLen / 2]} stroke={stroke} strokeWidth={sw * 0.7} listening={false} />
+      </>
+    ) : null;
+
     let symbol: React.ReactNode = null;
     if (kind === "door_simple" || kind === "entrance") {
       symbol = (
         <>
-          <Path data={arcOnly} stroke={stroke} strokeWidth={sw * 0.6} fill="transparent" dash={[4 / scale, 3 / scale]} />
-          <Line points={[hx, hy, tipX, tipY]} stroke={stroke} strokeWidth={sw} />
+          {jambages}
+          <Path data={arcOnly} stroke={stroke} strokeWidth={sw * 0.7} fill="transparent" />
+          <Line points={[hx, hy, tipX, tipY]} stroke={stroke} strokeWidth={sw * 1.6} lineCap="round" />
           {kind === "entrance" && (
             <Rect x={cx - dx} y={cy - dy - w.thickness / 3} width={o.width} height={w.thickness / 1.5} rotation={(ang * 180) / Math.PI} stroke={stroke} strokeWidth={sw * 0.6} fill="transparent" />
           )}
@@ -874,10 +907,11 @@ export function Canvas2D({ onExportRef }: Props) {
       const swB = (hinge === "a" ? 0 : 1) ^ (swing === "p" ? 0 : 1);
       symbol = (
         <>
-          <Path data={`M ${hx} ${hy} A ${o.width / 2} ${o.width / 2} 0 0 ${swA} ${tipL.x} ${tipL.y}`} stroke={stroke} strokeWidth={sw * 0.6} fill="transparent" dash={[4 / scale, 3 / scale]} />
-          <Path data={`M ${lx} ${ly} A ${o.width / 2} ${o.width / 2} 0 0 ${swB} ${tipR.x} ${tipR.y}`} stroke={stroke} strokeWidth={sw * 0.6} fill="transparent" dash={[4 / scale, 3 / scale]} />
-          <Line points={[hx, hy, midX, midY]} stroke={stroke} strokeWidth={sw} />
-          <Line points={[midX, midY, lx, ly]} stroke={stroke} strokeWidth={sw} />
+          {jambages}
+          <Path data={`M ${hx} ${hy} A ${o.width / 2} ${o.width / 2} 0 0 ${swA} ${tipL.x} ${tipL.y}`} stroke={stroke} strokeWidth={sw * 0.7} fill="transparent" />
+          <Path data={`M ${lx} ${ly} A ${o.width / 2} ${o.width / 2} 0 0 ${swB} ${tipR.x} ${tipR.y}`} stroke={stroke} strokeWidth={sw * 0.7} fill="transparent" />
+          <Line points={[hx, hy, midX, midY]} stroke={stroke} strokeWidth={sw * 1.6} lineCap="round" />
+          <Line points={[midX, midY, lx, ly]} stroke={stroke} strokeWidth={sw * 1.6} lineCap="round" />
         </>
       );
     } else if (kind === "door_slide") {
@@ -963,7 +997,7 @@ export function Canvas2D({ onExportRef }: Props) {
     }
 
     return (
-      <Group key={o.id} onClick={(e) => tool === "select" && selectItem({ type: "opening", id: o.id }, e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey)} onTap={() => tool === "select" && selectItem({ type: "opening", id: o.id }, false)}>
+      <Group key={o.id}>
         {wallCut}
         {symbol}
         {isSel && (kind === "door_simple" || kind === "door_double" || kind === "entrance") && (
@@ -1170,7 +1204,7 @@ export function Canvas2D({ onExportRef }: Props) {
     return (
       <Group
         key={f.id} x={f.x} y={f.y} rotation={f.rotation}
-        onClick={(e) => tool === "select" && selectItem({ type: "furniture", id: f.id }, e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey)}
+        listening={false}
       >
         <FurnitureShape2D f={f} strokeColor={strokeColor} />
         {isSel && (
