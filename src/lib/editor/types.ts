@@ -84,6 +84,15 @@ export type SectionLine = {
   b: Point;
 };
 
+export type RoofKind = "flat" | "mono" | "gable" | "hip";
+export type Roof = {
+  kind: RoofKind;
+  pitch: number; // degrees (0-60). ignored for flat
+  eaveHeight: number; // cm — height of the eave above ± 0.00 (top of wall)
+  overhang: number; // cm — horizontal overhang past exterior face
+  ridgeAxis?: "x" | "y"; // for gable, direction along which the ridge runs
+};
+
 export type Plan = {
   walls: Wall[];
   openings: Opening[];
@@ -91,6 +100,7 @@ export type Plan = {
   labels: RoomLabel[];
   sections: SectionLine[];
   ceilingHeight?: number; // cm, default 250
+  roof?: Roof;
 };
 
 export type Tool =
