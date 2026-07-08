@@ -318,13 +318,8 @@ export function Canvas2D({ onExportRef }: Props) {
     const wallIds = new Set(drag.items.filter((item) => item.type === "wall").map((item) => item.id));
     for (const f of drag.furniture) {
       if (f.locked) continue;
-      const target = { x: f.x + dx, y: f.y + dy };
-      if (f.anchorToWall) {
-        const snapped = snapFurnitureToWalls(target, f.width, f.height, f.rotation);
-        updateFurniture(f.id, { x: snapped.x, y: snapped.y, rotation: snapped.rotation });
-      } else {
-        updateFurniture(f.id, { x: Math.round(target.x), y: Math.round(target.y) });
-      }
+      const snapped = snapFurnitureToWalls({ x: f.x + dx, y: f.y + dy }, f.width, f.height, f.rotation);
+      updateFurniture(f.id, { x: snapped.x, y: snapped.y, rotation: snapped.rotation });
     }
     for (const w of drag.walls) {
       const moved = snapWallMove(
@@ -341,6 +336,7 @@ export function Canvas2D({ onExportRef }: Props) {
       });
     }
   };
+
 
 
   // Hit-test opening at world point — returns the opening + a hint whether the click is on an edge (for resize) or center (for move).
@@ -692,10 +688,29 @@ export function Canvas2D({ onExportRef }: Props) {
         const nb = { x: Math.round(dragHandle.origB.x + dx), y: Math.round(dragHandle.origB.y + dy) };
         updateWall(w.id, snapWallMove(na, nb, new Set([w.id])));
       } else {
-        // Endpoint drag: 1 cm precision + snap to nearby wall corners for clean junctions
-        const target = applySnap({ x: Math.round(wp.x), y: Math.round(wp.y) }, undefined, w.id);
+        // Endpoint drag: keep the wall straight — snap angle relative to the fixed endpoint
+        // to multiples of 15°, with strong pull to orthogonal (0/90/180/270).
+        const fixed = dragHandle.end === "a" ? dragHandle.origB : dragHandle.origA;
+        const rawTarget = { x: Math.round(wp.x), y: Math.round(wp.y) };
+        const dxT = rawTarget.x - fixed.x;
+        const dyT = rawTarget.y - fixed.y;
+        const rawLen = Math.hypot(dxT, dyT);
+        let angDeg = (Math.atan2(dyT, dxT) * 180) / Math.PI;
+        const snapStep = 15;
+        const orthoPull = 8; // deg — pull toward the nearest 90° multiple
+        const nearest15 = Math.round(angDeg / snapStep) * snapStep;
+        const nearest90 = Math.round(angDeg / 90) * 90;
+        const useOrtho = Math.abs(angDeg - nearest90) <= orthoPull;
+        const finalAng = ((useOrtho ? nearest90 : nearest15) * Math.PI) / 180;
+        let target: Point = {
+          x: Math.round(fixed.x + Math.cos(finalAng) * rawLen),
+          y: Math.round(fixed.y + Math.sin(finalAng) * rawLen),
+        };
+        // Then apply node snap so corners still glue to nearby walls.
+        target = applySnap(target, undefined, w.id);
         updateWall(w.id, { [dragHandle.end]: target } as Partial<Wall>);
       }
+
       setCursor(wp);
       return;
     }
