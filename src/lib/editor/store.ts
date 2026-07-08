@@ -120,11 +120,46 @@ export const useEditor = create<State & Actions>((set, get) => ({
   addWall: (w) => {
     const id = uid();
     get().commit();
-    set((s) => ({ plan: { ...s.plan, walls: [...s.plan.walls, { height: 250, ...w, id }] } }));
+    const st = get();
+    const type = w.wallType ?? st.currentWallType;
+    const spec = st.wallSettings[type];
+    set((s) => ({
+      plan: {
+        ...s.plan,
+        walls: [
+          ...s.plan.walls,
+          { thickness: spec.thickness, height: spec.height, wallType: type, ...w, id },
+        ],
+      },
+    }));
     return id;
   },
   updateWall: (id, patch) =>
     set((s) => ({ plan: { ...s.plan, walls: s.plan.walls.map((w) => (w.id === id ? { ...w, ...patch } : w)) } })),
+
+  setWallSettings: (patch) =>
+    set((s) => {
+      const ws: WallSettings = {
+        interior: { ...s.wallSettings.interior, ...(patch.interior ?? {}) },
+        exterior: { ...s.wallSettings.exterior, ...(patch.exterior ?? {}) },
+      };
+      return { wallSettings: ws };
+    }),
+  setCurrentWallType: (t) => set({ currentWallType: t }),
+  applyWallTypeToAll: () =>
+    set((s) => {
+      const ws = s.wallSettings;
+      return {
+        plan: {
+          ...s.plan,
+          walls: s.plan.walls.map((w) => {
+            const type = w.wallType ?? "exterior";
+            const spec = ws[type];
+            return { ...w, thickness: spec.thickness, height: spec.height };
+          }),
+        },
+      };
+    }),
   addOpening: (o) => {
     const id = uid();
     get().commit();
