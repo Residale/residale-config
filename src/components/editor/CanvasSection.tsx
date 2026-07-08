@@ -157,16 +157,30 @@ function SectionPanel({ section, fullscreen = false, onExpand }: { section: Sect
 
   return (
     <div ref={containerRef} className="relative overflow-hidden rounded-md border border-border" style={{ background: "#faf8f2" }}>
-      <div className="absolute left-2 top-2 z-10 rounded bg-card/90 px-2 py-1 text-[11px] font-medium tracking-wide shadow-panel">
+      <div
+        onDoubleClick={onExpand}
+        className="absolute left-2 top-2 z-10 cursor-pointer rounded bg-card/90 px-2 py-1 text-[11px] font-medium tracking-wide shadow-panel hover:border hover:border-brass"
+        title="Double-cliquez pour agrandir"
+      >
         {NAME_MAP[section.name] ?? `Coupe ${section.name}-${section.name}'`}
       </div>
-      <button
-        onClick={resetView}
-        className="absolute right-2 top-2 z-10 rounded border border-border bg-card/90 px-2 py-1 text-[10px] font-medium hover:border-brass"
-        title="Recentrer la vue"
-      >
-        Recentrer
-      </button>
+      <div className="absolute right-2 top-2 z-10 flex gap-1">
+        {onExpand && !fullscreen && (
+          <button
+            onClick={onExpand}
+            className="rounded border border-border bg-card/90 px-2 py-1 text-[10px] font-medium hover:border-brass"
+            title="Plein écran"
+          >⛶</button>
+        )}
+        <button
+          onClick={resetView}
+          className="rounded border border-border bg-card/90 px-2 py-1 text-[10px] font-medium hover:border-brass"
+          title="Recentrer la vue"
+        >
+          Recentrer
+        </button>
+      </div>
+
       <Stage
         ref={stageRef}
         width={size.w}
