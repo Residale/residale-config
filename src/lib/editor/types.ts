@@ -69,6 +69,8 @@ export type Furniture = {
   rotation: number; // deg
   label?: string;
   zHeight?: number; // cm (elevation height)
+  locked?: boolean;
+  anchorToWall?: boolean;
 };
 
 export type RoomLabel = {
