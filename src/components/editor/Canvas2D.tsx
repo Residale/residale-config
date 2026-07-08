@@ -701,7 +701,8 @@ export function Canvas2D({ onExportRef }: Props) {
 
     const drawV = (y0: number, y1: number, xFace: number, xDim: number, key: string) => {
       const len = Math.abs(y1 - y0);
-      const label = len >= 100 ? `${(len / 100).toFixed(2)} m` : `${Math.round(len)} cm`;
+      const label = `${Math.round(len)}`;
+
       const dir = xDim >= xFace ? 1 : -1;
       nodes.push(<Line key={`e1${key}`} points={[xFace + dir * gap, y0, xDim, y0]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
       nodes.push(<Line key={`e2${key}`} points={[xFace + dir * gap, y1, xDim, y1]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
