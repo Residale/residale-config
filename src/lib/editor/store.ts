@@ -68,6 +68,7 @@ type Actions = {
   setWall3DColor: (c: string) => void;
   setFloor3DColor: (c: string) => void;
   setCeilingHeight: (h: number) => void;
+  setRoof: (r: Partial<import("./types").Roof> | null) => void;
 
   deleteSelected: () => void;
   clearAll: () => void;
