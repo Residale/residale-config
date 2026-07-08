@@ -436,13 +436,30 @@ export function Canvas2D({ onExportRef }: Props) {
       return;
     }
     if (tool === "select") {
+      const additive = e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey;
       // Priority order: furniture → opening (edges then body) → wall endpoint → wall body → section
       const f = findFurnitureAt(wp);
-      if (f) { setSelection({ type: "furniture", id: f.id }); return; }
+      if (f) {
+        const item: SelectionItem = { type: "furniture", id: f.id };
+        selectItem(item, additive);
+        if (!additive) {
+          commit();
+          const items = isSelected("furniture", f.id) && selectionItems.length > 1 ? selectionItems : [item];
+          setMoveDrag({
+            items,
+            startPointer: wp,
+            furniture: plan.furniture.filter((x) => items.some((it) => it.type === "furniture" && it.id === x.id)),
+            walls: plan.walls.filter((x) => items.some((it) => it.type === "wall" && it.id === x.id)),
+            sections: plan.sections.filter((x) => items.some((it) => it.type === "section" && it.id === x.id)),
+          });
+        }
+        return;
+      }
 
       const oh = findOpeningAt(wp);
       if (oh) {
-        setSelection({ type: "opening", id: oh.opening.id });
+        selectItem({ type: "opening", id: oh.opening.id }, additive);
+        if (additive) return;
         commit();
         setOpeningDrag({
           openingId: oh.opening.id,
@@ -456,7 +473,9 @@ export function Canvas2D({ onExportRef }: Props) {
 
       const wh = findWallNear(wp);
       if (wh) {
-        setSelection({ type: "wall", id: wh.wall.id });
+        const item: SelectionItem = { type: "wall", id: wh.wall.id };
+        selectItem(item, additive);
+        if (additive) return;
         const endHit = wallEndpointHit(wp, wh.wall);
         if (endHit) {
           setDragHandle({
@@ -480,9 +499,10 @@ export function Canvas2D({ onExportRef }: Props) {
       }
       for (const sec of plan.sections) {
         const info = pointOnWall(wp, { ...sec, id: sec.id, thickness: 30 } as Wall);
-        if (info.dist < 15 / scale) { setSelection({ type: "section", id: sec.id }); return; }
+        if (info.dist < 15 / scale) { selectItem({ type: "section", id: sec.id }, additive); return; }
       }
-      setSelection(null);
+      if (e.evt.shiftKey) setSelectionRect({ start: wp, current: wp });
+      else setSelection(null);
     }
   };
 
