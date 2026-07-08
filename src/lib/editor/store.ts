@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type {
-  Furniture, Opening, Plan, RoomLabel, Selection, Tool, Wall, SectionLine, SectionDisplay,
+  Furniture, Opening, Plan, RoomLabel, Selection, Tool, Wall, SectionLine, SectionDisplay, WallType, WallSettings,
 } from "./types";
 import { uid } from "./geometry";
 import { DEFAULT_THEME, type Theme2D } from "./theme";
