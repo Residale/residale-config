@@ -145,6 +145,45 @@ export function Canvas2D({ onExportRef }: Props) {
     return toWorld(p);
   }, [toWorld]);
 
+  const selectionItems = useMemo<SelectionItem[]>(() => {
+    if (!selection) return [];
+    return selection.type === "multi" ? selection.items : [selection];
+  }, [selection]);
+
+  const isSelected = useCallback((type: SelectionItem["type"], id: string) => (
+    selectionItems.some((item) => item.type === type && item.id === id)
+  ), [selectionItems]);
+
+  const selectItem = useCallback((item: SelectionItem, additive: boolean) => {
+    if (!additive) {
+      setSelection(item);
+      return;
+    }
+    const exists = selectionItems.some((sel) => sel.type === item.type && sel.id === item.id);
+    const next = exists
+      ? selectionItems.filter((sel) => !(sel.type === item.type && sel.id === item.id))
+      : [...selectionItems, item];
+    setSelection(next.length === 0 ? null : next.length === 1 ? next[0] : { type: "multi", items: next });
+  }, [selectionItems, setSelection]);
+
+  const fitToContent = useCallback(() => {
+    const points: Point[] = [];
+    for (const w of plan.walls) points.push(w.a, w.b);
+    for (const f of plan.furniture) {
+      points.push({ x: f.x - f.width / 2, y: f.y - f.height / 2 }, { x: f.x + f.width / 2, y: f.y + f.height / 2 });
+    }
+    if (!points.length) return;
+    const minX = Math.min(...points.map((p) => p.x));
+    const maxX = Math.max(...points.map((p) => p.x));
+    const minY = Math.min(...points.map((p) => p.y));
+    const maxY = Math.max(...points.map((p) => p.y));
+    const bw = Math.max(80, maxX - minX);
+    const bh = Math.max(80, maxY - minY);
+    const nextScale = Math.max(0.15, Math.min(6, Math.min(size.w / (bw * 1.25), size.h / (bh * 1.25))));
+    setScale(nextScale);
+    setPos({ x: size.w / 2 - ((minX + maxX) / 2) * nextScale, y: size.h / 2 - ((minY + maxY) / 2) * nextScale });
+  }, [plan.furniture, plan.walls, size.h, size.w]);
+
   const onWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
     const stage = stageRef.current;
