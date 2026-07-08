@@ -21,7 +21,7 @@ export function RightPanel() {
     plan, selection, view, updateWall, updateFurniture, updateOpening, updateSection,
     deleteSelected, showGrid, showDimensions, snapEnabled, grid,
     showExteriorDims, showInteriorDims, toggleExteriorDims, toggleInteriorDims,
-    toggleGrid, toggleDimensions, toggleSnap, sectionDisplay, setSectionDisplay, setCeilingHeight,
+    toggleGrid, toggleDimensions, toggleSnap, sectionDisplay, setSectionDisplay, setCeilingHeight, setRoof,
   } = useEditor();
 
   const wall = selection?.type === "wall" ? plan.walls.find((w) => w.id === selection.id) : null;
