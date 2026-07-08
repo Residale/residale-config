@@ -152,7 +152,7 @@ export const useEditor = create<State & Actions>((set, get) => ({
     const id = uid();
     get().commit();
     const letter = String.fromCharCode(65 + get().plan.sections.length);
-    set((st) => ({ plan: { ...st.plan, sections: [...st.plan.sections, { name: letter, ...s, id } as SectionLine] }, activeSectionId: id }));
+    set((st) => ({ plan: { ...st.plan, sections: [...st.plan.sections, { ...s, name: s.name || letter, id }] }, activeSectionId: id }));
     return id;
   },
   updateSection: (id, patch) =>
@@ -214,7 +214,7 @@ export const useEditor = create<State & Actions>((set, get) => ({
 
   loadPlan: (plan) =>
     set({
-      plan: { sections: [], ceilingHeight: 250, ...plan } as Plan,
+      plan: { ceilingHeight: 250, ...plan, sections: plan.sections ?? [] },
       selection: null,
       history: [],
       future: [],
