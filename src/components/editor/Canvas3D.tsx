@@ -174,14 +174,44 @@ function Scene() {
                 </mesh>
               );
             })}
-            {openings.filter((o) => o.type === "door").map((o) => {
+            {openings.filter((o) => o.type === "door" && o.kind !== "door_slide" && o.kind !== "door_pocket").map((o) => {
               const oW = o.width * SCALE;
               const oX = (o.t - 0.5) * rawLen * SCALE;
               const oH = openingHeight(o) * SCALE;
+              const leafThick = 0.04;
+              const hinge: "a" | "b" = o.hingeSide ?? "a";
+              const swing: "p" | "n" = o.swingSide ?? "p";
+              // Hinge is at one end of the opening along the wall (local X)
+              const hingeX = hinge === "a" ? oX - oW / 2 : oX + oW / 2;
+              // Swing direction on Z: positive normal ↔ +Z here (wall local frame)
+              const swingSign = swing === "p" ? 1 : -1;
+              // Which way the leaf points along X from the hinge when closed
+              const leafSignX = hinge === "a" ? 1 : -1;
+              const angDeg = Math.max(0, Math.min(120, o.openAngle ?? 90));
+              const angRad = (angDeg * Math.PI) / 180;
+              // Rotation around Y at hinge: opens toward swingSign*Z from +leafSignX*X
+              const rotY = leafSignX * swingSign * angRad;
               return (
-                <mesh key={o.id} position={[oX - oW * 0.35, oH / 2, thick / 2 + 0.005]} castShadow>
-                  <boxGeometry args={[oW * 0.95, oH, 0.03]} />
-                  <meshStandardMaterial color="#6b4a2b" roughness={0.6} />
+                <group key={o.id} position={[hingeX, oH / 2, 0]} rotation={[0, rotY, 0]}>
+                  <mesh position={[(leafSignX * oW) / 2, 0, swingSign * leafThick / 2]} castShadow>
+                    <boxGeometry args={[oW * 0.98, oH * 0.98, leafThick]} />
+                    <meshStandardMaterial color="#8a5a2f" roughness={0.55} />
+                  </mesh>
+                </group>
+              );
+            })}
+            {openings.filter((o) => o.type === "door" && (o.kind === "door_slide" || o.kind === "door_pocket")).map((o) => {
+              const oW = o.width * SCALE;
+              const oX = (o.t - 0.5) * rawLen * SCALE;
+              const oH = openingHeight(o) * SCALE;
+              const swing: "p" | "n" = o.swingSide ?? "p";
+              const zOff = (swing === "p" ? 1 : -1) * (thick * 0.35);
+              // Sliding door — leaf offset in wall thickness, slid to one side
+              const slideX = oX + (o.hingeSide === "b" ? -oW * 0.5 : oW * 0.5);
+              return (
+                <mesh key={o.id} position={[slideX, oH / 2, zOff]} castShadow>
+                  <boxGeometry args={[oW * 0.98, oH * 0.98, 0.03]} />
+                  <meshStandardMaterial color="#8a5a2f" roughness={0.55} />
                 </mesh>
               );
             })}
