@@ -1,21 +1,29 @@
 import { create } from "zustand";
-import type { Furniture, Opening, Plan, RoomLabel, Selection, Tool, Wall } from "./types";
+import type {
+  Furniture, Opening, Plan, RoomLabel, Selection, Tool, Wall, SectionLine, SectionDisplay,
+} from "./types";
 import { uid } from "./geometry";
+import { DEFAULT_THEME, type Theme2D } from "./theme";
 
-type View = "2d" | "3d" | "split";
+type View = "2d" | "3d" | "split" | "section";
 
 type State = {
   plan: Plan;
   tool: Tool;
   selection: Selection;
   view: View;
-  grid: number; // cm
+  grid: number;
   snapEnabled: boolean;
   showGrid: boolean;
   showDimensions: boolean;
   projectName: string;
   history: Plan[];
   future: Plan[];
+  theme: Theme2D;
+  wall3DColor: string;
+  floor3DColor: string;
+  activeSectionId: string | null;
+  sectionDisplay: SectionDisplay;
 };
 
 type Actions = {
@@ -35,6 +43,18 @@ type Actions = {
   updateFurniture: (id: string, patch: Partial<Furniture>) => void;
   addLabel: (l: Omit<RoomLabel, "id">) => string;
   updateLabel: (id: string, patch: Partial<RoomLabel>) => void;
+
+  addSection: (s: Omit<SectionLine, "id">) => string;
+  updateSection: (id: string, patch: Partial<SectionLine>) => void;
+  setActiveSection: (id: string | null) => void;
+  setSectionDisplay: (patch: Partial<SectionDisplay>) => void;
+
+  setTheme: (t: Theme2D) => void;
+  patchTheme: (patch: Partial<Theme2D>) => void;
+  setWall3DColor: (c: string) => void;
+  setFloor3DColor: (c: string) => void;
+  setCeilingHeight: (h: number) => void;
+
   deleteSelected: () => void;
   clearAll: () => void;
 
@@ -45,7 +65,18 @@ type Actions = {
   loadPlan: (p: Plan) => void;
 };
 
-const emptyPlan: Plan = { walls: [], openings: [], furniture: [], labels: [] };
+const emptyPlan: Plan = { walls: [], openings: [], furniture: [], labels: [], sections: [], ceilingHeight: 250 };
+
+const defaultSectionDisplay: SectionDisplay = {
+  showVerticalDims: true,
+  showHorizontalDims: true,
+  showLevels: true,
+  showFloorHatch: true,
+  showFurniture: true,
+  showOpeningLabels: true,
+  showGround: true,
+  showAxes: true,
+};
 
 export const useEditor = create<State & Actions>((set, get) => ({
   plan: emptyPlan,
@@ -59,6 +90,11 @@ export const useEditor = create<State & Actions>((set, get) => ({
   projectName: "Nouveau plan",
   history: [],
   future: [],
+  theme: DEFAULT_THEME,
+  wall3DColor: "#f0e8d8",
+  floor3DColor: "#e8dcc4",
+  activeSectionId: null,
+  sectionDisplay: defaultSectionDisplay,
 
   setTool: (tool) => set({ tool, selection: null }),
   setView: (view) => set({ view }),
@@ -68,35 +104,33 @@ export const useEditor = create<State & Actions>((set, get) => ({
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
   toggleDimensions: () => set((s) => ({ showDimensions: !s.showDimensions })),
 
-  commit: () =>
-    set((s) => ({ history: [...s.history.slice(-49), s.plan], future: [] })),
+  commit: () => set((s) => ({ history: [...s.history.slice(-49), s.plan], future: [] })),
 
   addWall: (w) => {
     const id = uid();
     get().commit();
-    set((s) => ({ plan: { ...s.plan, walls: [...s.plan.walls, { ...w, id }] } }));
+    set((s) => ({ plan: { ...s.plan, walls: [...s.plan.walls, { height: 250, ...w, id }] } }));
     return id;
   },
   updateWall: (id, patch) =>
-    set((s) => ({
-      plan: {
-        ...s.plan,
-        walls: s.plan.walls.map((w) => (w.id === id ? { ...w, ...patch } : w)),
-      },
-    })),
+    set((s) => ({ plan: { ...s.plan, walls: s.plan.walls.map((w) => (w.id === id ? { ...w, ...patch } : w)) } })),
   addOpening: (o) => {
     const id = uid();
     get().commit();
-    set((s) => ({ plan: { ...s.plan, openings: [...s.plan.openings, { ...o, id }] } }));
-    return id;
-  },
-  updateOpening: (id, patch) =>
+    const isDoor = o.type === "door";
     set((s) => ({
       plan: {
         ...s.plan,
-        openings: s.plan.openings.map((o) => (o.id === id ? { ...o, ...patch } : o)),
+        openings: [
+          ...s.plan.openings,
+          { height: isDoor ? 210 : 120, sillHeight: isDoor ? 0 : 100, ...o, id },
+        ],
       },
-    })),
+    }));
+    return id;
+  },
+  updateOpening: (id, patch) =>
+    set((s) => ({ plan: { ...s.plan, openings: s.plan.openings.map((o) => (o.id === id ? { ...o, ...patch } : o)) } })),
   addFurniture: (f) => {
     const id = uid();
     get().commit();
@@ -104,12 +138,7 @@ export const useEditor = create<State & Actions>((set, get) => ({
     return id;
   },
   updateFurniture: (id, patch) =>
-    set((s) => ({
-      plan: {
-        ...s.plan,
-        furniture: s.plan.furniture.map((f) => (f.id === id ? { ...f, ...patch } : f)),
-      },
-    })),
+    set((s) => ({ plan: { ...s.plan, furniture: s.plan.furniture.map((f) => (f.id === id ? { ...f, ...patch } : f)) } })),
   addLabel: (l) => {
     const id = uid();
     get().commit();
@@ -117,12 +146,25 @@ export const useEditor = create<State & Actions>((set, get) => ({
     return id;
   },
   updateLabel: (id, patch) =>
-    set((s) => ({
-      plan: {
-        ...s.plan,
-        labels: s.plan.labels.map((l) => (l.id === id ? { ...l, ...patch } : l)),
-      },
-    })),
+    set((s) => ({ plan: { ...s.plan, labels: s.plan.labels.map((l) => (l.id === id ? { ...l, ...patch } : l)) } })),
+
+  addSection: (s) => {
+    const id = uid();
+    get().commit();
+    const letter = String.fromCharCode(65 + get().plan.sections.length);
+    set((st) => ({ plan: { ...st.plan, sections: [...st.plan.sections, { ...s, name: s.name || letter, id }] }, activeSectionId: id }));
+    return id;
+  },
+  updateSection: (id, patch) =>
+    set((s) => ({ plan: { ...s.plan, sections: s.plan.sections.map((x) => (x.id === id ? { ...x, ...patch } : x)) } })),
+  setActiveSection: (id) => set({ activeSectionId: id }),
+  setSectionDisplay: (patch) => set((s) => ({ sectionDisplay: { ...s.sectionDisplay, ...patch } })),
+
+  setTheme: (theme) => set({ theme }),
+  patchTheme: (patch) => set((s) => ({ theme: { ...s.theme, ...patch } })),
+  setWall3DColor: (c) => set({ wall3DColor: c }),
+  setFloor3DColor: (c) => set({ floor3DColor: c }),
+  setCeilingHeight: (h) => set((s) => ({ plan: { ...s.plan, ceilingHeight: h } })),
 
   deleteSelected: () => {
     const sel = get().selection;
@@ -137,6 +179,7 @@ export const useEditor = create<State & Actions>((set, get) => ({
       if (sel.type === "opening") p.openings = p.openings.filter((o) => o.id !== sel.id);
       if (sel.type === "furniture") p.furniture = p.furniture.filter((f) => f.id !== sel.id);
       if (sel.type === "label") p.labels = p.labels.filter((l) => l.id !== sel.id);
+      if (sel.type === "section") p.sections = p.sections.filter((x) => x.id !== sel.id);
       return { plan: p, selection: null };
     });
   },
@@ -169,5 +212,11 @@ export const useEditor = create<State & Actions>((set, get) => ({
       };
     }),
 
-  loadPlan: (plan) => set({ plan, selection: null, history: [], future: [] }),
+  loadPlan: (plan) =>
+    set({
+      plan: { ceilingHeight: 250, ...plan, sections: plan.sections ?? [] },
+      selection: null,
+      history: [],
+      future: [],
+    }),
 }));

@@ -5,27 +5,26 @@ import { LeftPanel } from "./LeftPanel";
 import { RightPanel } from "./RightPanel";
 import { Canvas2D } from "./Canvas2D";
 import { Canvas3D } from "./Canvas3D";
+import { CanvasSection } from "./CanvasSection";
 
 export function EditorShell() {
   const view = useEditor((s) => s.view);
   const exportRef = useRef<() => string | null>(() => null);
 
-  // Load a starter plan on first mount
   useEffect(() => {
     const st = useEditor.getState();
     if (st.plan.walls.length === 0) {
-      const T = 15;
+      const T = 24; // 24 cm = user's example
       const pts = [
-        { x: -400, y: -300 },
-        { x: 400, y: -300 },
-        { x: 400, y: 300 },
-        { x: -400, y: 300 },
+        { x: -400, y: -200 },
+        { x: 400, y: -200 },
+        { x: 400, y: 200 },
+        { x: -400, y: 200 },
       ];
-      for (let i = 0; i < 4; i++) {
-        st.addWall({ a: pts[i], b: pts[(i + 1) % 4], thickness: T });
-      }
-      // Add an interior wall
-      st.addWall({ a: { x: 0, y: -300 }, b: { x: 0, y: 100 }, thickness: T });
+      for (let i = 0; i < 4; i++) st.addWall({ a: pts[i], b: pts[(i + 1) % 4], thickness: T, height: 250 });
+      st.addWall({ a: { x: -200, y: -200 }, b: { x: -200, y: 40 }, thickness: T, height: 250 });
+      // Sample section line
+      st.addSection({ a: { x: -450, y: 0 }, b: { x: 450, y: 0 }, name: "A" });
     }
   }, []);
 
@@ -40,7 +39,7 @@ export function EditorShell() {
 
   const handleExportJSON = () => {
     const state = useEditor.getState();
-    const data = JSON.stringify({ name: state.projectName, plan: state.plan }, null, 2);
+    const data = JSON.stringify({ name: state.projectName, plan: state.plan, theme: state.theme }, null, 2);
     const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -63,6 +62,7 @@ export function EditorShell() {
         if (data.plan) {
           useEditor.getState().loadPlan(data.plan);
           if (data.name) useEditor.getState().setProjectName(data.name);
+          if (data.theme) useEditor.getState().setTheme(data.theme);
         }
       } catch { /* ignore */ }
     };
@@ -77,6 +77,7 @@ export function EditorShell() {
         <main className="relative flex min-w-0 flex-1">
           {view === "2d" && <Canvas2D onExportRef={(fn) => (exportRef.current = fn)} />}
           {view === "3d" && <Canvas3D />}
+          {view === "section" && <CanvasSection />}
           {view === "split" && (
             <div className="grid h-full w-full grid-cols-2 divide-x divide-border">
               <Canvas2D onExportRef={(fn) => (exportRef.current = fn)} />

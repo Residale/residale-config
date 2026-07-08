@@ -1,24 +1,56 @@
 import { useEditor } from "@/lib/editor/store";
-import { CATALOG } from "@/lib/editor/furniture-catalog";
 import { wallLength } from "@/lib/editor/geometry";
 
 export function RightPanel() {
   const {
-    plan, selection, updateWall, updateFurniture, updateOpening,
+    plan, selection, view, updateWall, updateFurniture, updateOpening, updateSection,
     deleteSelected, showGrid, showDimensions, snapEnabled, grid,
-    toggleGrid, toggleDimensions, toggleSnap,
+    toggleGrid, toggleDimensions, toggleSnap, sectionDisplay, setSectionDisplay, setCeilingHeight,
   } = useEditor();
 
   const wall = selection?.type === "wall" ? plan.walls.find((w) => w.id === selection.id) : null;
   const furn = selection?.type === "furniture" ? plan.furniture.find((f) => f.id === selection.id) : null;
   const opening = selection?.type === "opening" ? plan.openings.find((o) => o.id === selection.id) : null;
+  const sec = selection?.type === "section" ? plan.sections.find((x) => x.id === selection.id) : null;
+
+  // In section view: show display toggles
+  if (view === "section") {
+    return (
+      <aside className="flex h-full w-72 shrink-0 flex-col border-l border-border bg-card/60 backdrop-blur">
+        <div className="border-b border-border px-4 py-3">
+          <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Coupe — affichage</div>
+          <div className="mt-1 font-display text-lg">Options</div>
+        </div>
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          <NumberField
+            label="H.S.P. plafond (cm)"
+            value={plan.ceilingHeight ?? 250} min={200} max={600}
+            onChange={(v) => setCeilingHeight(v)}
+          />
+          <div className="space-y-1">
+            <ToggleRow label="Cotes verticales" active={sectionDisplay.showVerticalDims} onClick={() => setSectionDisplay({ showVerticalDims: !sectionDisplay.showVerticalDims })} />
+            <ToggleRow label="Cotes horizontales" active={sectionDisplay.showHorizontalDims} onClick={() => setSectionDisplay({ showHorizontalDims: !sectionDisplay.showHorizontalDims })} />
+            <ToggleRow label="Niveaux (± 0.00)" active={sectionDisplay.showLevels} onClick={() => setSectionDisplay({ showLevels: !sectionDisplay.showLevels })} />
+            <ToggleRow label="Hachurage sol" active={sectionDisplay.showFloorHatch} onClick={() => setSectionDisplay({ showFloorHatch: !sectionDisplay.showFloorHatch })} />
+            <ToggleRow label="Terrain naturel" active={sectionDisplay.showGround} onClick={() => setSectionDisplay({ showGround: !sectionDisplay.showGround })} />
+            <ToggleRow label="Mobilier en élévation" active={sectionDisplay.showFurniture} onClick={() => setSectionDisplay({ showFurniture: !sectionDisplay.showFurniture })} />
+            <ToggleRow label="Étiquettes ouvertures" active={sectionDisplay.showOpeningLabels} onClick={() => setSectionDisplay({ showOpeningLabels: !sectionDisplay.showOpeningLabels })} />
+            <ToggleRow label="Axes de repère" active={sectionDisplay.showAxes} onClick={() => setSectionDisplay({ showAxes: !sectionDisplay.showAxes })} />
+          </div>
+          <div className="rounded-md border border-border bg-background/40 p-3 text-[11px] text-muted-foreground">
+            Astuce : sélectionnez l'outil <span className="font-medium text-ink">Coupe</span> dans la barre de gauche puis tracez une ligne à travers votre plan. Vous pouvez créer plusieurs coupes (A-A', B-B'...).
+          </div>
+        </div>
+      </aside>
+    );
+  }
 
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-l border-border bg-card/60 backdrop-blur">
       <div className="border-b border-border px-4 py-3">
         <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Propriétés</div>
         <div className="mt-1 font-display text-lg">
-          {wall ? "Mur" : furn ? furn.label ?? "Mobilier" : opening ? (opening.type === "door" ? "Porte" : "Fenêtre") : "—"}
+          {wall ? "Mur" : furn ? furn.label ?? "Mobilier" : opening ? (opening.type === "door" ? "Porte" : "Fenêtre") : sec ? `Coupe ${sec.name}-${sec.name}'` : "—"}
         </div>
       </div>
 
@@ -31,16 +63,15 @@ export function RightPanel() {
 
         {wall && (
           <div className="space-y-3">
-            <Field label="Longueur">
-              <span className="font-mono-tab">{(wallLength(wall) / 100).toFixed(2)} m</span>
-            </Field>
-            <NumberField
-              label="Épaisseur (cm)"
-              value={wall.thickness}
-              min={5}
-              max={50}
-              onChange={(v) => updateWall(wall.id, { thickness: v })}
-            />
+            <Field label="Longueur"><span className="font-mono-tab">{(wallLength(wall) / 100).toFixed(2)} m</span></Field>
+            <NumberField label="Épaisseur (cm)" value={wall.thickness} min={5} max={80} onChange={(v) => updateWall(wall.id, { thickness: v })} />
+            <NumberField label="Hauteur (cm)" value={wall.height ?? 250} min={100} max={600} onChange={(v) => updateWall(wall.id, { height: v })} />
+            <div className="grid grid-cols-2 gap-2">
+              <NumberField label="A.x" value={Math.round(wall.a.x)} onChange={(v) => updateWall(wall.id, { a: { ...wall.a, x: v } })} />
+              <NumberField label="A.y" value={Math.round(wall.a.y)} onChange={(v) => updateWall(wall.id, { a: { ...wall.a, y: v } })} />
+              <NumberField label="B.x" value={Math.round(wall.b.x)} onChange={(v) => updateWall(wall.id, { b: { ...wall.b, x: v } })} />
+              <NumberField label="B.y" value={Math.round(wall.b.y)} onChange={(v) => updateWall(wall.id, { b: { ...wall.b, y: v } })} />
+            </div>
             <button onClick={deleteSelected} className="w-full rounded-md border border-destructive/30 bg-destructive/5 py-2 text-xs font-medium text-destructive hover:bg-destructive/10">
               Supprimer le mur
             </button>
@@ -51,16 +82,13 @@ export function RightPanel() {
           <div className="space-y-3">
             <label className="block text-xs">
               <span className="mb-1 block font-medium text-muted-foreground">Nom</span>
-              <input
-                value={furn.label ?? ""}
-                onChange={(e) => updateFurniture(furn.id, { label: e.target.value })}
-                className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-brass"
-              />
+              <input value={furn.label ?? ""} onChange={(e) => updateFurniture(furn.id, { label: e.target.value })} className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-brass" />
             </label>
             <div className="grid grid-cols-2 gap-2">
               <NumberField label="Largeur (cm)" value={Math.round(furn.width)} min={10} max={800} onChange={(v) => updateFurniture(furn.id, { width: v })} />
               <NumberField label="Profondeur (cm)" value={Math.round(furn.height)} min={10} max={800} onChange={(v) => updateFurniture(furn.id, { height: v })} />
             </div>
+            <NumberField label="Hauteur (cm)" value={furn.zHeight ?? 60} min={1} max={400} onChange={(v) => updateFurniture(furn.id, { zHeight: v })} />
             <div className="grid grid-cols-2 gap-2">
               <NumberField label="X (cm)" value={Math.round(furn.x)} onChange={(v) => updateFurniture(furn.id, { x: v })} />
               <NumberField label="Y (cm)" value={Math.round(furn.y)} onChange={(v) => updateFurniture(furn.id, { y: v })} />
@@ -70,33 +98,35 @@ export function RightPanel() {
                 <span className="font-medium text-muted-foreground">Rotation</span>
                 <span className="font-mono-tab">{Math.round(furn.rotation)}°</span>
               </div>
-              <input
-                type="range" min={0} max={359} value={furn.rotation}
-                onChange={(e) => updateFurniture(furn.id, { rotation: Number(e.target.value) })}
-                className="w-full accent-[color:var(--brass)]"
-              />
+              <input type="range" min={0} max={359} value={furn.rotation} onChange={(e) => updateFurniture(furn.id, { rotation: Number(e.target.value) })} className="w-full accent-[color:var(--brass)]" />
               <div className="mt-1 flex gap-1">
                 {[0, 90, 180, 270].map((deg) => (
-                  <button
-                    key={deg}
-                    onClick={() => updateFurniture(furn.id, { rotation: deg })}
-                    className="flex-1 rounded border border-border bg-background py-1 text-[11px] hover:border-brass"
-                  >{deg}°</button>
+                  <button key={deg} onClick={() => updateFurniture(furn.id, { rotation: deg })} className="flex-1 rounded border border-border bg-background py-1 text-[11px] hover:border-brass">{deg}°</button>
                 ))}
               </div>
             </div>
-            <button onClick={deleteSelected} className="w-full rounded-md border border-destructive/30 bg-destructive/5 py-2 text-xs font-medium text-destructive hover:bg-destructive/10">
-              Supprimer
-            </button>
+            <button onClick={deleteSelected} className="w-full rounded-md border border-destructive/30 bg-destructive/5 py-2 text-xs font-medium text-destructive hover:bg-destructive/10">Supprimer</button>
           </div>
         )}
 
         {opening && (
           <div className="space-y-3">
-            <NumberField label="Largeur (cm)" value={opening.width} min={40} max={300} onChange={(v) => updateOpening(opening.id, { width: v })} />
-            <button onClick={deleteSelected} className="w-full rounded-md border border-destructive/30 bg-destructive/5 py-2 text-xs font-medium text-destructive hover:bg-destructive/10">
-              Supprimer
-            </button>
+            <NumberField label="Largeur (cm)" value={opening.width} min={40} max={400} onChange={(v) => updateOpening(opening.id, { width: v })} />
+            <NumberField label="Hauteur (cm)" value={opening.height ?? (opening.type === "door" ? 210 : 120)} min={40} max={300} onChange={(v) => updateOpening(opening.id, { height: v })} />
+            {opening.type === "window" && (
+              <NumberField label="Allège (cm)" value={opening.sillHeight ?? 100} min={0} max={200} onChange={(v) => updateOpening(opening.id, { sillHeight: v })} />
+            )}
+            <button onClick={deleteSelected} className="w-full rounded-md border border-destructive/30 bg-destructive/5 py-2 text-xs font-medium text-destructive hover:bg-destructive/10">Supprimer</button>
+          </div>
+        )}
+
+        {sec && (
+          <div className="space-y-3">
+            <label className="block text-xs">
+              <span className="mb-1 block font-medium text-muted-foreground">Nom</span>
+              <input value={sec.name} onChange={(e) => updateSection(sec.id, { name: e.target.value.toUpperCase().slice(0, 2) })} className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-brass" />
+            </label>
+            <button onClick={deleteSelected} className="w-full rounded-md border border-destructive/30 bg-destructive/5 py-2 text-xs font-medium text-destructive hover:bg-destructive/10">Supprimer la coupe</button>
           </div>
         )}
 
@@ -124,14 +154,7 @@ function NumberField({ label, value, onChange, min, max }: { label: string; valu
   return (
     <label className="block text-xs">
       <span className="mb-1 block font-medium text-muted-foreground">{label}</span>
-      <input
-        type="number"
-        value={value}
-        min={min}
-        max={max}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full rounded border border-border bg-background px-2 py-1.5 font-mono-tab text-sm outline-none focus:border-brass"
-      />
+      <input type="number" value={value} min={min} max={max} onChange={(e) => onChange(Number(e.target.value))} className="w-full rounded border border-border bg-background px-2 py-1.5 font-mono-tab text-sm outline-none focus:border-brass" />
     </label>
   );
 }
