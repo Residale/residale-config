@@ -89,12 +89,13 @@ export function RightPanel() {
             <ToggleRow label="Axes de repère" active={sectionDisplay.showAxes} onClick={() => setSectionDisplay({ showAxes: !sectionDisplay.showAxes })} />
           </div>
           <div className="rounded-md border border-border bg-background/40 p-3 text-[11px] text-muted-foreground">
-            Astuce : sélectionnez l'outil <span className="font-medium text-ink">Coupe</span> dans la barre de gauche puis tracez une ligne à travers votre plan. Vous pouvez créer plusieurs coupes (A-A', B-B'...).
+            Les 4 coupes (Nord, Sud, Est, Ouest) sont générées automatiquement à partir du plan. Molette pour zoomer, clic-glisser pour déplacer.
           </div>
         </div>
       </aside>
     );
   }
+
 
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-l border-border bg-card/60 backdrop-blur">
