@@ -39,6 +39,7 @@ export function Canvas2D({ onExportRef }: Props) {
   const [dragPreview, setDragPreview] = useState<null | { kind: "opening" | "furniture"; pos: Point; width: number; height: number; wallId?: string; type?: "door" | "window" }>(null);
   const didFitRef = useRef(false);
   const clipboardRef = useRef<SelectionItem[]>([]);
+  const [contextMenu, setContextMenu] = useState<null | { screen: { x: number; y: number }; target: SelectionItem | null }>(null);
 
 
   const s = useEditor();
