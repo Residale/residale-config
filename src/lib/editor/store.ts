@@ -81,7 +81,9 @@ type State = {
   sectionDisplay: SectionDisplay;
   wallSettings: WallSettings;
   currentWallType: WallType;
+  show3DRoof: boolean;
 };
+
 
 type Actions = {
   setTool: (t: Tool) => void;
