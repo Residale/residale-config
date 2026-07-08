@@ -106,6 +106,7 @@ type Actions = {
   updateOpening: (id: string, patch: Partial<Opening>) => void;
   flipOpeningHinge: (id: string) => void;
   flipOpeningSwing: (id: string) => void;
+  setOpeningAngle: (id: string, deg: number) => void;
   cycleOpeningKind: (id: string, dir?: 1 | -1) => void;
   nudgeOpening: (id: string, deltaCm: number) => void;
   addFurniture: (f: Omit<Furniture, "id">) => string;
@@ -287,6 +288,10 @@ export const useEditor = create<State & Actions>()(persist((set, get) => ({
         ),
       },
     }));
+  },
+  setOpeningAngle: (id, deg) => {
+    const clamped = Math.max(0, Math.min(120, Math.round(deg)));
+    set((s) => ({ plan: { ...s.plan, openings: s.plan.openings.map((o) => (o.id === id ? { ...o, openAngle: clamped } : o)) } }));
   },
   cycleOpeningKind: (id, dir = 1) => {
     get().commit();
