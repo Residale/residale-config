@@ -318,13 +318,8 @@ export function Canvas2D({ onExportRef }: Props) {
     const wallIds = new Set(drag.items.filter((item) => item.type === "wall").map((item) => item.id));
     for (const f of drag.furniture) {
       if (f.locked) continue;
-      const target = { x: f.x + dx, y: f.y + dy };
-      if (f.anchorToWall) {
-        const snapped = snapFurnitureToWalls(target, f.width, f.height, f.rotation);
-        updateFurniture(f.id, { x: snapped.x, y: snapped.y, rotation: snapped.rotation });
-      } else {
-        updateFurniture(f.id, { x: Math.round(target.x), y: Math.round(target.y) });
-      }
+      const snapped = snapFurnitureToWalls({ x: f.x + dx, y: f.y + dy }, f.width, f.height, f.rotation);
+      updateFurniture(f.id, { x: snapped.x, y: snapped.y, rotation: snapped.rotation });
     }
     for (const w of drag.walls) {
       const moved = snapWallMove(
@@ -341,6 +336,7 @@ export function Canvas2D({ onExportRef }: Props) {
       });
     }
   };
+
 
 
   // Hit-test opening at world point — returns the opening + a hint whether the click is on an edge (for resize) or center (for move).
