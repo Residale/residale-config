@@ -839,7 +839,7 @@ export function Canvas2D({ onExportRef }: Props) {
             <Circle key={`j${i}`} x={j.p.x} y={j.p.y} radius={j.radius} fill={theme.wallFill} listening={false} />
           ))}
           {plan.openings.map(renderOpening)}
-          {plan.walls.map(renderDim)}
+          {!(showExteriorDims || showInteriorDims) && plan.walls.map(renderDim)}
           {perimeterDims}
           {plan.sections.map(renderSection)}
           {previewLine}{previewRect}{previewSection}
