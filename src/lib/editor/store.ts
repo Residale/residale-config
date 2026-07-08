@@ -153,7 +153,7 @@ const defaultSectionDisplay: SectionDisplay = {
   showAxes: true,
 };
 
-export const useEditor = create<State & Actions>((set, get) => ({
+export const useEditor = create<State & Actions>()(persist((set, get) => ({
   plan: emptyPlan,
   tool: "wall",
   selection: null,
