@@ -1184,26 +1184,18 @@ export function Canvas2D({ onExportRef }: Props) {
     let cenMinX = Infinity, cenMinY = Infinity, cenMaxX = -Infinity, cenMaxY = -Infinity;
     let maxT = 0;
     for (const w of plan.walls) {
-      const dx = w.b.x - w.a.x, dy = w.b.y - w.a.y;
-      const len = Math.hypot(dx, dy) || 1;
-      const nx = -dy / len, ny = dx / len;
-      const h = w.thickness / 2;
-      const corners: Point[] = [
-        { x: w.a.x + nx * h, y: w.a.y + ny * h },
-        { x: w.a.x - nx * h, y: w.a.y - ny * h },
-        { x: w.b.x + nx * h, y: w.b.y + ny * h },
-        { x: w.b.x - nx * h, y: w.b.y - ny * h },
-      ];
-      for (const c of corners) {
-        outMinX = Math.min(outMinX, c.x); outMinY = Math.min(outMinY, c.y);
-        outMaxX = Math.max(outMaxX, c.x); outMaxY = Math.max(outMaxY, c.y);
-      }
       cenMinX = Math.min(cenMinX, w.a.x, w.b.x);
       cenMinY = Math.min(cenMinY, w.a.y, w.b.y);
       cenMaxX = Math.max(cenMaxX, w.a.x, w.b.x);
       cenMaxY = Math.max(cenMaxY, w.a.y, w.b.y);
       if (w.thickness > maxT) maxT = w.thickness;
     }
+    // The displayed outer chain follows the drawn wall axes so a 300 cm wall
+    // remains labelled 300 cm instead of growing because of stroke thickness.
+    outMinX = cenMinX;
+    outMinY = cenMinY;
+    outMaxX = cenMaxX;
+    outMaxY = cenMaxY;
     const inMinX = cenMinX + maxT / 2;
     const inMaxX = cenMaxX - maxT / 2;
     const inMinY = cenMinY + maxT / 2;
