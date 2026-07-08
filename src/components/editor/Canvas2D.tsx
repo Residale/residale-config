@@ -707,10 +707,11 @@ export function Canvas2D({ onExportRef }: Props) {
       nodes.push(<Line key={`d${key}`} points={[xDim, y0, xDim, y1]} stroke={col} strokeWidth={0.8 / scale} listening={false} />);
       nodes.push(<Line key={`t1${key}`} points={[xDim - tick, y0 - tick, xDim + tick, y0 + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
       nodes.push(<Line key={`t2${key}`} points={[xDim - tick, y1 - tick, xDim + tick, y1 + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
-      // rotated -90° text: rotation pivots around (x,y); we shift so the label ends up centered along the dim line
+      // rotated -90° text placed just OUTSIDE the dim line
+      const labelX = dir > 0 ? xDim + 5 / scale : xDim - 17 / scale;
       nodes.push(
         <Text key={`x${key}`}
-          x={xDim - 16 / scale}
+          x={labelX}
           y={(y0 + y1) / 2 + 80 / scale}
           rotation={-90}
           width={160 / scale} align="center" text={label}
