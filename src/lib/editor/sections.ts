@@ -211,8 +211,17 @@ export function computeSection(plan: Plan, sec: SectionLine) {
 
 export function furnitureDefaultHeight(kind: string): number {
   const map: Record<string, number> = {
-    bed: 55, sofa: 85, chair: 90, table: 45, dining: 75, desk: 75,
-    toilet: 40, sink: 85, bath: 55, fridge: 180, stove: 90, plant: 100, rug: 1,
+    bed: 55, bed_single: 55, nightstand: 55, wardrobe: 220, dresser: 90,
+    sofa: 85, sofa_l: 85, armchair: 90, chair: 90,
+    table: 45, coffee_table: 40, dining: 75, desk: 75,
+    bookshelf: 200, tv_console: 50, tv: 75,
+    toilet: 80, bidet: 40, sink: 90, vanity: 85, bath: 55, shower: 210,
+    radiator: 60, towel_rack: 120, washer: 85,
+    fridge: 180, stove: 90, oven: 90, microwave: 30, hood: 60, dishwasher: 90,
+    kitchen_island: 90, kitchen_base: 90, kitchen_upper: 70,
+    plant: 100, rug: 1,
+    staircase: 250, fireplace: 220, wood_stove: 110,
+    bbq: 100, garden_table: 75, garden_chair: 85, parasol: 240, pool: 20,
   };
   return map[kind] ?? 60;
 }
