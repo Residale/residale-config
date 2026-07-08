@@ -997,7 +997,7 @@ export function Canvas2D({ onExportRef }: Props) {
     }
 
     return (
-      <Group key={o.id} listening={false}>
+      <Group key={o.id}>
         {wallCut}
         {symbol}
         {isSel && (kind === "door_simple" || kind === "door_double" || kind === "entrance") && (
