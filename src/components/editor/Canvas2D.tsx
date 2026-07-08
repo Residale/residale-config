@@ -999,7 +999,7 @@ export function Canvas2D({ onExportRef }: Props) {
     return "default";
   })();
 
-  const stageDraggable = spaceDown && !dragHandle && !openingDrag;
+  const stageDraggable = (spaceDown || tool === "select") && !dragHandle && !openingDrag;
 
   return (
     <div
