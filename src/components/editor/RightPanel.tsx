@@ -274,10 +274,11 @@ export function RightPanel() {
             </div>
 
             <NumberField label="Largeur (cm)" value={opening.width} min={40} max={400} onChange={(v) => updateOpening(opening.id, { width: v })} />
-            <NumberField label="Hauteur (cm)" value={opening.height ?? (opening.type === "door" ? 210 : 120)} min={40} max={300} onChange={(v) => updateOpening(opening.id, { height: v })} />
+            <NumberField label="Hauteur (cm)" value={openingHeight(opening)} min={40} max={300} onChange={(v) => updateOpening(opening.id, { height: v })} />
             {opening.type === "window" && (
-              <NumberField label="Allège (cm)" value={opening.sillHeight ?? 100} min={0} max={200} onChange={(v) => updateOpening(opening.id, { sillHeight: v })} />
+              <NumberField label="Allège (cm)" value={openingSill(opening)} min={0} max={200} onChange={(v) => updateOpening(opening.id, { sillHeight: v })} />
             )}
+
             <button onClick={deleteSelected} className="w-full rounded-md border border-destructive/30 bg-destructive/5 py-2 text-xs font-medium text-destructive hover:bg-destructive/10">Supprimer</button>
           </div>
         )}
