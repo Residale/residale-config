@@ -19,6 +19,14 @@ export function CanvasSection() {
     const user = plan.sections;
     return user.length ? user : autoSectionsFromPlan(plan);
   }, [plan]);
+  const [expanded, setExpanded] = useState<SectionLine | null>(null);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
 
   if (sections.length === 0) {
     return (
@@ -35,18 +43,36 @@ export function CanvasSection() {
 
   const cols = sections.length <= 2 ? sections.length : 2;
   return (
-    <div
-      className="grid h-full w-full gap-2 p-2"
-      style={{
-        gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-        gridAutoRows: sections.length <= 2 ? "1fr" : "minmax(0, 1fr)",
-        background: theme.background,
-      }}
-    >
-      {sections.map((sec) => (
-        <SectionPanel key={sec.id} section={sec} />
-      ))}
-    </div>
+    <>
+      <div
+        className="grid h-full w-full gap-2 p-2"
+        style={{
+          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+          gridAutoRows: sections.length <= 2 ? "1fr" : "minmax(0, 1fr)",
+          background: theme.background,
+        }}
+      >
+        {sections.map((sec) => (
+          <SectionPanel key={sec.id} section={sec} onExpand={() => setExpanded(sec)} />
+        ))}
+      </div>
+      {expanded && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+          onClick={() => setExpanded(null)}
+        >
+          <div className="relative h-full w-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setExpanded(null)}
+              className="absolute right-2 top-2 z-[60] rounded border border-border bg-card px-3 py-1 text-xs font-medium hover:border-brass"
+            >
+              Fermer (Échap)
+            </button>
+            <SectionPanel section={expanded} fullscreen />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
