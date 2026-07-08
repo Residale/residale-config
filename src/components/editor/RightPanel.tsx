@@ -284,13 +284,35 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function NumberField({ label, value, onChange, min, max }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number }) {
+  const [text, setText] = useState(String(value));
+  useEffect(() => { setText(String(value)); }, [value]);
+  const commit = () => {
+    const n = Number(text);
+    if (!Number.isFinite(n)) { setText(String(value)); return; }
+    const clamped = Math.max(min ?? -Infinity, Math.min(max ?? Infinity, n));
+    if (clamped !== value) onChange(clamped);
+    setText(String(clamped));
+  };
   return (
     <label className="block text-xs">
       <span className="mb-1 block font-medium text-muted-foreground">{label}</span>
-      <input type="number" value={value} min={min} max={max} onChange={(e) => onChange(Number(e.target.value))} className="w-full rounded border border-border bg-background px-2 py-1.5 font-mono-tab text-sm outline-none focus:border-brass" />
+      <input
+        type="number"
+        value={text}
+        min={min}
+        max={max}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { commit(); (e.target as HTMLInputElement).blur(); }
+          if (e.key === "Escape") { setText(String(value)); (e.target as HTMLInputElement).blur(); }
+        }}
+        className="w-full rounded border border-border bg-background px-2 py-1.5 font-mono-tab text-sm outline-none focus:border-brass"
+      />
     </label>
   );
 }
+
 
 function ToggleRow({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
