@@ -1,4 +1,4 @@
-import { Rect, Line, Circle, Group, Arc } from "react-konva";
+import { Rect, Line, Circle, Group } from "react-konva";
 import type { Furniture, FurnitureKind } from "@/lib/editor/types";
 
 type Props = { f: Furniture; strokeColor: string };
