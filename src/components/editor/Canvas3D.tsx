@@ -175,7 +175,7 @@ function Scene() {
             {openings.filter((o) => o.type === "door").map((o) => {
               const oW = o.width * SCALE;
               const oX = (o.t - 0.5) * rawLen * SCALE;
-              const oH = (o.height ?? 210) * SCALE;
+              const oH = openingHeight(o) * SCALE;
               return (
                 <mesh key={o.id} position={[oX - oW * 0.35, oH / 2, thick / 2 + 0.005]} castShadow>
                   <boxGeometry args={[oW * 0.95, oH, 0.03]} />
