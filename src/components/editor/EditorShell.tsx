@@ -14,7 +14,9 @@ export function EditorShell() {
 
   useEffect(() => {
     const st = useEditor.getState();
-    if (st.plan.walls.length === 0) {
+    // Only seed a starter plan on the very first ever load. Persisted state
+    // (including intentionally emptied plans) must not be overwritten.
+    if (typeof window !== "undefined" && !localStorage.getItem("residale-seeded-v1") && st.plan.walls.length === 0) {
       const ext = st.wallSettings.exterior.thickness;
       const pts = [
         { x: -400, y: -200 },
@@ -24,8 +26,10 @@ export function EditorShell() {
       ];
       for (let i = 0; i < 4; i++) st.addWall({ a: pts[i], b: pts[(i + 1) % 4], thickness: ext, wallType: "exterior" });
       st.addWall({ a: { x: -200, y: -200 }, b: { x: -200, y: 40 }, thickness: st.wallSettings.interior.thickness, wallType: "interior" });
+      localStorage.setItem("residale-seeded-v1", "1");
     }
   }, []);
+
 
   const handleExportPNG = () => {
     const url = exportRef.current();
