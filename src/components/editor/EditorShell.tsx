@@ -30,6 +30,23 @@ export function EditorShell() {
     }
   }, []);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const map: Record<string, "2d" | "3d" | "section" | "split"> = {
+        "1": "2d", "2": "3d", "3": "split", "4": "section",
+      };
+      const v = map[e.key];
+      if (v) { useEditor.getState().setView(v); e.preventDefault(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+
+
 
   const handleExportPNG = () => {
     const url = exportRef.current();
