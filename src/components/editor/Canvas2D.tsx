@@ -379,7 +379,7 @@ export function Canvas2D({ onExportRef }: Props) {
         points={[w.a.x, w.a.y, w.b.x, w.b.y]}
         stroke={isSel ? "#c9a961" : theme.wallFill}
         strokeWidth={w.thickness}
-        lineCap="square"
+        lineCap="butt"
         onClick={() => tool === "select" && setSelection({ type: "wall", id: w.id })}
         onTap={() => tool === "select" && setSelection({ type: "wall", id: w.id })}
         hitStrokeWidth={Math.max(w.thickness, 16 / scale)}
