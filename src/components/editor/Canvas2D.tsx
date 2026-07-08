@@ -681,14 +681,18 @@ export function Canvas2D({ onExportRef }: Props) {
       const len = Math.abs(x1 - x0);
       const label = len >= 100 ? `${(len / 100).toFixed(2)} m` : `${Math.round(len)} cm`;
       const dir = yDim >= yFace ? 1 : -1;
-      nodes.push(<Line key={`e1${key}`} points={[x0, yFace + dir * gap, x0, yDim + dir * tick]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
-      nodes.push(<Line key={`e2${key}`} points={[x1, yFace + dir * gap, x1, yDim + dir * tick]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
+      // extension lines stop exactly at the dim line (no overshoot)
+      nodes.push(<Line key={`e1${key}`} points={[x0, yFace + dir * gap, x0, yDim]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
+      nodes.push(<Line key={`e2${key}`} points={[x1, yFace + dir * gap, x1, yDim]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
       nodes.push(<Line key={`d${key}`} points={[x0, yDim, x1, yDim]} stroke={col} strokeWidth={0.8 / scale} listening={false} />);
       nodes.push(<Line key={`t1${key}`} points={[x0 - tick, yDim - tick, x0 + tick, yDim + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
       nodes.push(<Line key={`t2${key}`} points={[x1 - tick, yDim - tick, x1 + tick, yDim + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
+      // centered label above the dim line
       nodes.push(
-        <Text key={`x${key}`} x={(x0 + x1) / 2 - 60 / scale} y={yDim + (dir > 0 ? 5 / scale : -18 / scale)}
-          width={120 / scale} align="center" text={label}
+        <Text key={`x${key}`}
+          x={(x0 + x1) / 2 - 80 / scale}
+          y={yDim - 16 / scale}
+          width={160 / scale} align="center" text={label}
           fontSize={11 / scale} fontFamily="JetBrains Mono" fill={col} listening={false} />
       );
     };
@@ -697,15 +701,19 @@ export function Canvas2D({ onExportRef }: Props) {
       const len = Math.abs(y1 - y0);
       const label = len >= 100 ? `${(len / 100).toFixed(2)} m` : `${Math.round(len)} cm`;
       const dir = xDim >= xFace ? 1 : -1;
-      nodes.push(<Line key={`e1${key}`} points={[xFace + dir * gap, y0, xDim + dir * tick, y0]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
-      nodes.push(<Line key={`e2${key}`} points={[xFace + dir * gap, y1, xDim + dir * tick, y1]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
+      nodes.push(<Line key={`e1${key}`} points={[xFace + dir * gap, y0, xDim, y0]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
+      nodes.push(<Line key={`e2${key}`} points={[xFace + dir * gap, y1, xDim, y1]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
       nodes.push(<Line key={`d${key}`} points={[xDim, y0, xDim, y1]} stroke={col} strokeWidth={0.8 / scale} listening={false} />);
       nodes.push(<Line key={`t1${key}`} points={[xDim - tick, y0 - tick, xDim + tick, y0 + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
       nodes.push(<Line key={`t2${key}`} points={[xDim - tick, y1 - tick, xDim + tick, y1 + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
+      // rotated -90° text: rotation pivots around (x,y); we shift so the label ends up centered along the dim line
       nodes.push(
-        <Text key={`x${key}`} x={xDim + (dir > 0 ? 5 / scale : -18 / scale)} y={(y0 + y1) / 2 + 60 / scale}
-          text={label} fontSize={11 / scale} fontFamily="JetBrains Mono" fill={col}
-          rotation={-90} width={120 / scale} align="center" listening={false} />
+        <Text key={`x${key}`}
+          x={xDim - 16 / scale}
+          y={(y0 + y1) / 2 + 80 / scale}
+          rotation={-90}
+          width={160 / scale} align="center" text={label}
+          fontSize={11 / scale} fontFamily="JetBrains Mono" fill={col} listening={false} />
       );
     };
 
