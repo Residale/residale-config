@@ -293,11 +293,48 @@ export function Canvas2D({ onExportRef }: Props) {
       return;
     }
     if (tool === "select") {
+      // Priority order: furniture → opening (edges then body) → wall endpoint → wall body → section
       const f = findFurnitureAt(wp);
       if (f) { setSelection({ type: "furniture", id: f.id }); return; }
+
+      const oh = findOpeningAt(wp);
+      if (oh) {
+        setSelection({ type: "opening", id: oh.opening.id });
+        commit();
+        setOpeningDrag({
+          openingId: oh.opening.id,
+          origWallId: oh.wall.id,
+          origT: oh.opening.t,
+          origWidth: oh.opening.width,
+          mode: oh.mode,
+        });
+        return;
+      }
+
       const wh = findWallNear(wp);
-      if (wh) { setSelection({ type: "wall", id: wh.wall.id }); return; }
-      // section click
+      if (wh) {
+        setSelection({ type: "wall", id: wh.wall.id });
+        const endHit = wallEndpointHit(wp, wh.wall);
+        if (endHit) {
+          setDragHandle({
+            wallId: wh.wall.id,
+            end: endHit,
+            origA: { ...wh.wall.a },
+            origB: { ...wh.wall.b },
+            startPointer: wp,
+          });
+        } else {
+          setDragHandle({
+            wallId: wh.wall.id,
+            end: "mid",
+            origA: { ...wh.wall.a },
+            origB: { ...wh.wall.b },
+            startPointer: wp,
+          });
+        }
+        commit();
+        return;
+      }
       for (const sec of plan.sections) {
         const info = pointOnWall(wp, { ...sec, id: sec.id, thickness: 30 } as Wall);
         if (info.dist < 15 / scale) { setSelection({ type: "section", id: sec.id }); return; }
@@ -309,7 +346,59 @@ export function Canvas2D({ onExportRef }: Props) {
   const onMouseMove = () => {
     const wp = getWorldPointer();
     if (!wp) return;
-    // handle drag
+    // Opening drag (move along wall, resize, or transfer to another wall)
+    if (openingDrag) {
+      const op = plan.openings.find((o) => o.id === openingDrag.openingId);
+      const wall = plan.walls.find((w) => w.id === (op?.wallId ?? ""));
+      if (!op || !wall) return;
+      if (openingDrag.mode === "move") {
+        // Check for wall transfer: is cursor closer to a different wall?
+        const hit = findWallNear(wp);
+        if (hit && hit.wall.id !== wall.id) {
+          const wLen = wallLength(hit.wall);
+          if (wLen >= op.width + 20) {
+            const halfW = op.width / 2 / wLen + 0.02;
+            const nt = Math.max(halfW, Math.min(1 - halfW, hit.t));
+            s.updateOpening(op.id, { wallId: hit.wall.id, t: nt });
+            setHoverWallForDrop(hit.wall.id);
+            setCursor(wp);
+            return;
+          }
+        }
+        setHoverWallForDrop(null);
+        // Project cursor onto wall centerline for t
+        const info = pointOnWall(wp, wall);
+        const wLen = wallLength(wall);
+        const halfW = op.width / 2 / wLen + 0.02;
+        let nt = Math.max(halfW, Math.min(1 - halfW, info.t));
+        if (snapEnabled) {
+          // Snap position along wall to 5 cm.
+          const raw = nt * wLen;
+          const snapped = Math.round(raw / 5) * 5;
+          nt = Math.max(halfW, Math.min(1 - halfW, snapped / wLen));
+        }
+        s.updateOpening(op.id, { t: nt });
+      } else {
+        // Resize: project cursor along wall, compute new width from opposite anchor.
+        const info = pointOnWall(wp, wall);
+        const wLen = wallLength(wall);
+        const anchorT = openingDrag.mode === "resizeA"
+          ? openingDrag.origT + openingDrag.origWidth / 2 / wLen
+          : openingDrag.origT - openingDrag.origWidth / 2 / wLen;
+        const anchorDist = anchorT * wLen;
+        const curDist = info.t * wLen;
+        let newW = Math.abs(curDist - anchorDist);
+        if (snapEnabled) newW = Math.round(newW / 5) * 5;
+        newW = Math.max(40, Math.min(wLen - 10, newW));
+        const newCenter = openingDrag.mode === "resizeA" ? anchorDist - newW / 2 : anchorDist + newW / 2;
+        const halfW = newW / 2 / wLen + 0.02;
+        const newT = Math.max(halfW, Math.min(1 - halfW, newCenter / wLen));
+        s.updateOpening(op.id, { width: newW, t: newT });
+      }
+      setCursor(wp);
+      return;
+    }
+    // Wall handle drag
     if (dragHandle) {
       const w = plan.walls.find((ww) => ww.id === dragHandle.wallId);
       if (!w) return;
@@ -335,7 +424,10 @@ export function Canvas2D({ onExportRef }: Props) {
 
   const onMouseUp = () => {
     if (dragHandle) setDragHandle(null);
+    if (openingDrag) setOpeningDrag(null);
+    if (hoverWallForDrop) setHoverWallForDrop(null);
   };
+
 
   const onDblClick = () => { if (tool === "wall") { setDrawing(null); setTool("select"); } };
 
