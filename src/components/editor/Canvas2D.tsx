@@ -1345,6 +1345,26 @@ export function Canvas2D({ onExportRef }: Props) {
       }}
       onDragLeave={() => setDragPreview(null)}
       onDrop={(e) => { setDragPreview(null); onDropHtml(e); }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const screen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        const world = toWorld(screen);
+        let target: SelectionItem | null = null;
+        const f = findFurnitureAt(world);
+        if (f) target = { type: "furniture", id: f.id };
+        else {
+          const oh = findOpeningAt(world);
+          if (oh) target = { type: "opening", id: oh.opening.id };
+          else {
+            const wh = findWallNear(world);
+            if (wh) target = { type: "wall", id: wh.wall.id };
+          }
+        }
+        if (target) setSelection(target);
+        setContextMenu({ screen, target });
+      }}
     >
       <Stage
         ref={stageRef}
