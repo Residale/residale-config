@@ -540,6 +540,50 @@ export function Canvas2D({ onExportRef }: Props) {
   const onMouseMove = () => {
     const wp = getWorldPointer();
     if (!wp) return;
+    if (selectionRect) {
+      setSelectionRect({ ...selectionRect, current: wp });
+      setCursor(wp);
+      return;
+    }
+    if (moveDrag) {
+      moveSelectedBy(moveDrag, Math.round(wp.x - moveDrag.startPointer.x), Math.round(wp.y - moveDrag.startPointer.y));
+      setCursor(wp);
+      return;
+    }
+    if (furnitureTransform) {
+      const f = furnitureTransform.orig;
+      const ang = (f.rotation * Math.PI) / 180;
+      const cos = Math.cos(-ang);
+      const sin = Math.sin(-ang);
+      const dx = wp.x - f.x;
+      const dy = wp.y - f.y;
+      const lx = dx * cos - dy * sin;
+      const ly = dx * sin + dy * cos;
+      if (furnitureTransform.mode === "rotate") {
+        const deg = Math.round((Math.atan2(wp.y - f.y, wp.x - f.x) * 180) / Math.PI + 90);
+        const snapped = Math.round(deg / 15) * 15;
+        updateFurniture(f.id, { rotation: ((snapped % 360) + 360) % 360 });
+      } else {
+        const keepRatio = false;
+        const leftFixed = furnitureTransform.mode === "ne" || furnitureTransform.mode === "se" ? -f.width / 2 : f.width / 2;
+        const topFixed = furnitureTransform.mode === "sw" || furnitureTransform.mode === "se" ? -f.height / 2 : f.height / 2;
+        let newW = Math.max(20, Math.round(Math.abs(lx - leftFixed)));
+        let newH = Math.max(20, Math.round(Math.abs(ly - topFixed)));
+        if (keepRatio) {
+          const ratio = f.width / Math.max(1, f.height);
+          if (newW / newH > ratio) newW = Math.round(newH * ratio);
+          else newH = Math.round(newW / ratio);
+        }
+        const centerLocal = { x: (lx + leftFixed) / 2, y: (ly + topFixed) / 2 };
+        const worldCenter = {
+          x: f.x + centerLocal.x * Math.cos(ang) - centerLocal.y * Math.sin(ang),
+          y: f.y + centerLocal.x * Math.sin(ang) + centerLocal.y * Math.cos(ang),
+        };
+        updateFurniture(f.id, { x: Math.round(worldCenter.x), y: Math.round(worldCenter.y), width: newW, height: newH });
+      }
+      setCursor(wp);
+      return;
+    }
     // Opening drag (move along wall, resize, or transfer to another wall)
     if (openingDrag) {
       const op = plan.openings.find((o) => o.id === openingDrag.openingId);
@@ -598,17 +642,10 @@ export function Canvas2D({ onExportRef }: Props) {
         // Fine 1 cm translation (no coarse grid snap) — hold Shift on drop for grid alignment
         const na = { x: Math.round(dragHandle.origA.x + dx), y: Math.round(dragHandle.origA.y + dy) };
         const nb = { x: Math.round(dragHandle.origB.x + dx), y: Math.round(dragHandle.origB.y + dy) };
-        updateWall(w.id, { a: na, b: nb });
+        updateWall(w.id, snapWallMove(na, nb, new Set([w.id])));
       } else {
         // Endpoint drag: 1 cm precision + snap to nearby wall corners for clean junctions
-        const threshold = 15 / scale;
-        let target: Point = { x: Math.round(wp.x), y: Math.round(wp.y) };
-        for (const wall of plan.walls) {
-          if (wall.id === w.id) continue;
-          for (const end of [wall.a, wall.b]) {
-            if (dist(end, wp) < threshold) target = { ...end };
-          }
-        }
+        const target = applySnap({ x: Math.round(wp.x), y: Math.round(wp.y) }, undefined, w.id);
         updateWall(w.id, { [dragHandle.end]: target } as Partial<Wall>);
       }
       setCursor(wp);
