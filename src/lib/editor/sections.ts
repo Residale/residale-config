@@ -1,5 +1,25 @@
 import type { Furniture, Opening, Plan, Point, SectionLine, Wall } from "./types";
 
+/** Auto-generate two section lines from the plan bounding box (transverse + longitudinal). */
+export function autoSectionsFromPlan(plan: Plan): SectionLine[] {
+  if (plan.walls.length === 0) return [];
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const w of plan.walls) {
+    minX = Math.min(minX, w.a.x, w.b.x);
+    minY = Math.min(minY, w.a.y, w.b.y);
+    maxX = Math.max(maxX, w.a.x, w.b.x);
+    maxY = Math.max(maxY, w.a.y, w.b.y);
+  }
+  const pad = 50;
+  const midY = (minY + maxY) / 2;
+  const midX = (minX + maxX) / 2;
+  return [
+    { id: "__auto_A", name: "A", a: { x: minX - pad, y: midY }, b: { x: maxX + pad, y: midY } },
+    { id: "__auto_B", name: "B", a: { x: midX, y: minY - pad }, b: { x: midX, y: maxY + pad } },
+  ];
+}
+
+
 export type CutSegment = {
   type: "wall" | "door" | "window";
   start: number; // distance along section line, cm
