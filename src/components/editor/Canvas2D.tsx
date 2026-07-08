@@ -192,6 +192,44 @@ export function Canvas2D({ onExportRef }: Props) {
     return null;
   };
 
+  // Hit-test opening at world point — returns the opening + a hint whether the click is on an edge (for resize) or center (for move).
+  const findOpeningAt = (p: Point): { opening: Opening; wall: Wall; mode: "move" | "resizeA" | "resizeB" } | null => {
+    for (let i = plan.openings.length - 1; i >= 0; i--) {
+      const o = plan.openings[i];
+      const w = plan.walls.find((ww) => ww.id === o.wallId);
+      if (!w) continue;
+      const ang = wallAngle(w);
+      const len = wallLength(w);
+      const cx = w.a.x + Math.cos(ang) * len * o.t;
+      const cy = w.a.y + Math.sin(ang) * len * o.t;
+      const ux = Math.cos(ang);
+      const uy = Math.sin(ang);
+      // Local coords along wall
+      const rx = p.x - cx;
+      const ry = p.y - cy;
+      const along = rx * ux + ry * uy;
+      const perp = -rx * uy + ry * ux;
+      if (Math.abs(along) > o.width / 2 + 4) continue;
+      if (Math.abs(perp) > w.thickness / 2 + 6 / scale) continue;
+      // Edge zones: outer 20% of the width acts as resize handles.
+      const edgeZone = Math.max(6, o.width * 0.2);
+      let mode: "move" | "resizeA" | "resizeB" = "move";
+      if (along < -o.width / 2 + edgeZone) mode = "resizeA";
+      else if (along > o.width / 2 - edgeZone) mode = "resizeB";
+      return { opening: o, wall: w, mode };
+    }
+    return null;
+  };
+
+  // Endpoint zone check — returns "a", "b" or null based on cursor proximity to wall ends.
+  const wallEndpointHit = (p: Point, w: Wall): "a" | "b" | null => {
+    const zone = 22 / scale; // ~22 world cm at 1x zoom
+    if (dist(p, w.a) < zone) return "a";
+    if (dist(p, w.b) < zone) return "b";
+    return null;
+  };
+
+
   const onMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (spaceDown || e.evt.button === 1) return;
     const wp = getWorldPointer();
