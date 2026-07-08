@@ -162,8 +162,9 @@ function Scene() {
             {openings.filter((o) => o.type === "window").map((o) => {
               const oW = o.width * SCALE;
               const oX = (o.t - 0.5) * rawLen * SCALE;
-              const oH = (o.height ?? 120) * SCALE;
-              const sill = (o.sillHeight ?? 100) * SCALE;
+              const oH = openingHeight(o) * SCALE;
+              const sill = openingSill(o) * SCALE;
+
               return (
                 <mesh key={o.id} position={[oX, sill + oH / 2, 0]}>
                   <boxGeometry args={[oW * 0.95, oH * 0.95, thick * 0.15]} />
