@@ -8,7 +8,7 @@ export const Route = createFileRoute("/")({
       { title: "Plana Studio — Créateur de plans en ligne" },
       { name: "description", content: "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant." },
       { property: "og:title", content: "Plana Studio — Créateur de plans en ligne" },
-      { property: "og:description", content: "Éditeur de plans 2D/3D moderne et intuitif." },
+      { property: "og:description", content: "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant." },
       { property: "og:type", content: "website" },
     ],
   }),

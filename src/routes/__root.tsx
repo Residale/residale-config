@@ -80,10 +80,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Plana Studio — Créateur de plans en ligne" },
       { name: "description", content: "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant." },
       { name: "author", content: "Plana Studio" },
-      { property: "og:title", content: "Plana Studio" },
-      { property: "og:description", content: "Éditeur de plans 2D/3D moderne et intuitif." },
+      { property: "og:title", content: "Plana Studio — Créateur de plans en ligne" },
+      { property: "og:description", content: "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Plana Studio — Créateur de plans en ligne" },
+      { name: "twitter:description", content: "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/fe5e9422-a6c7-4222-a43a-e39080db04be/id-preview-9252f5f5--26819c47-e8c7-4348-99ae-f21660e20a41.lovable.app-1783467421260.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/fe5e9422-a6c7-4222-a43a-e39080db04be/id-preview-9252f5f5--26819c47-e8c7-4348-99ae-f21660e20a41.lovable.app-1783467421260.png" },
     ],
     links: [
       {
