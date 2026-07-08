@@ -12,6 +12,7 @@ import {
   wallAngle,
   wallLength,
 } from "@/lib/editor/geometry";
+import { collectJunctions } from "@/lib/editor/wall-geometry";
 import { FurnitureShape2D } from "./FurnitureShape2D";
 
 
