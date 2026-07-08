@@ -679,7 +679,8 @@ export function Canvas2D({ onExportRef }: Props) {
 
     const drawH = (x0: number, x1: number, yFace: number, yDim: number, key: string) => {
       const len = Math.abs(x1 - x0);
-      const label = len >= 100 ? `${(len / 100).toFixed(2)} m` : `${Math.round(len)} cm`;
+      const label = `${Math.round(len)}`;
+
       const dir = yDim >= yFace ? 1 : -1;
       // extension lines stop exactly at the dim line (no overshoot)
       nodes.push(<Line key={`e1${key}`} points={[x0, yFace + dir * gap, x0, yDim]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
@@ -700,7 +701,8 @@ export function Canvas2D({ onExportRef }: Props) {
 
     const drawV = (y0: number, y1: number, xFace: number, xDim: number, key: string) => {
       const len = Math.abs(y1 - y0);
-      const label = len >= 100 ? `${(len / 100).toFixed(2)} m` : `${Math.round(len)} cm`;
+      const label = `${Math.round(len)}`;
+
       const dir = xDim >= xFace ? 1 : -1;
       nodes.push(<Line key={`e1${key}`} points={[xFace + dir * gap, y0, xDim, y0]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
       nodes.push(<Line key={`e2${key}`} points={[xFace + dir * gap, y1, xDim, y1]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
@@ -849,7 +851,7 @@ export function Canvas2D({ onExportRef }: Props) {
             <Rect key={`j${i}`} x={j.p.x - j.radius} y={j.p.y - j.radius} width={j.radius * 2} height={j.radius * 2} fill={theme.wallFill} listening={false} />
           ))}
           {plan.openings.map(renderOpening)}
-          {!(showExteriorDims || showInteriorDims) && plan.walls.map(renderDim)}
+          {/* per-wall dims removed — only overall exterior/interior perimeter dims are shown */}
           {perimeterDims}
           {plan.sections.map(renderSection)}
           {previewLine}{previewRect}{previewSection}

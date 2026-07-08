@@ -81,7 +81,9 @@ type State = {
   sectionDisplay: SectionDisplay;
   wallSettings: WallSettings;
   currentWallType: WallType;
+  show3DRoof: boolean;
 };
+
 
 type Actions = {
   setTool: (t: Tool) => void;
@@ -123,6 +125,8 @@ type Actions = {
   setFloor3DColor: (c: string) => void;
   setCeilingHeight: (h: number) => void;
   setRoof: (r: Partial<import("./types").Roof> | null) => void;
+  toggle3DRoof: () => void;
+
 
   deleteSelected: () => void;
   clearAll: () => void;
@@ -171,6 +175,8 @@ export const useEditor = create<State & Actions>((set, get) => ({
     exterior: { thickness: 30, height: 270 },
   },
   currentWallType: "exterior",
+  show3DRoof: true,
+
 
   setTool: (tool) => set({ tool, selection: null }),
   setView: (view) => set({ view }),
@@ -349,6 +355,9 @@ export const useEditor = create<State & Actions>((set, get) => ({
     const cur = s.plan.roof ?? { kind: "flat" as const, pitch: 0, eaveHeight: 250, overhang: 40 };
     return { plan: { ...s.plan, roof: { ...cur, ...r } } };
   }),
+  toggle3DRoof: () => set((s) => ({ show3DRoof: !s.show3DRoof })),
+
+
 
   deleteSelected: () => {
     const sel = get().selection;
