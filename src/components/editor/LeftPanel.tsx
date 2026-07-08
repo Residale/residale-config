@@ -26,6 +26,7 @@ const TOOLS: ToolDef[] = [
 
 type OpeningItem = {
   kind: "door" | "window";
+  subKind?: "door_simple" | "door_double" | "door_slide" | "door_pocket" | "entrance" | "window_1" | "window_2" | "window_oscillo" | "bay" | "bay_slide" | "fixed";
   label: string;
   width: number;
   height: number;
@@ -33,11 +34,20 @@ type OpeningItem = {
 };
 
 const OPENINGS: OpeningItem[] = [
-  { kind: "door", label: "Porte simple", width: 80, height: 210, sillHeight: 0 },
-  { kind: "door", label: "Porte large", width: 100, height: 210, sillHeight: 0 },
-  { kind: "window", label: "Fenêtre", width: 100, height: 120, sillHeight: 100 },
-  { kind: "window", label: "Grande fenêtre", width: 160, height: 140, sillHeight: 90 },
-  { kind: "window", label: "Baie vitrée", width: 240, height: 210, sillHeight: 0 },
+  { kind: "door", subKind: "door_simple", label: "Porte 73", width: 73, height: 204, sillHeight: 0 },
+  { kind: "door", subKind: "door_simple", label: "Porte 83", width: 83, height: 204, sillHeight: 0 },
+  { kind: "door", subKind: "door_simple", label: "Porte 93", width: 93, height: 215, sillHeight: 0 },
+  { kind: "door", subKind: "door_double", label: "Porte double", width: 140, height: 215, sillHeight: 0 },
+  { kind: "door", subKind: "door_slide", label: "Coulissante", width: 90, height: 210, sillHeight: 0 },
+  { kind: "door", subKind: "door_pocket", label: "Galandage", width: 90, height: 210, sillHeight: 0 },
+  { kind: "door", subKind: "entrance", label: "Porte d'entrée", width: 90, height: 215, sillHeight: 0 },
+  { kind: "window", subKind: "window_1", label: "Fenêtre 60×75", width: 60, height: 75, sillHeight: 105 },
+  { kind: "window", subKind: "window_1", label: "Fenêtre 80×100", width: 80, height: 100, sillHeight: 100 },
+  { kind: "window", subKind: "window_2", label: "Fenêtre 120×125", width: 120, height: 125, sillHeight: 90 },
+  { kind: "window", subKind: "window_oscillo", label: "Oscillo-batt.", width: 100, height: 125, sillHeight: 90 },
+  { kind: "window", subKind: "bay", label: "Baie 180×215", width: 180, height: 215, sillHeight: 0 },
+  { kind: "window", subKind: "bay_slide", label: "Baie coul. 240", width: 240, height: 215, sillHeight: 0 },
+  { kind: "window", subKind: "fixed", label: "Châssis fixe", width: 100, height: 100, sillHeight: 100 },
 ];
 
 export function LeftPanel() {
