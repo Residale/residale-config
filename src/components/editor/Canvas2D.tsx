@@ -233,6 +233,30 @@ export function Canvas2D({ onExportRef }: Props) {
 
   const onDblClick = () => { if (tool === "wall") setDrawing(null); };
 
+  const snapFurnitureToWalls = (pos: Point, w: number, h: number): Point => {
+    const threshold = 25 / scale;
+    let best: { d: number; snap: Point } | null = null;
+    for (const wall of plan.walls) {
+      const info = pointOnWall(pos, wall);
+      if (info.dist < threshold + Math.max(w, h) / 2) {
+        // project the furniture so its closest edge touches the wall centerline offset by wall.thickness/2 + half furniture depth
+        const ang = wallAngle(wall);
+        const nx = Math.cos(ang - Math.PI / 2);
+        const ny = Math.sin(ang - Math.PI / 2);
+        const rel = { x: pos.x - info.closest.x, y: pos.y - info.closest.y };
+        const side = rel.x * nx + rel.y * ny >= 0 ? 1 : -1;
+        const offset = wall.thickness / 2 + Math.min(w, h) / 2;
+        const snapped = {
+          x: info.closest.x + nx * side * offset,
+          y: info.closest.y + ny * side * offset,
+        };
+        const d = Math.hypot(pos.x - snapped.x, pos.y - snapped.y);
+        if (!best || d < best.d) best = { d, snap: snapped };
+      }
+    }
+    return best ? best.snap : pos;
+  };
+
   const onDropHtml = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const kind = e.dataTransfer.getData("application/x-furniture");
@@ -243,7 +267,8 @@ export function Canvas2D({ onExportRef }: Props) {
     const rect = containerRef.current!.getBoundingClientRect();
     const screen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     const world = toWorld(screen);
-    const snapped = snapEnabled ? snapPoint(world, grid / 2) : world;
+    let snapped = snapEnabled ? snapPoint(world, grid / 2) : world;
+    snapped = snapFurnitureToWalls(snapped, item.width, item.height);
     addFurniture({
       kind: item.kind, x: snapped.x, y: snapped.y,
       width: item.width, height: item.height, rotation: 0, label: item.label,
