@@ -393,45 +393,191 @@ export function Canvas2D({ onExportRef }: Props) {
     const len = wallLength(w);
     const cx = w.a.x + Math.cos(ang) * len * o.t;
     const cy = w.a.y + Math.sin(ang) * len * o.t;
-    const dx = Math.cos(ang) * o.width / 2;
-    const dy = Math.sin(ang) * o.width / 2;
+    const ux = Math.cos(ang);
+    const uy = Math.sin(ang);
+    const dx = ux * o.width / 2;
+    const dy = uy * o.width / 2;
     const isSel = selection?.type === "opening" && selection.id === o.id;
+    const hinge: "a" | "b" = o.hingeSide ?? "a";
+    const swing: "p" | "n" = o.swingSide ?? "p";
+    const swingSign = swing === "p" ? 1 : -1;
+    // Perpendicular unit vector (rotated +90°)
+    const nxP = -uy * swingSign;
+    const nyP = ux * swingSign;
+    // Hinge point and leaf tip
+    const hx = hinge === "a" ? cx - dx : cx + dx;
+    const hy = hinge === "a" ? cy - dy : cy + dy;
+    const leafDir = hinge === "a" ? 1 : -1; // direction along wall from hinge to tip
+    const lx = hx + ux * o.width * leafDir;
+    const ly = hy + uy * o.width * leafDir;
+    // Tip of the arc: swing perpendicular from hinge
+    const tipX = hx + nxP * o.width;
+    const tipY = hy + nyP * o.width;
+
+    const stroke = isSel ? "#c9a961" : theme.openingStroke;
+    const sw = 1.5 / scale;
+    const kind = o.kind ?? (o.type === "door" ? "door_simple" : "window_1");
+
+    // Path helpers
+    // Arc from (hx,hy) → sweep by 90° toward perp side, radius = o.width
+    // Konva Path arc: A rx ry x-axis-rot large-arc sweep x y
+    const sweep = (hinge === "a" ? 1 : 0) ^ (swing === "p" ? 0 : 1); // choose correct arc side
+    const arcPath = `M ${hx} ${hy} L ${lx} ${ly} M ${hx} ${hy} A ${o.width} ${o.width} 0 0 ${sweep} ${tipX} ${tipY}`;
+
+    const wallCut = (
+      <Line
+        points={[cx - dx, cy - dy, cx + dx, cy + dy]}
+        stroke={theme.background}
+        strokeWidth={w.thickness + 2}
+        lineCap="butt"
+        listening={false}
+      />
+    );
+
+    // Door-family renderers
+    let symbol: React.ReactNode = null;
+    if (kind === "door_simple" || kind === "entrance") {
+      symbol = (
+        <>
+          <Path data={arcPath.split(" M ").slice(1).map((s) => "M " + s).join(" ")} stroke={stroke} strokeWidth={sw * 0.6} fill="transparent" dash={[4 / scale, 3 / scale]} />
+          <Line points={[hx, hy, tipX, tipY]} stroke={stroke} strokeWidth={sw} />
+          {kind === "entrance" && (
+            <Rect x={cx - dx} y={cy - dy - w.thickness / 3} width={o.width} height={w.thickness / 1.5} rotation={(ang * 180) / Math.PI} stroke={stroke} strokeWidth={sw * 0.6} fill="transparent" />
+          )}
+        </>
+      );
+    } else if (kind === "door_double") {
+      const midX = (hx + lx) / 2;
+      const midY = (hy + ly) / 2;
+      const tipL = { x: hx + nxP * (o.width / 2), y: hy + nyP * (o.width / 2) };
+      const tipR = { x: lx + nxP * (o.width / 2), y: ly + nyP * (o.width / 2) };
+      const swA = (hinge === "a" ? 1 : 0) ^ (swing === "p" ? 0 : 1);
+      const swB = (hinge === "a" ? 0 : 1) ^ (swing === "p" ? 0 : 1);
+      symbol = (
+        <>
+          <Path data={`M ${hx} ${hy} A ${o.width / 2} ${o.width / 2} 0 0 ${swA} ${tipL.x} ${tipL.y}`} stroke={stroke} strokeWidth={sw * 0.6} fill="transparent" dash={[4 / scale, 3 / scale]} />
+          <Path data={`M ${lx} ${ly} A ${o.width / 2} ${o.width / 2} 0 0 ${swB} ${tipR.x} ${tipR.y}`} stroke={stroke} strokeWidth={sw * 0.6} fill="transparent" dash={[4 / scale, 3 / scale]} />
+          <Line points={[hx, hy, midX, midY]} stroke={stroke} strokeWidth={sw} />
+          <Line points={[midX, midY, lx, ly]} stroke={stroke} strokeWidth={sw} />
+        </>
+      );
+    } else if (kind === "door_slide") {
+      const off = w.thickness / 3 * swingSign;
+      const offx = -uy * off;
+      const offy = ux * off;
+      symbol = (
+        <>
+          <Line points={[cx - dx + offx, cy - dy + offy, cx + dx + offx, cy + dy + offy]} stroke={stroke} strokeWidth={sw} />
+          <Rect
+            x={cx - dx + offx} y={cy - dy + offy}
+            width={o.width} height={4 / scale}
+            rotation={(ang * 180) / Math.PI}
+            stroke={stroke} strokeWidth={sw * 0.7} fill="transparent"
+          />
+          <Line points={[cx - dx + offx, cy - dy + offy - 3 / scale, cx - dx + offx + ux * 8 / scale, cy - dy + offy - 3 / scale + uy * 8 / scale]} stroke={stroke} strokeWidth={sw * 0.7} />
+        </>
+      );
+    } else if (kind === "door_pocket") {
+      symbol = (
+        <>
+          <Line points={[cx - dx, cy - dy, cx + dx, cy + dy]} stroke={stroke} strokeWidth={sw} dash={[3 / scale, 3 / scale]} />
+        </>
+      );
+    } else if (kind === "window_1") {
+      const off = w.thickness / 3;
+      const p1x = -uy * off, p1y = ux * off;
+      symbol = (
+        <>
+          <Line points={[cx - dx + p1x, cy - dy + p1y, cx + dx + p1x, cy + dy + p1y]} stroke={stroke} strokeWidth={sw * 0.6} />
+          <Line points={[cx - dx - p1x, cy - dy - p1y, cx + dx - p1x, cy + dy - p1y]} stroke={stroke} strokeWidth={sw * 0.6} />
+          <Line points={[cx - dx, cy - dy, cx + dx, cy + dy]} stroke={stroke} strokeWidth={sw} />
+        </>
+      );
+    } else if (kind === "window_2") {
+      const off = w.thickness / 3;
+      const p1x = -uy * off, p1y = ux * off;
+      const midX = cx, midY = cy;
+      symbol = (
+        <>
+          <Line points={[cx - dx + p1x, cy - dy + p1y, cx + dx + p1x, cy + dy + p1y]} stroke={stroke} strokeWidth={sw * 0.6} />
+          <Line points={[cx - dx - p1x, cy - dy - p1y, cx + dx - p1x, cy + dy - p1y]} stroke={stroke} strokeWidth={sw * 0.6} />
+          <Line points={[cx - dx, cy - dy, cx + dx, cy + dy]} stroke={stroke} strokeWidth={sw} />
+          <Line points={[midX - uy * (w.thickness / 2), midY + ux * (w.thickness / 2), midX + uy * (w.thickness / 2), midY - ux * (w.thickness / 2)]} stroke={stroke} strokeWidth={sw * 0.6} />
+        </>
+      );
+    } else if (kind === "window_oscillo") {
+      const off = w.thickness / 3;
+      const p1x = -uy * off, p1y = ux * off;
+      symbol = (
+        <>
+          <Line points={[cx - dx + p1x, cy - dy + p1y, cx + dx + p1x, cy + dy + p1y]} stroke={stroke} strokeWidth={sw * 0.6} />
+          <Line points={[cx - dx - p1x, cy - dy - p1y, cx + dx - p1x, cy + dy - p1y]} stroke={stroke} strokeWidth={sw * 0.6} />
+          <Line points={[cx - dx, cy - dy, cx + dx, cy + dy]} stroke={stroke} strokeWidth={sw} />
+          {/* triangle oscillo symbol */}
+          <Line points={[cx - dx, cy - dy, cx, cy + nyP * w.thickness / 2, cx + dx, cy + dy]} stroke={stroke} strokeWidth={sw * 0.7} />
+        </>
+      );
+    } else if (kind === "bay" || kind === "bay_slide") {
+      const off = w.thickness / 4;
+      const p1x = -uy * off, p1y = ux * off;
+      symbol = (
+        <>
+          <Line points={[cx - dx + p1x, cy - dy + p1y, cx + dx + p1x, cy + dy + p1y]} stroke={stroke} strokeWidth={sw * 0.6} />
+          <Line points={[cx - dx - p1x, cy - dy - p1y, cx + dx - p1x, cy + dy - p1y]} stroke={stroke} strokeWidth={sw * 0.6} />
+          <Line points={[cx - dx, cy - dy, cx, cy]} stroke={stroke} strokeWidth={sw} />
+          <Line points={[cx + ux * 2 / scale, cy + uy * 2 / scale, cx + dx, cy + dy]} stroke={stroke} strokeWidth={sw} />
+          {kind === "bay_slide" && (
+            <Line
+              points={[cx - dx + ux * 4 / scale, cy - dy + uy * 4 / scale - 4 / scale, cx + dx - ux * 4 / scale, cy + dy - uy * 4 / scale - 4 / scale]}
+              stroke={stroke} strokeWidth={sw * 0.5} dash={[3 / scale, 2 / scale]}
+            />
+          )}
+        </>
+      );
+    } else if (kind === "fixed") {
+      symbol = (
+        <>
+          <Line points={[cx - dx, cy - dy, cx + dx, cy + dy]} stroke={stroke} strokeWidth={sw} />
+          <Line points={[cx - dx + ux * 4 / scale, cy - dy + uy * 4 / scale, cx + dx - ux * 4 / scale, cy + dy - uy * 4 / scale]} stroke={stroke} strokeWidth={sw * 0.5} dash={[2 / scale, 2 / scale]} />
+        </>
+      );
+    }
+
     return (
-      <Group key={o.id} onClick={() => tool === "select" && setSelection({ type: "opening", id: o.id })}>
-        <Line points={[cx - dx, cy - dy, cx + dx, cy + dy]} stroke={theme.background} strokeWidth={w.thickness + 2} lineCap="butt" />
-        {o.type === "door" ? (
+      <Group key={o.id} onClick={() => tool === "select" && setSelection({ type: "opening", id: o.id })} onTap={() => tool === "select" && setSelection({ type: "opening", id: o.id })}>
+        {wallCut}
+        {symbol}
+        {isSel && (kind === "door_simple" || kind === "door_double" || kind === "entrance") && (
           <>
-            <Path
-              data={`M ${cx - dx} ${cy - dy} A ${o.width} ${o.width} 0 0 1 ${cx - dx + Math.cos(ang + Math.PI / 2) * o.width} ${cy - dy + Math.sin(ang + Math.PI / 2) * o.width}`}
-              stroke={isSel ? "#c9a961" : theme.openingStroke}
-              strokeWidth={1.2 / scale}
-              fill="transparent"
-              dash={[4 / scale, 3 / scale]}
-            />
-            <Line
-              points={[cx - dx, cy - dy, cx - dx + Math.cos(ang + Math.PI / 2) * o.width, cy - dy + Math.sin(ang + Math.PI / 2) * o.width]}
-              stroke={isSel ? "#c9a961" : theme.openingStroke}
-              strokeWidth={1.8 / scale}
-            />
+            {/* Flip hinge handle — near hinge end */}
+            <Group
+              x={hx + nxP * (w.thickness / 2 + 14 / scale)}
+              y={hy + nyP * (w.thickness / 2 + 14 / scale)}
+              onMouseDown={(e) => { e.cancelBubble = true; s.flipOpeningHinge(o.id); }}
+              onTap={(e) => { e.cancelBubble = true; s.flipOpeningHinge(o.id); }}
+            >
+              <Circle radius={11 / scale} fill="#ffffff" stroke="#c9a961" strokeWidth={2 / scale} shadowColor="rgba(0,0,0,0.25)" shadowBlur={4 / scale} />
+              <Text text="⇄" fontSize={13 / scale} fill="#3d2f22" offsetX={4 / scale} offsetY={7 / scale} listening={false} />
+            </Group>
+            {/* Flip swing handle — opposite side */}
+            <Group
+              x={cx - nxP * (w.thickness / 2 + 14 / scale)}
+              y={cy - nyP * (w.thickness / 2 + 14 / scale)}
+              onMouseDown={(e) => { e.cancelBubble = true; s.flipOpeningSwing(o.id); }}
+              onTap={(e) => { e.cancelBubble = true; s.flipOpeningSwing(o.id); }}
+            >
+              <Circle radius={11 / scale} fill="#ffffff" stroke="#c9a961" strokeWidth={2 / scale} shadowColor="rgba(0,0,0,0.25)" shadowBlur={4 / scale} />
+              <Text text="⇅" fontSize={13 / scale} fill="#3d2f22" offsetX={4 / scale} offsetY={7 / scale} listening={false} />
+            </Group>
           </>
-        ) : (
-          <>
-            <Line points={[cx - dx, cy - dy, cx + dx, cy + dy]} stroke={isSel ? "#c9a961" : theme.openingStroke} strokeWidth={2 / scale} />
-            <Line
-              points={[
-                cx - dx + Math.cos(ang + Math.PI / 2) * (w.thickness / 3), cy - dy + Math.sin(ang + Math.PI / 2) * (w.thickness / 3),
-                cx + dx + Math.cos(ang + Math.PI / 2) * (w.thickness / 3), cy + dy + Math.sin(ang + Math.PI / 2) * (w.thickness / 3),
-              ]}
-              stroke={theme.openingStroke} strokeWidth={1 / scale}
-            />
-            <Line
-              points={[
-                cx - dx - Math.cos(ang + Math.PI / 2) * (w.thickness / 3), cy - dy - Math.sin(ang + Math.PI / 2) * (w.thickness / 3),
-                cx + dx - Math.cos(ang + Math.PI / 2) * (w.thickness / 3), cy + dy - Math.sin(ang + Math.PI / 2) * (w.thickness / 3),
-              ]}
-              stroke={theme.openingStroke} strokeWidth={1 / scale}
-            />
-          </>
+        )}
+        {isSel && (
+          <Rect
+            x={cx - dx - 2 / scale} y={cy - dy - w.thickness / 2 - 2 / scale}
+            width={o.width + 4 / scale} height={w.thickness + 4 / scale}
+            rotation={(ang * 180) / Math.PI}
+            stroke="#c9a961" strokeWidth={1 / scale} dash={[4 / scale, 3 / scale]} fill="transparent" listening={false}
+          />
         )}
       </Group>
     );
