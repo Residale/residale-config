@@ -224,15 +224,27 @@ export function Canvas2D({ onExportRef }: Props) {
   };
 
   const applySnap = (p: Point, refFrom?: Point, ignoreWallId?: string): Point => {
-    let sp = snapEnabled ? snapPoint(p, grid) : p;
-    if (refFrom) sp = snapEnabled ? snapPoint(snapAngle(refFrom, sp, 15), grid) : sp;
-    const threshold = 15 / scale;
+    const magneticThreshold = 18 / scale;
     for (const w of plan.walls) {
       if (w.id === ignoreWallId) continue;
       for (const end of [w.a, w.b]) {
-        if (dist(end, sp) < threshold) return { ...end };
+        if (dist(end, p) < magneticThreshold) return { ...end };
       }
     }
+    let wallSnap: Point | null = null;
+    let wallSnapDist = Infinity;
+    for (const w of plan.walls) {
+      if (w.id === ignoreWallId) continue;
+      const info = pointOnWall(p, w);
+      const limit = w.thickness / 2 + 12 / scale;
+      if (info.dist < limit && info.dist < wallSnapDist) {
+        wallSnap = { x: Math.round(info.closest.x), y: Math.round(info.closest.y) };
+        wallSnapDist = info.dist;
+      }
+    }
+    if (wallSnap) return wallSnap;
+    let sp = snapEnabled ? snapPoint(p, grid) : p;
+    if (refFrom) sp = snapEnabled ? snapPoint(snapAngle(refFrom, sp, 15), grid) : sp;
     return sp;
   };
 
