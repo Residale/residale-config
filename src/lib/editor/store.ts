@@ -1,9 +1,11 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type {
   Furniture, Opening, Plan, RoomLabel, Selection, Tool, Wall, SectionLine, SectionDisplay, WallType, WallSettings,
 } from "./types";
 import { uid } from "./geometry";
 import { DEFAULT_THEME, type Theme2D } from "./theme";
+
 
 const POINT_EPS = 1.5;
 
@@ -151,7 +153,7 @@ const defaultSectionDisplay: SectionDisplay = {
   showAxes: true,
 };
 
-export const useEditor = create<State & Actions>((set, get) => ({
+export const useEditor = create<State & Actions>()(persist((set, get) => ({
   plan: emptyPlan,
   tool: "wall",
   selection: null,
@@ -412,4 +414,25 @@ export const useEditor = create<State & Actions>((set, get) => ({
       history: [],
       future: [],
     }),
+}), {
+  name: "residale-editor-v1",
+  storage: createJSONStorage(() => localStorage),
+  partialize: (s) => ({
+    plan: s.plan,
+    projectName: s.projectName,
+    theme: s.theme,
+    wall3DColor: s.wall3DColor,
+    floor3DColor: s.floor3DColor,
+    sectionDisplay: s.sectionDisplay,
+    wallSettings: s.wallSettings,
+    currentWallType: s.currentWallType,
+    show3DRoof: s.show3DRoof,
+    showGrid: s.showGrid,
+    showDimensions: s.showDimensions,
+    showExteriorDims: s.showExteriorDims,
+    showInteriorDims: s.showInteriorDims,
+    snapEnabled: s.snapEnabled,
+    grid: s.grid,
+  }),
 }));
+
