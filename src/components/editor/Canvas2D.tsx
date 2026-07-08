@@ -51,18 +51,51 @@ export function Canvas2D({ onExportRef }: Props) {
 
   useEffect(() => {
     const kd = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === "INPUT" || (e.target as HTMLElement)?.tagName === "TEXTAREA") return;
-      if (e.code === "Space") setSpaceDown(true);
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (e.code === "Space") { e.preventDefault(); setSpaceDown(true); }
       if (e.key === "Escape") { if (drawing) setTool("select"); setDrawing(null); setRectStart(null); setSectionStart(null); setSelection(null); }
       if ((e.key === "Delete" || e.key === "Backspace") && selection) { e.preventDefault(); deleteSelected(); }
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
       if ((e.metaKey || e.ctrlKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) { e.preventDefault(); redo(); }
+
+      // Tool shortcuts (no modifier)
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        const map: Record<string, typeof tool> = {
+          v: "select", w: "wall", r: "rectangle", d: "door", f: "window",
+          s: "section", e: "eraser",
+        };
+        const t = map[e.key.toLowerCase()];
+        if (t) { e.preventDefault(); setTool(t); return; }
+        // Views
+        if (e.key === "1") { s.setView("2d"); return; }
+        if (e.key === "2") { s.setView("3d"); return; }
+        if (e.key === "3") { s.setView("section"); return; }
+      }
+
+      // Opening-specific shortcuts when an opening is selected
+      if (selection?.type === "opening") {
+        const op = s.plan.openings.find((o) => o.id === selection.id);
+        if (!op) return;
+        if (e.key === "Tab") {
+          e.preventDefault();
+          // Cycle 4 combos: a/p → b/p → b/n → a/n → a/p
+          const cur = `${op.hingeSide ?? "a"}${op.swingSide ?? "p"}`;
+          const order = ["ap", "bp", "bn", "an"];
+          const nextIdx = (order.indexOf(cur) + 1) % order.length;
+          const next = order[nextIdx];
+          s.updateOpening(op.id, { hingeSide: next[0] as "a" | "b", swingSide: next[1] as "p" | "n" });
+        }
+        if (e.key === "ArrowLeft") { e.preventDefault(); s.nudgeOpening(op.id, e.shiftKey ? -1 : -5); }
+        if (e.key === "ArrowRight") { e.preventDefault(); s.nudgeOpening(op.id, e.shiftKey ? 1 : 5); }
+        if (e.key.toLowerCase() === "k" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); s.cycleOpeningKind(op.id, e.shiftKey ? -1 : 1); }
+      }
     };
     const ku = (e: KeyboardEvent) => { if (e.code === "Space") setSpaceDown(false); };
     window.addEventListener("keydown", kd);
     window.addEventListener("keyup", ku);
     return () => { window.removeEventListener("keydown", kd); window.removeEventListener("keyup", ku); };
-  }, [selection, deleteSelected, undo, redo, setSelection]);
+  }, [selection, deleteSelected, undo, redo, setSelection, setTool, drawing, s, tool]);
 
   const toWorld = useCallback(
     (p: Point): Point => ({ x: (p.x - pos.x) / scale, y: (p.y - pos.y) / scale }),
