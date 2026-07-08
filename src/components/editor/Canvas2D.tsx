@@ -305,17 +305,20 @@ export function Canvas2D({ onExportRef }: Props) {
     const openingRaw = e.dataTransfer.getData("application/x-opening");
     if (openingRaw) {
       try {
-        const o = JSON.parse(openingRaw) as { kind: "door" | "window"; label: string; width: number; height: number; sillHeight: number };
+        const o = JSON.parse(openingRaw) as { kind: "door" | "window"; subKind?: import("@/lib/editor/types").OpeningKind; label: string; width: number; height: number; sillHeight: number };
         const hit = findWallNear(world);
         if (hit) {
-          addOpening({
+          const id = addOpening({
             wallId: hit.wall.id,
             t: Math.max(0.08, Math.min(0.92, hit.t)),
             width: o.width,
             type: o.kind,
+            kind: o.subKind ?? (o.kind === "door" ? "door_simple" : "window_1"),
             height: o.height,
             sillHeight: o.sillHeight,
           });
+          setSelection({ type: "opening", id });
+          setTool("select");
         }
       } catch { /* ignore */ }
       return;
