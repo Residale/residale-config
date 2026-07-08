@@ -50,7 +50,7 @@ export function CanvasSection() {
   );
 }
 
-function SectionPanel({ section }: { section: SectionLine }) {
+function SectionPanel({ section, fullscreen = false, onExpand }: { section: SectionLine; fullscreen?: boolean; onExpand?: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
   const [size, setSize] = useState({ w: 400, h: 300 });
