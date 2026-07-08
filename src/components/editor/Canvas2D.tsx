@@ -658,6 +658,13 @@ export function Canvas2D({ onExportRef }: Props) {
   };
 
   const onMouseUp = () => {
+    if (selectionRect) {
+      const items = itemsInRect(selectionRect.start, selectionRect.current);
+      setSelection(items.length === 0 ? null : items.length === 1 ? items[0] : { type: "multi", items });
+      setSelectionRect(null);
+    }
+    if (moveDrag) setMoveDrag(null);
+    if (furnitureTransform) setFurnitureTransform(null);
     if (dragHandle) setDragHandle(null);
     if (openingDrag) setOpeningDrag(null);
     if (hoverWallForDrop) setHoverWallForDrop(null);
