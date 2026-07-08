@@ -68,6 +68,7 @@ type Actions = {
   setWall3DColor: (c: string) => void;
   setFloor3DColor: (c: string) => void;
   setCeilingHeight: (h: number) => void;
+  setRoof: (r: Partial<import("./types").Roof> | null) => void;
 
   deleteSelected: () => void;
   clearAll: () => void;
@@ -287,6 +288,11 @@ export const useEditor = create<State & Actions>((set, get) => ({
   setWall3DColor: (c) => set({ wall3DColor: c }),
   setFloor3DColor: (c) => set({ floor3DColor: c }),
   setCeilingHeight: (h) => set((s) => ({ plan: { ...s.plan, ceilingHeight: h } })),
+  setRoof: (r) => set((s) => {
+    if (r === null) { const { roof, ...rest } = s.plan; return { plan: rest }; }
+    const cur = s.plan.roof ?? { kind: "flat" as const, pitch: 0, eaveHeight: 250, overhang: 40 };
+    return { plan: { ...s.plan, roof: { ...cur, ...r } } };
+  }),
 
   deleteSelected: () => {
     const sel = get().selection;

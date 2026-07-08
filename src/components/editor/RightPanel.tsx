@@ -21,7 +21,7 @@ export function RightPanel() {
     plan, selection, view, updateWall, updateFurniture, updateOpening, updateSection,
     deleteSelected, showGrid, showDimensions, snapEnabled, grid,
     showExteriorDims, showInteriorDims, toggleExteriorDims, toggleInteriorDims,
-    toggleGrid, toggleDimensions, toggleSnap, sectionDisplay, setSectionDisplay, setCeilingHeight,
+    toggleGrid, toggleDimensions, toggleSnap, sectionDisplay, setSectionDisplay, setCeilingHeight, setRoof,
   } = useEditor();
 
   const wall = selection?.type === "wall" ? plan.walls.find((w) => w.id === selection.id) : null;
@@ -43,6 +43,33 @@ export function RightPanel() {
             value={plan.ceilingHeight ?? 250} min={200} max={600}
             onChange={(v) => setCeilingHeight(v)}
           />
+
+          <div className="rounded-md border border-border bg-background/60 p-3 space-y-2">
+            <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Toiture</div>
+            <div className="grid grid-cols-4 gap-1 rounded border border-border bg-background p-0.5">
+              {(["none","flat","mono","gable"] as const).map((k) => {
+                const active = k === "none" ? !plan.roof : plan.roof?.kind === k;
+                return (
+                  <button key={k}
+                    onClick={() => k === "none" ? setRoof(null) : setRoof({ kind: k, eaveHeight: plan.roof?.eaveHeight ?? (plan.ceilingHeight ?? 250), pitch: plan.roof?.pitch ?? (k === "flat" ? 0 : 30), overhang: plan.roof?.overhang ?? 40 })}
+                    className={`rounded px-1.5 py-1 text-[10px] font-medium ${active ? "bg-ink text-paper" : "text-muted-foreground hover:text-ink"}`}
+                  >
+                    {k === "none" ? "Aucun" : k === "flat" ? "Plat" : k === "mono" ? "1 pan" : "2 pans"}
+                  </button>
+                );
+              })}
+            </div>
+            {plan.roof && (
+              <div className="space-y-2">
+                <NumberField label="Hauteur sablière (cm)" value={plan.roof.eaveHeight} min={200} max={600} onChange={(v) => setRoof({ eaveHeight: v })} />
+                {plan.roof.kind !== "flat" && (
+                  <NumberField label="Pente (°)" value={plan.roof.pitch} min={5} max={60} onChange={(v) => setRoof({ pitch: v })} />
+                )}
+                <NumberField label="Débord (cm)" value={plan.roof.overhang} min={0} max={150} onChange={(v) => setRoof({ overhang: v })} />
+              </div>
+            )}
+          </div>
+
           <div className="space-y-1">
             <ToggleRow label="Cotes verticales" active={sectionDisplay.showVerticalDims} onClick={() => setSectionDisplay({ showVerticalDims: !sectionDisplay.showVerticalDims })} />
             <ToggleRow label="Cotes horizontales" active={sectionDisplay.showHorizontalDims} onClick={() => setSectionDisplay({ showHorizontalDims: !sectionDisplay.showHorizontalDims })} />
@@ -79,7 +106,18 @@ export function RightPanel() {
 
         {wall && (
           <div className="space-y-3">
-            <Field label="Longueur"><span className="font-mono-tab">{(wallLength(wall) / 100).toFixed(2)} m</span></Field>
+            <NumberField
+              label="Longueur (cm)"
+              value={Math.round(wallLength(wall))}
+              min={10} max={5000}
+              onChange={(v) => {
+                const dx = wall.b.x - wall.a.x;
+                const dy = wall.b.y - wall.a.y;
+                const cur = Math.hypot(dx, dy) || 1;
+                const k = v / cur;
+                updateWall(wall.id, { b: { x: wall.a.x + dx * k, y: wall.a.y + dy * k } });
+              }}
+            />
             <div>
               <div className="mb-1 block text-xs font-medium text-muted-foreground">Type</div>
               <div className="grid grid-cols-2 gap-1 rounded border border-border bg-background p-0.5">
