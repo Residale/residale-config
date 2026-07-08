@@ -414,4 +414,25 @@ export const useEditor = create<State & Actions>()(persist((set, get) => ({
       history: [],
       future: [],
     }),
+}), {
+  name: "residale-editor-v1",
+  storage: createJSONStorage(() => localStorage),
+  partialize: (s) => ({
+    plan: s.plan,
+    projectName: s.projectName,
+    theme: s.theme,
+    wall3DColor: s.wall3DColor,
+    floor3DColor: s.floor3DColor,
+    sectionDisplay: s.sectionDisplay,
+    wallSettings: s.wallSettings,
+    currentWallType: s.currentWallType,
+    show3DRoof: s.show3DRoof,
+    showGrid: s.showGrid,
+    showDimensions: s.showDimensions,
+    showExteriorDims: s.showExteriorDims,
+    showInteriorDims: s.showInteriorDims,
+    snapEnabled: s.snapEnabled,
+    grid: s.grid,
+  }),
 }));
+
