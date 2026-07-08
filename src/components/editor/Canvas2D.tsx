@@ -1317,7 +1317,7 @@ export function Canvas2D({ onExportRef }: Props) {
         scaleX={scale} scaleY={scale} x={pos.x} y={pos.y}
         draggable={stageDraggable}
         onDragStart={(e) => {
-          if (e.target !== e.target.getStage()) {
+          if (e.target !== e.target.getStage() || e.evt.shiftKey) {
             e.target.stopDrag();
           }
         }}
