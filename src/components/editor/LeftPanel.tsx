@@ -26,7 +26,11 @@ const TOOLS: ToolDef[] = [
 ];
 
 export function LeftPanel() {
-  const { tool, setTool, plan, theme, setTheme, patchTheme, wall3DColor, floor3DColor, setWall3DColor, setFloor3DColor } = useEditor();
+  const {
+    tool, setTool, plan, theme, setTheme, patchTheme,
+    wall3DColor, floor3DColor, setWall3DColor, setFloor3DColor,
+    wallSettings, setWallSettings, currentWallType, setCurrentWallType, applyWallTypeToAll,
+  } = useEditor();
   const [tab, setTab] = useState<"tools" | "furniture" | "theme">("tools");
   const cats = useMemo(() => Array.from(new Set(CATALOG.map((c) => c.category))), []);
   const [openCat, setOpenCat] = useState<string>(cats[0]);
@@ -65,14 +69,56 @@ export function LeftPanel() {
             ))}
           </div>
 
-          <div className="mt-6 rounded-md border border-border bg-background/60 p-3">
+          {/* Global wall settings */}
+          <div className="mt-5 rounded-md border border-brass/40 bg-brass/5 p-3">
+            <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+              Type de mur en cours
+            </div>
+            <div className="mb-3 grid grid-cols-2 gap-1 rounded border border-border bg-background p-0.5">
+              {(["exterior", "interior"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setCurrentWallType(t)}
+                  className={`rounded px-2 py-1.5 text-xs font-medium transition-colors ${
+                    currentWallType === t ? "bg-ink text-paper" : "text-muted-foreground hover:text-ink"
+                  }`}
+                >
+                  {t === "exterior" ? "Extérieur" : "Intérieur"}
+                </button>
+              ))}
+            </div>
+            <div className="space-y-2 text-[11px]">
+              <div className="rounded border border-border bg-card p-2">
+                <div className="mb-1 font-medium text-ink">Mur extérieur</div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <MiniNum label="Épais." value={wallSettings.exterior.thickness} onChange={(v) => setWallSettings({ exterior: { ...wallSettings.exterior, thickness: v } })} />
+                  <MiniNum label="Haut." value={wallSettings.exterior.height} onChange={(v) => setWallSettings({ exterior: { ...wallSettings.exterior, height: v } })} />
+                </div>
+              </div>
+              <div className="rounded border border-border bg-card p-2">
+                <div className="mb-1 font-medium text-ink">Mur intérieur</div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <MiniNum label="Épais." value={wallSettings.interior.thickness} onChange={(v) => setWallSettings({ interior: { ...wallSettings.interior, thickness: v } })} />
+                  <MiniNum label="Haut." value={wallSettings.interior.height} onChange={(v) => setWallSettings({ interior: { ...wallSettings.interior, height: v } })} />
+                </div>
+              </div>
+              <button
+                onClick={applyWallTypeToAll}
+                className="w-full rounded border border-border bg-background py-1.5 text-[11px] font-medium hover:border-brass hover:bg-brass/10"
+              >
+                Appliquer à tous les murs existants
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-md border border-border bg-background/60 p-3">
             <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Résumé</div>
             <div className="space-y-1.5 font-mono-tab text-xs">
               <div className="flex justify-between"><span className="text-muted-foreground">Murs</span><span>{plan.walls.length}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Longueur</span><span>{totalMeters.toFixed(2)} m</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Ouvertures</span><span>{plan.openings.length}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Mobilier</span><span>{plan.furniture.length}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Coupes</span><span>{plan.sections.length}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Coupes</span><span>{plan.sections.length || "auto"}</span></div>
             </div>
           </div>
         </div>
