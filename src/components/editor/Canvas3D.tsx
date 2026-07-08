@@ -33,7 +33,7 @@ class SceneErrorBoundary extends Component<{ children: ReactNode }, { err: Error
 }
 
 function Scene() {
-  const { plan, wall3DColor, floor3DColor, show3DRoof } = useEditor();
+  const { plan, wall3DColor, floor3DColor, show3DRoof, wallSettings } = useEditor();
   const ceilingH = plan.ceilingHeight ?? 250;
 
   const camera = useMemo(() => {
@@ -58,6 +58,7 @@ function Scene() {
       target: [cx, ceilingH * SCALE * 0.4, cz] as [number, number, number],
     };
   }, [plan.walls, ceilingH]);
+
 
   // Bounding box for roof
   const roofBox = useMemo(() => {
