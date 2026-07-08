@@ -228,3 +228,20 @@ function toHex(v: string): string {
   if (/^#[0-9a-fA-F]{6}$/.test(v)) return v;
   return "#000000";
 }
+
+function MiniNum({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <label className="block">
+      <span className="mb-0.5 block text-[9px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+      <div className="flex items-center rounded border border-border bg-background">
+        <input
+          type="number"
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="w-full bg-transparent px-1.5 py-1 font-mono-tab text-[11px] outline-none"
+        />
+        <span className="pr-1.5 text-[9px] text-muted-foreground">cm</span>
+      </div>
+    </label>
+  );
+}
