@@ -740,12 +740,25 @@ export function Canvas2D({ onExportRef }: Props) {
           </>
         )}
         {isSel && (
-          <Rect
-            x={cx - dx - 2 / scale} y={cy - dy - w.thickness / 2 - 2 / scale}
-            width={o.width + 4 / scale} height={w.thickness + 4 / scale}
-            rotation={(ang * 180) / Math.PI}
-            stroke="#c9a961" strokeWidth={1 / scale} dash={[4 / scale, 3 / scale]} fill="transparent" listening={false}
-          />
+          <>
+            <Rect
+              x={cx - dx - 2 / scale} y={cy - dy - w.thickness / 2 - 2 / scale}
+              width={o.width + 4 / scale} height={w.thickness + 4 / scale}
+              rotation={(ang * 180) / Math.PI}
+              stroke="#c9a961" strokeWidth={1 / scale} dash={[4 / scale, 3 / scale]} fill="transparent" listening={false}
+            />
+            {/* End resize handles — chevron arrows aligned with the wall axis */}
+            {(["a", "b"] as const).map((end) => {
+              const ex = end === "a" ? cx - dx : cx + dx;
+              const ey = end === "a" ? cy - dy : cy + dy;
+              return (
+                <Group key={`h${end}`} x={ex} y={ey} listening={false}>
+                  <Circle radius={9 / scale} fill="#ffffff" stroke="#c9a961" strokeWidth={1.5 / scale} shadowColor="rgba(0,0,0,0.25)" shadowBlur={4 / scale} />
+                  <Text text="↔" fontSize={12 / scale} fontStyle="bold" fill="#3d2f22" offsetX={5 / scale} offsetY={6 / scale} rotation={(ang * 180) / Math.PI} />
+                </Group>
+              );
+            })}
+          </>
         )}
       </Group>
     );
