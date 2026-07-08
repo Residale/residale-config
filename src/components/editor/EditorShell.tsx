@@ -14,17 +14,15 @@ export function EditorShell() {
   useEffect(() => {
     const st = useEditor.getState();
     if (st.plan.walls.length === 0) {
-      const T = 24; // 24 cm = user's example
+      const ext = st.wallSettings.exterior.thickness;
       const pts = [
         { x: -400, y: -200 },
         { x: 400, y: -200 },
         { x: 400, y: 200 },
         { x: -400, y: 200 },
       ];
-      for (let i = 0; i < 4; i++) st.addWall({ a: pts[i], b: pts[(i + 1) % 4], thickness: T, height: 250 });
-      st.addWall({ a: { x: -200, y: -200 }, b: { x: -200, y: 40 }, thickness: T, height: 250 });
-      // Sample section line
-      st.addSection({ a: { x: -450, y: 0 }, b: { x: 450, y: 0 }, name: "A" });
+      for (let i = 0; i < 4; i++) st.addWall({ a: pts[i], b: pts[(i + 1) % 4], thickness: ext, wallType: "exterior" });
+      st.addWall({ a: { x: -200, y: -200 }, b: { x: -200, y: 40 }, thickness: st.wallSettings.interior.thickness, wallType: "interior" });
     }
   }, []);
 
