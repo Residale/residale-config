@@ -366,20 +366,17 @@ export function Canvas2D({ onExportRef }: Props) {
           }
         }
         setHoverWallForDrop(null);
-        // Project cursor onto wall centerline for t
+        // Project cursor onto wall centerline for t (fine 1 cm precision)
         const info = pointOnWall(wp, wall);
         const wLen = wallLength(wall);
         const halfW = op.width / 2 / wLen + 0.02;
         let nt = Math.max(halfW, Math.min(1 - halfW, info.t));
-        if (snapEnabled) {
-          // Snap position along wall to 5 cm.
-          const raw = nt * wLen;
-          const snapped = Math.round(raw / 5) * 5;
-          nt = Math.max(halfW, Math.min(1 - halfW, snapped / wLen));
-        }
+        // Always round to 1 cm along wall — no coarse 5 cm/grid snapping during drag
+        const raw = nt * wLen;
+        nt = Math.max(halfW, Math.min(1 - halfW, Math.round(raw) / wLen));
         s.updateOpening(op.id, { t: nt });
       } else {
-        // Resize: project cursor along wall, compute new width from opposite anchor.
+        // Resize: project cursor along wall, compute new width from opposite anchor (1 cm step)
         const info = pointOnWall(wp, wall);
         const wLen = wallLength(wall);
         const anchorT = openingDrag.mode === "resizeA"
@@ -388,8 +385,7 @@ export function Canvas2D({ onExportRef }: Props) {
         const anchorDist = anchorT * wLen;
         const curDist = info.t * wLen;
         let newW = Math.abs(curDist - anchorDist);
-        if (snapEnabled) newW = Math.round(newW / 5) * 5;
-        newW = Math.max(40, Math.min(wLen - 10, newW));
+        newW = Math.max(40, Math.min(wLen - 10, Math.round(newW)));
         const newCenter = openingDrag.mode === "resizeA" ? anchorDist - newW / 2 : anchorDist + newW / 2;
         const halfW = newW / 2 / wLen + 0.02;
         const newT = Math.max(halfW, Math.min(1 - halfW, newCenter / wLen));
@@ -405,12 +401,14 @@ export function Canvas2D({ onExportRef }: Props) {
       if (dragHandle.end === "mid") {
         const dx = wp.x - dragHandle.startPointer.x;
         const dy = wp.y - dragHandle.startPointer.y;
-        let na = { x: dragHandle.origA.x + dx, y: dragHandle.origA.y + dy };
-        let nb = { x: dragHandle.origB.x + dx, y: dragHandle.origB.y + dy };
-        if (snapEnabled) { na = snapPoint(na, grid); nb = snapPoint(nb, grid); }
+        // Fine 1 cm translation (no coarse grid snap) — hold Shift on drop for grid alignment
+        const na = { x: Math.round(dragHandle.origA.x + dx), y: Math.round(dragHandle.origA.y + dy) };
+        const nb = { x: Math.round(dragHandle.origB.x + dx), y: Math.round(dragHandle.origB.y + dy) };
         updateWall(w.id, { a: na, b: nb });
       } else {
-        const snapped = applySnap(wp, dragHandle.end === "a" ? w.b : w.a, w.id);
+        // Endpoint drag: 1 cm precision + endpoint-snap to nearby wall corners (via applySnap)
+        const raw = applySnap(wp, dragHandle.end === "a" ? w.b : w.a, w.id);
+        const snapped = { x: Math.round(raw.x), y: Math.round(raw.y) };
         updateWall(w.id, { [dragHandle.end]: snapped } as Partial<Wall>);
       }
       setCursor(wp);
