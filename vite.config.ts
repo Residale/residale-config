@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv, type PluginOption } from "vite";
+import { defineConfig, loadEnv, type PluginOption, type UserConfig } from "vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -7,7 +7,7 @@ import tsConfigPaths from "vite-tsconfig-paths";
 // Explicit, owned Vite config (previously composed for us by the now-removed
 // @lovable.dev/vite-tanstack-config wrapper). Do not add a second copy of any
 // of these plugins elsewhere — duplicates will break the build.
-export default defineConfig(async ({ command, mode }) => {
+export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
   // Mirror Vite's own VITE_-prefixed env injection so import.meta.env.VITE_*
   // values are available as literal defines (matches previous behavior).
   const loadedEnv = loadEnv(mode, process.cwd(), "VITE_");

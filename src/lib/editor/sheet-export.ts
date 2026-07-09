@@ -15,6 +15,7 @@ export type SheetConfig = {
   company: string; // cartouche gauche, ex. "RESIDALE SAS"
   version: string; // cartouche droite, ex. "V1"
   scale: number; // dénominateur d'échelle souhaité, ex. 100 => 1:100
+  date?: string; // date du cartouche; défaut = date du jour (fr-FR)
   paper: SheetPaper;
   showFurniture: boolean;
   showLabels: boolean;
@@ -176,6 +177,17 @@ function arc(doc: jsPDF, cx: number, cy: number, r: number, a0: number, a1: numb
 function setStroke(doc: jsPDF, c: [number, number, number], w: number) {
   doc.setDrawColor(c[0], c[1], c[2]);
   doc.setLineWidth(w);
+}
+
+/** Réduit la taille de police jusqu'à ce que le texte tienne dans maxW (mm). */
+function fitFontSize(doc: jsPDF, text: string, maxW: number, baseSize: number): number {
+  let size = baseSize;
+  doc.setFontSize(size);
+  while (size > 5 && doc.getTextWidth(text) > maxW) {
+    size -= 0.5;
+    doc.setFontSize(size);
+  }
+  return size;
 }
 
 /** Ligne de cote avec attaches, ticks obliques et texte en mètres. */
@@ -494,15 +506,19 @@ export function buildArchitectSheet(plan: Plan, projectName: string, cfg: SheetC
 
   doc.setTextColor(INK[0], INK[1], INK[2]);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(cfg.paper === "a3" ? 16 : 13);
+  const titleSize = cfg.paper === "a3" ? 16 : 13;
+  fitFontSize(doc, cfg.company, c1 - innerX - 4, titleSize);
   doc.text(cfg.company, (innerX + c1) / 2, tbY + titleH / 2 + 1.8, { align: "center" });
+  fitFontSize(doc, projectName, c2 - c1 - 4, titleSize);
   doc.text(projectName, (c1 + c2) / 2, tbY + titleH / 2 + 1.8, { align: "center" });
-  doc.setFontSize(cfg.paper === "a3" ? 13 : 11);
+  fitFontSize(doc, cfg.version, innerX + innerW - c2 - 4, cfg.paper === "a3" ? 13 : 11);
   doc.text(cfg.version, (c2 + innerX + innerW) / 2, tbY + titleH * 0.25 + 1.6, { align: "center" });
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
   doc.setTextColor(90, 90, 90);
+  const dateStr = cfg.date ?? new Date().toLocaleDateString("fr-FR");
+  doc.text(dateStr, (innerX + c1) / 2, tbY + titleH - 2.5, { align: "center" });
   doc.text("Echelle", c2 + 1.5, rMid + 3);
 
   const bounds = planBounds(plan);
@@ -597,7 +613,9 @@ export function buildArchitectSheet(plan: Plan, projectName: string, cfg: SheetC
       doc.setFont("helvetica", "normal");
       doc.setFontSize(6);
       doc.setTextColor(150, 150, 150);
-      doc.text(names[elev.dir], cell.x + 1, cell.y + 2.4);
+      // L'échelle des élévations peut différer de celle du plan : on l'affiche
+      // dans chaque cellule pour que la feuille reste mesurable.
+      doc.text(`${names[elev.dir]} — 1:${elevationScale}`, cell.x + 1, cell.y + 2.4);
       drawElevation(doc, elev, cell, es, cfg.showDimensions);
     });
   }
@@ -620,7 +638,13 @@ export function buildArchitectSheet(plan: Plan, projectName: string, cfg: SheetC
 
 export function exportArchitectSheetPDF(plan: Plan, projectName: string, cfg: SheetConfig): SheetResult {
   const { doc, effectiveScale, elevationScale } = buildArchitectSheet(plan, projectName, cfg);
-  const safeName = (projectName || "plan").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "_");
+  const safeName =
+    (projectName || "plan")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\w\- ]+/g, "")
+      .trim()
+      .replace(/\s+/g, "_") || "plan";
   doc.save(`${safeName}_${cfg.version || "V1"}_plan.pdf`);
   return { effectiveScale, elevationScale };
 }

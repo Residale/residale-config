@@ -117,7 +117,11 @@ export function EditorShell() {
         paper,
       });
       state.setProjectName(projectName);
-      toast.success(`Feuille architecte exportée en 1:${result.effectiveScale}.`);
+      toast.success(
+        result.elevationScale !== result.effectiveScale
+          ? `Feuille architecte exportée — plan 1:${result.effectiveScale}, façades 1:${result.elevationScale}.`
+          : `Feuille architecte exportée en 1:${result.effectiveScale}.`,
+      );
     } catch (err) {
       console.error(err);
       toast.error("Erreur lors de l'export de la feuille architecte.");

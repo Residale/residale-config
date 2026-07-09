@@ -179,7 +179,7 @@ export function LeftPanel() {
                       className="group cursor-grab select-none rounded border border-border bg-card p-2 text-[11px] transition-all hover:border-brass hover:shadow-panel active:cursor-grabbing"
                     >
                       <div className="mb-1 flex h-10 w-full items-center justify-center rounded-sm border border-border bg-background">
-                        {o.kind === "door" ? <DoorGlyph /> : <WindowGlyph />}
+                        {o.type === "door" ? <DoorGlyph /> : <WindowGlyph />}
                       </div>
                       <div className="truncate font-medium">{o.label}</div>
                       <div className="font-mono-tab text-[9px] text-muted-foreground">

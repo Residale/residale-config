@@ -197,7 +197,7 @@ export async function exportDossierPDF({ plan, projectName, theme = DEFAULT_THEM
     doc.text(projectName, margin + 3, y + 5);
     doc.setFontSize(7);
     doc.setTextColor(120);
-    doc.text(`Plana Studio · ${date}`, margin + 3, y + 9);
+    doc.text(`Floor Whisper — Residale · ${date}`, margin + 3, y + 9);
     doc.setFontSize(9);
     doc.setTextColor(60);
     doc.text(pageTitle, margin + contentW * 0.5 + 3, y + 7);
