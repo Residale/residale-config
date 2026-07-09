@@ -1,0 +1,24 @@
+--- PAGE 1 ---
+GSPublisherVersion 0.1.100.100
+AURA 48
+V1
+Echelle
+1:100
+RESIDALE SAS
+RE
+F
+ West Elevation
+ South Elevation
+ East Elevation
+ North Elevation
+6.000
+8.000
+6.000
+2.500
+8.000
+2.500
+8.000
+2.145
+0.355
+2.500
+6.000
