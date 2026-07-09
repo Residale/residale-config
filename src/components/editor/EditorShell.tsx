@@ -10,6 +10,7 @@ import { Canvas3D } from "./Canvas3D";
 import { CanvasSection } from "./CanvasSection";
 import { CommandPalette } from "./CommandPalette";
 import { exportDossierPDF, findStageDataURL } from "@/lib/editor/pdf-export";
+import { DEFAULT_SHEET_CONFIG, exportArchitectSheetPDF, type SheetPaper } from "@/lib/editor/sheet-export";
 import { toast } from "sonner";
 
 export function EditorShell() {
@@ -91,6 +92,38 @@ export function EditorShell() {
     input.click();
   };
 
+
+  const handleExportArchitectSheet = () => {
+    const state = useEditor.getState();
+    if (state.plan.walls.length === 0) {
+      toast.error("Dessinez d'abord un plan avant d'exporter la feuille architecte.");
+      return;
+    }
+
+    const company = window.prompt("Cartouche — société", DEFAULT_SHEET_CONFIG.company) || DEFAULT_SHEET_CONFIG.company;
+    const projectName = window.prompt("Nom du projet", state.projectName || "AURA 48") || state.projectName || "AURA 48";
+    const version = window.prompt("Version", DEFAULT_SHEET_CONFIG.version) || DEFAULT_SHEET_CONFIG.version;
+    const scaleRaw = window.prompt("Échelle souhaitée (ex: 100 pour 1:100)", String(DEFAULT_SHEET_CONFIG.scale));
+    const scale = Number(scaleRaw) > 0 ? Number(scaleRaw) : DEFAULT_SHEET_CONFIG.scale;
+    const paperRaw = (window.prompt("Format papier: A4 ou A3", DEFAULT_SHEET_CONFIG.paper.toUpperCase()) || DEFAULT_SHEET_CONFIG.paper).toLowerCase();
+    const paper: SheetPaper = paperRaw === "a3" ? "a3" : "a4";
+
+    try {
+      const result = exportArchitectSheetPDF(state.plan, projectName, {
+        ...DEFAULT_SHEET_CONFIG,
+        company,
+        version,
+        scale,
+        paper,
+      });
+      state.setProjectName(projectName);
+      toast.success(`Feuille architecte exportée en 1:${result.effectiveScale}.`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Erreur lors de l'export de la feuille architecte.");
+    }
+  };
+
   const handleExportDossier = async () => {
     const state = useEditor.getState();
     if (state.plan.walls.length === 0) {
@@ -136,6 +169,7 @@ export function EditorShell() {
         onExportJSON={handleExportJSON}
         onImportJSON={handleImportJSON}
         onExportDossier={handleExportDossier}
+        onExportArchitectSheet={handleExportArchitectSheet}
       />
       <div className="flex min-h-0 flex-1">
         <LeftPanel />

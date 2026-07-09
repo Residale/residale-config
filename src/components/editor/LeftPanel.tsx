@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { wallLength } from "@/lib/editor/geometry";
 import { THEME_PRESETS } from "@/lib/editor/theme";
 import { FurnitureThumb } from "./FurnitureThumb";
+import { OPENING_PRESETS, WALL_PRESETS } from "@/lib/editor/presets";
 
 type ToolDef = {
   id: import("@/lib/editor/types").Tool;
@@ -23,31 +24,9 @@ const TOOLS: ToolDef[] = [
   { id: "eraser", label: "Gomme", hint: "E", icon: <Icon><path d="M3 17l6 6h12v-2H10.4L4.4 15z"/><path d="M20 8L14 2 3 13l6 6"/></Icon> },
 ];
 
-type OpeningItem = {
-  kind: "door" | "window";
-  subKind?: "door_simple" | "door_double" | "door_slide" | "door_pocket" | "entrance" | "window_1" | "window_2" | "window_oscillo" | "bay" | "bay_slide" | "fixed";
-  label: string;
-  width: number;
-  height: number;
-  sillHeight: number;
-};
+type OpeningItem = (typeof OPENING_PRESETS)[number];
 
-const OPENINGS: OpeningItem[] = [
-  { kind: "door", subKind: "door_simple", label: "Porte 73", width: 73, height: 204, sillHeight: 0 },
-  { kind: "door", subKind: "door_simple", label: "Porte 83", width: 83, height: 204, sillHeight: 0 },
-  { kind: "door", subKind: "door_simple", label: "Porte 93", width: 93, height: 215, sillHeight: 0 },
-  { kind: "door", subKind: "door_double", label: "Porte double", width: 140, height: 215, sillHeight: 0 },
-  { kind: "door", subKind: "door_slide", label: "Coulissante", width: 90, height: 210, sillHeight: 0 },
-  { kind: "door", subKind: "door_pocket", label: "Galandage", width: 90, height: 210, sillHeight: 0 },
-  { kind: "door", subKind: "entrance", label: "Porte d'entrée", width: 90, height: 215, sillHeight: 0 },
-  { kind: "window", subKind: "window_1", label: "Fenêtre 60×75", width: 60, height: 75, sillHeight: 105 },
-  { kind: "window", subKind: "window_1", label: "Fenêtre 80×100", width: 80, height: 100, sillHeight: 100 },
-  { kind: "window", subKind: "window_2", label: "Fenêtre 120×125", width: 120, height: 125, sillHeight: 90 },
-  { kind: "window", subKind: "window_oscillo", label: "Oscillo-batt.", width: 100, height: 125, sillHeight: 90 },
-  { kind: "window", subKind: "bay", label: "Baie 180×215", width: 180, height: 215, sillHeight: 0 },
-  { kind: "window", subKind: "bay_slide", label: "Baie coul. 240", width: 240, height: 215, sillHeight: 0 },
-  { kind: "window", subKind: "fixed", label: "Châssis fixe", width: 100, height: 100, sillHeight: 100 },
-];
+const OPENINGS: OpeningItem[] = OPENING_PRESETS;
 
 export function LeftPanel() {
   const {
@@ -129,6 +108,27 @@ export function LeftPanel() {
                   <MiniNum label="Haut." value={wallSettings.interior.height} onChange={(v) => setWallSettings({ interior: { ...wallSettings.interior, height: v } })} />
                 </div>
               </div>
+              <div className="rounded border border-border bg-background/70 p-2">
+                <div className="mb-1 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Favoris murs</div>
+                <div className="grid grid-cols-1 gap-1">
+                  {WALL_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      onClick={() => {
+                        setCurrentWallType(preset.wallType);
+                        setWallSettings({
+                          [preset.wallType]: { thickness: preset.thickness, height: preset.height },
+                        });
+                      }}
+                      title={preset.description}
+                      className="flex items-center justify-between rounded border border-border bg-card px-2 py-1 text-left text-[10px] hover:border-brass hover:bg-brass/10"
+                    >
+                      <span className="font-medium">{preset.label}</span>
+                      <span className="font-mono-tab text-muted-foreground">{preset.thickness}/{preset.height}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <button
                 onClick={applyWallTypeToAll}
                 className="w-full rounded border border-border bg-background py-1.5 text-[11px] font-medium hover:border-brass hover:bg-brass/10"
@@ -170,7 +170,7 @@ export function LeftPanel() {
                       key={i}
                       draggable
                       onDragStart={(e) => {
-                        e.dataTransfer.setData("application/x-opening", JSON.stringify(o));
+                        e.dataTransfer.setData("application/x-opening", JSON.stringify({ kind: o.type, subKind: o.kind, label: o.label, width: o.width, height: o.height, sillHeight: o.sillHeight }));
                         e.dataTransfer.effectAllowed = "copy";
                         const img = new Image();
                         img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";

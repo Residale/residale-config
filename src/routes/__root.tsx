@@ -7,10 +7,9 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
   return (
@@ -37,9 +36,6 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
-  useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -77,17 +73,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Plana Studio — Créateur de plans en ligne" },
+      { title: "Floor Whisper — Residale" },
       { name: "description", content: "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant." },
-      { name: "author", content: "Plana Studio" },
-      { property: "og:title", content: "Plana Studio — Créateur de plans en ligne" },
+      { name: "author", content: "Residale" },
+      { property: "og:title", content: "Floor Whisper — Residale" },
       { property: "og:description", content: "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant." },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Plana Studio — Créateur de plans en ligne" },
+      { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "Floor Whisper — Residale" },
       { name: "twitter:description", content: "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/fe5e9422-a6c7-4222-a43a-e39080db04be/id-preview-9252f5f5--26819c47-e8c7-4348-99ae-f21660e20a41.lovable.app-1783467421260.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/fe5e9422-a6c7-4222-a43a-e39080db04be/id-preview-9252f5f5--26819c47-e8c7-4348-99ae-f21660e20a41.lovable.app-1783467421260.png" },
     ],
     links: [
       {

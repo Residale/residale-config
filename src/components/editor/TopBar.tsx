@@ -1,10 +1,11 @@
 import { useEditor } from "@/lib/editor/store";
 
-export function TopBar({ onExportPNG, onExportJSON, onImportJSON, onExportDossier }: {
+export function TopBar({ onExportPNG, onExportJSON, onImportJSON, onExportDossier, onExportArchitectSheet }: {
   onExportPNG: () => void;
   onExportJSON: () => void;
   onImportJSON: () => void;
   onExportDossier: () => void;
+  onExportArchitectSheet: () => void;
 }) {
   const { projectName, setProjectName, view, setView, undo, redo, clearAll } = useEditor();
 
@@ -17,8 +18,8 @@ export function TopBar({ onExportPNG, onExportJSON, onImportJSON, onExportDossie
           </svg>
         </div>
         <div className="flex flex-col leading-tight">
-          <span className="font-display text-sm">Plana</span>
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Studio</span>
+          <span className="font-display text-sm">Floor</span>
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Whisper</span>
         </div>
         <div className="mx-3 h-6 w-px bg-border" />
         <input
@@ -51,6 +52,12 @@ export function TopBar({ onExportPNG, onExportJSON, onImportJSON, onExportDossie
             <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/>
           </svg>
           PNG
+        </button>
+        <button onClick={onExportArchitectSheet} className="flex items-center gap-1.5 rounded-md border border-brass/50 bg-brass/10 px-2.5 py-1.5 text-xs font-medium text-ink transition-colors hover:border-brass hover:bg-brass/20" title="Exporter une feuille architecte AURA avec plan, façades, cotes et cartouche">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5">
+            <path d="M4 3h16v18H4z"/><path d="M4 16h16"/><path d="M12 16v5"/><path d="M8 7h8v5H8z"/>
+          </svg>
+          Plan architecte
         </button>
         <button onClick={onExportDossier} className="ml-1 flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-paper transition-colors hover:bg-ink/85" title="Télécharger le dossier PDF complet (plan 2D, coupes, 3D, tableau des surfaces)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5">
