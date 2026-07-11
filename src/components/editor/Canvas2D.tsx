@@ -669,7 +669,9 @@ export function Canvas2D({ onExportRef }: Props) {
         if (info.dist < 15 / scale) { selectItem({ type: "section", id: sec.id }, additive); return; }
       }
       if (e.evt.shiftKey) setSelectionRect({ start: wp, current: wp });
-      else setSelection(null);
+      // Keep the active selection stable by default: hovering/clicking around the
+      // plan should not silently replace/clear it. Escape remains the explicit
+      // way to clear the current selection.
     }
   };
 
@@ -925,6 +927,33 @@ export function Canvas2D({ onExportRef }: Props) {
 
   const junctions = useMemo(() => collectJunctions(plan), [plan]);
 
+  const footprintDimensionWallIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!showExteriorDims && !showInteriorDims) return ids;
+    if (plan.walls.length === 0) return ids;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const w of plan.walls) {
+      minX = Math.min(minX, w.a.x, w.b.x);
+      minY = Math.min(minY, w.a.y, w.b.y);
+      maxX = Math.max(maxX, w.a.x, w.b.x);
+      maxY = Math.max(maxY, w.a.y, w.b.y);
+    }
+
+    const near = (a: number, b: number) => Math.abs(a - b) < 1;
+    for (const w of plan.walls) {
+      const axis = wallAxisKind(w.a, w.b);
+      if (axis === "horizontal") {
+        const y = (w.a.y + w.b.y) / 2;
+        if (near(y, minY) || near(y, maxY)) ids.add(w.id);
+      } else if (axis === "vertical") {
+        const x = (w.a.x + w.b.x) / 2;
+        if (near(x, minX) || near(x, maxX)) ids.add(w.id);
+      }
+    }
+    return ids;
+  }, [plan.walls, showExteriorDims, showInteriorDims]);
+
   const renderOpening = (o: Opening) => {
     const w = plan.walls.find((ww) => ww.id === o.wallId);
     if (!w) return null;
@@ -1148,10 +1177,14 @@ export function Canvas2D({ onExportRef }: Props) {
 
   const renderDim = (w: Wall) => {
     if (!showDimensions) return null;
+    // When footprint dimensions are visible, do not also draw individual wall
+    // dimensions on the exterior shell; that creates the doubled lines in the
+    // screenshots. Interior/partition walls keep their own dimensions.
+    if (footprintDimensionWallIds.has(w.id)) return null;
     const len = wallLength(w);
     if (len < 20) return null;
     const ang = wallAngle(w);
-    const off = w.thickness / 2 + 18 / scale + 6;
+    const off = w.thickness / 2 + 24;
     const nx = Math.cos(ang - Math.PI / 2);
     const ny = Math.sin(ang - Math.PI / 2);
     // Endpoints on the dimension line (parallel to wall, offset outward)
@@ -1198,12 +1231,13 @@ export function Canvas2D({ onExportRef }: Props) {
     );
   };
 
-  // Overall perimeter dimensions — aligned on real wall faces (outer for "extérieur", inner for "intérieur")
+  // Overall footprint dimensions — exterior and interior are separate chains.
+  // Distances from the wall are in plan units, not divided by zoom, so dimension
+  // chains stay anchored to the same wall face instead of drifting away when zooming.
   const perimeterDims = useMemo(() => {
     if (!showExteriorDims && !showInteriorDims) return null;
     if (plan.walls.length === 0) return null;
 
-    let outMinX = Infinity, outMinY = Infinity, outMaxX = -Infinity, outMaxY = -Infinity;
     let cenMinX = Infinity, cenMinY = Infinity, cenMaxX = -Infinity, cenMaxY = -Infinity;
     let maxT = 0;
     for (const w of plan.walls) {
@@ -1213,21 +1247,22 @@ export function Canvas2D({ onExportRef }: Props) {
       cenMaxY = Math.max(cenMaxY, w.a.y, w.b.y);
       if (w.thickness > maxT) maxT = w.thickness;
     }
-    // The displayed outer chain follows the drawn wall axes so a 300 cm wall
-    // remains labelled 300 cm instead of growing because of stroke thickness.
-    outMinX = cenMinX;
-    outMinY = cenMinY;
-    outMaxX = cenMaxX;
-    outMaxY = cenMaxY;
+    const halfT = maxT / 2;
+    const outMinX = cenMinX - halfT;
+    const outMinY = cenMinY - halfT;
+    const outMaxX = cenMaxX + halfT;
+    const outMaxY = cenMaxY + halfT;
     const inMinX = cenMinX + maxT / 2;
     const inMaxX = cenMaxX - maxT / 2;
     const inMinY = cenMinY + maxT / 2;
     const inMaxY = cenMaxY - maxT / 2;
 
+    if (outMaxX <= outMinX || outMaxY <= outMinY || inMaxX <= inMinX || inMaxY <= inMinY) return null;
+
     const col = theme.dimension;
     const nodes: React.ReactNode[] = [];
     const tick = 5 / scale;
-    const gap = 3 / scale;
+    const gap = 4;
 
     const drawH = (x0: number, x1: number, yFace: number, yDim: number, key: string) => {
       const len = Math.abs(x1 - x0);
@@ -1273,16 +1308,18 @@ export function Canvas2D({ onExportRef }: Props) {
       );
     };
 
-    const OFF1 = 40 / scale;
-    const OFF2 = 40 / scale;
+    const EXTERIOR_OFFSET = 26;
+    const INTERIOR_OFFSET = 18;
 
     if (showExteriorDims) {
-      drawH(outMinX, outMaxX, outMaxY, outMaxY + OFF1, "extH_bot");
-      drawV(outMinY, outMaxY, outMinX, outMinX - OFF1, "extV_left");
+      drawH(outMinX, outMaxX, outMaxY, outMaxY + EXTERIOR_OFFSET, "extH_bot");
+      drawV(outMinY, outMaxY, outMinX, outMinX - EXTERIOR_OFFSET, "extV_left");
     }
     if (showInteriorDims) {
-      drawH(inMinX, inMaxX, outMinY, outMinY - OFF2, "intH_top");
-      drawV(inMinY, inMaxY, outMaxX, outMaxX + OFF2, "intV_right");
+      // Interior footprint lives inside the room: horizontal chain just below
+      // the inner top face, vertical chain just left of the inner right face.
+      drawH(inMinX, inMaxX, inMinY, inMinY + INTERIOR_OFFSET, "intH_top_inside");
+      drawV(inMinY, inMaxY, inMaxX, inMaxX - INTERIOR_OFFSET, "intV_right_inside");
     }
     return nodes;
   }, [plan.walls, scale, theme.dimension, showExteriorDims, showInteriorDims]);
