@@ -12,6 +12,24 @@ function syncedCeilingHeight(plan: Plan) {
   return Math.max(1, exteriorH);
 }
 
+function planLengthAxis(plan: Plan): "x" | "y" {
+  if (!plan.walls.length) return "x";
+  const xs = plan.walls.flatMap((w) => [w.a.x, w.b.x]);
+  const ys = plan.walls.flatMap((w) => [w.a.y, w.b.y]);
+  const spanX = Math.max(...xs) - Math.min(...xs);
+  const spanY = Math.max(...ys) - Math.min(...ys);
+  return spanX >= spanY ? "x" : "y";
+}
+
+function planWidthAxis(plan: Plan): "x" | "y" {
+  return planLengthAxis(plan) === "x" ? "y" : "x";
+}
+
+const SLOPE_SIDE_LABEL: Record<"x" | "y", Record<1 | -1, string>> = {
+  x: { 1: "côté gauche", [-1]: "côté droit" },
+  y: { 1: "côté haut", [-1]: "côté bas" },
+};
+
 const KIND_LABELS: Record<OpeningKind, string> = {
   door_simple: "Simple",
   door_double: "Double",
@@ -96,6 +114,7 @@ export function RightPanel() {
             <div className="grid grid-cols-4 gap-1 rounded border border-border bg-background p-0.5">
               {(["none", "flat", "mono", "gable"] as const).map((k) => {
                 const active = k === "none" ? !plan.roof : plan.roof?.kind === k;
+                const lengthAxis = planLengthAxis(plan);
                 return (
                   <button
                     key={k}
@@ -113,6 +132,8 @@ export function RightPanel() {
                             pitch: plan.roof?.pitch ?? (k === "flat" ? 1 : 30),
                             thickness: plan.roof?.thickness ?? 20,
                             overhang: plan.roof?.overhang ?? 0,
+                            slopeAxis: plan.roof?.slopeAxis ?? lengthAxis,
+                            ridgeAxis: plan.roof?.ridgeAxis ?? lengthAxis,
                           })
                     }
                     className={`rounded px-1.5 py-1 text-[10px] font-medium ${active ? "bg-ink text-paper" : "text-muted-foreground hover:text-ink"}`}
@@ -164,28 +185,45 @@ export function RightPanel() {
                       Sens de pente
                     </div>
                     <div className="grid grid-cols-2 gap-1 rounded border border-border bg-card p-0.5">
-                      {(["x", "y"] as const).map((axis) => (
+                      {(
+                        [
+                          { label: "Longueur", axis: planLengthAxis(plan) },
+                          { label: "Largeur", axis: planWidthAxis(plan) },
+                        ] as const
+                      ).map(({ label, axis }) => (
                         <button
-                          key={axis}
+                          key={label}
                           onClick={() => setRoof({ slopeAxis: axis })}
                           className={`rounded px-2 py-1 text-[10px] font-medium ${
-                            (plan.roof?.slopeAxis ?? "x") === axis
+                            (plan.roof?.slopeAxis ?? planLengthAxis(plan)) === axis
                               ? "bg-ink text-paper"
                               : "text-muted-foreground hover:text-ink"
                           }`}
                         >
-                          {axis === "x" ? "Longueur" : "Largeur"}
+                          {label}
                         </button>
                       ))}
                     </div>
-                    <button
-                      onClick={() =>
-                        setRoof({ slopeDirection: (plan.roof?.slopeDirection ?? 1) === 1 ? -1 : 1 })
-                      }
-                      className="w-full rounded border border-border bg-card px-2 py-1 text-[10px] font-medium hover:border-brass hover:bg-brass/10"
-                    >
-                      Inverser bas/haut ({(plan.roof?.slopeDirection ?? 1) === 1 ? "→" : "←"})
-                    </button>
+                    <div className="grid grid-cols-2 gap-1 rounded border border-border bg-card p-0.5">
+                      {([1, -1] as const).map((direction) => (
+                        <button
+                          key={direction}
+                          onClick={() => setRoof({ slopeDirection: direction })}
+                          className={`rounded px-2 py-1 text-[10px] font-medium ${
+                            (plan.roof?.slopeDirection ?? 1) === direction
+                              ? "bg-ink text-paper"
+                              : "text-muted-foreground hover:text-ink"
+                          }`}
+                        >
+                          Bas{" "}
+                          {
+                            SLOPE_SIDE_LABEL[plan.roof?.slopeAxis ?? planLengthAxis(plan)][
+                              direction
+                            ]
+                          }
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

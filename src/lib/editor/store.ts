@@ -37,6 +37,15 @@ function exteriorWallHeight(plan: Plan, fallback = plan.ceilingHeight ?? 250) {
   return Math.max(...source.map((w) => w.height ?? fallback), 1);
 }
 
+function planLengthAxis(plan: Plan): "x" | "y" {
+  if (!plan.walls.length) return "x";
+  const xs = plan.walls.flatMap((w) => [w.a.x, w.b.x]);
+  const ys = plan.walls.flatMap((w) => [w.a.y, w.b.y]);
+  const spanX = Math.max(...xs) - Math.min(...xs);
+  const spanY = Math.max(...ys) - Math.min(...ys);
+  return spanX >= spanY ? "x" : "y";
+}
+
 function ceilingFromEnvelope(plan: Plan) {
   // Architect convention in this editor: exterior wall height is the support height;
   // roof thickness sits above it and must not be subtracted from the wall/HSP value.
@@ -618,7 +627,7 @@ export const useEditor = create<State & Actions>()(
               ...s.wallSettings,
               exterior: {
                 ...s.wallSettings.exterior,
-                height: h + (s.plan.roof ? roofThickness(s.plan) : 0),
+                height: h,
               },
               interior: {
                 ...s.wallSettings.interior,
@@ -634,12 +643,16 @@ export const useEditor = create<State & Actions>()(
             return { plan: withSyncedCeiling(rest) };
           }
           const outsideH = exteriorWallHeight(s.plan, s.wallSettings.exterior.height);
+          const defaultAxis = planLengthAxis(s.plan);
           const cur = s.plan.roof ?? {
             kind: "flat" as const,
             pitch: 1,
             eaveHeight: outsideH,
             thickness: DEFAULT_ROOF_THICKNESS,
             overhang: 0,
+            slopeAxis: defaultAxis,
+            slopeDirection: 1 as const,
+            ridgeAxis: defaultAxis,
           };
           const roof = {
             ...cur,

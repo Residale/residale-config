@@ -1,4 +1,5 @@
 import { Component, Suspense, useMemo, type ReactNode } from "react";
+import * as THREE from "three";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, Grid, ContactShadows } from "@react-three/drei";
 import { useEditor } from "@/lib/editor/store";
@@ -319,18 +320,79 @@ function RoofMesh({
   if (kind === "flat" || kind === "mono") {
     const run = slopeAxis === "x" ? w : d;
     const rise = run * Math.tan(pitch);
-    const slopeLen = Math.hypot(run, rise);
-    const rotation: [number, number, number] =
-      slopeAxis === "x" ? [0, 0, pitch * slopeDirection] : [-pitch * slopeDirection, 0, 0];
+    const geometry = (() => {
+      const x0 = -w / 2;
+      const x1 = w / 2;
+      const z0 = -d / 2;
+      const z1 = d / 2;
+      const bottomY = (x: number, z: number) => {
+        const t =
+          slopeAxis === "x"
+            ? slopeDirection === 1
+              ? (x - x0) / Math.max(0.001, w)
+              : (x1 - x) / Math.max(0.001, w)
+            : slopeDirection === 1
+              ? (z - z0) / Math.max(0.001, d)
+              : (z1 - z) / Math.max(0.001, d);
+        return eave + rise * t;
+      };
+      const corners: Array<[number, number]> = [
+        [x0, z0],
+        [x1, z0],
+        [x1, z1],
+        [x0, z1],
+      ];
+      const positions: number[] = [];
+      for (const [x, z] of corners) positions.push(x, bottomY(x, z), z);
+      for (const [x, z] of corners) positions.push(x, bottomY(x, z) + thick, z);
+      const indices = [
+        0,
+        2,
+        1,
+        0,
+        3,
+        2, // underside
+        4,
+        5,
+        6,
+        4,
+        6,
+        7, // top
+        0,
+        1,
+        5,
+        0,
+        5,
+        4, // side
+        1,
+        2,
+        6,
+        1,
+        6,
+        5,
+        2,
+        3,
+        7,
+        2,
+        7,
+        6,
+        3,
+        0,
+        4,
+        3,
+        4,
+        7,
+      ];
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+      g.setIndex(indices);
+      g.computeVertexNormals();
+      return g;
+    })();
+
     return (
-      <mesh
-        position={[cx, eave + rise / 2 + thick / 2, cz]}
-        rotation={rotation}
-        castShadow
-        receiveShadow
-      >
-        <boxGeometry args={slopeAxis === "x" ? [slopeLen, thick, d] : [w, thick, slopeLen]} />
-        <meshStandardMaterial color={color} roughness={0.85} />
+      <mesh position={[cx, 0, cz]} geometry={geometry} castShadow receiveShadow>
+        <meshStandardMaterial color={color} roughness={0.85} side={THREE.DoubleSide} />
       </mesh>
     );
   }

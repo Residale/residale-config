@@ -517,36 +517,96 @@ function SectionPanel({
                       Math.min(...wallCuts.map((c) => c.start)) +
                       2 * plan.roof.overhang
                     : 0;
-                  const rise =
-                    axis === roofAxis && (plan.roof.kind === "flat" || plan.roof.kind === "mono")
-                      ? Math.tan((plan.roof.pitch * Math.PI) / 180) * Math.max(0, span)
-                      : 0;
-                  if (rise < 1) return null;
-                  const high = plan.roof.eaveHeight + rise;
+                  const visibleSlope =
+                    axis === roofAxis && (plan.roof.kind === "flat" || plan.roof.kind === "mono");
+                  const rise = visibleSlope
+                    ? Math.tan((plan.roof.pitch * Math.PI) / 180) * Math.max(0, span)
+                    : 0;
+                  const lowInterior = plan.roof.eaveHeight;
+                  const highInterior = plan.roof.eaveHeight + rise;
+                  const lowExterior = lowInterior + roofThickness(plan.roof);
+                  const highExterior = highInterior + roofThickness(plan.roof);
+                  const labels =
+                    rise >= 1
+                      ? [
+                          { text: `HSP bas + ${m(lowInterior)}`, y: lowInterior },
+                          { text: `HSP haut + ${m(highInterior)}`, y: highInterior },
+                          { text: `Ext. bas + ${m(lowExterior)}`, y: lowExterior },
+                          { text: `Ext. haut + ${m(highExterior)}`, y: highExterior },
+                        ]
+                      : [{ text: `Ext. toit + ${m(lowExterior)}`, y: lowExterior }];
                   return (
-                    <Text
-                      x={toX(-50) - 55}
-                      y={toY(high) - 6}
-                      text={`haut + ${m(high)}`}
-                      fontSize={9}
-                      fontFamily="JetBrains Mono"
-                      fill={theme.dimension}
-                    />
+                    <Group>
+                      {labels.map((label, index) => (
+                        <Text
+                          key={label.text}
+                          x={toX(-50) - 95}
+                          y={toY(label.y) - 7 - index * 2}
+                          width={90}
+                          align="right"
+                          text={label.text}
+                          fontSize={8.5}
+                          fontFamily="JetBrains Mono"
+                          fill={theme.dimension}
+                        />
+                      ))}
+                    </Group>
                   );
                 })()}
             </Group>
           )}
 
-          {/* Vertical dim: HSP right side */}
-          {sectionDisplay.showVerticalDims && wallCuts.length > 0 && (
-            <VerticalDim
-              xPos={toX(Math.max(...wallCuts.map((c) => c.end))) + 40}
-              yTop={toY(data.ceilingH)}
-              yBot={toY(0)}
-              label={m(data.ceilingH)}
-              color={theme.dimension}
-            />
-          )}
+          {/* Vertical dims: HSP / roof low-high */}
+          {sectionDisplay.showVerticalDims &&
+            wallCuts.length > 0 &&
+            (() => {
+              const xPos = toX(Math.max(...wallCuts.map((c) => c.end))) + 40;
+              const dims = [
+                <VerticalDim
+                  key="hsp-low"
+                  xPos={xPos}
+                  yTop={toY(data.ceilingH)}
+                  yBot={toY(0)}
+                  label={`HSP ${m(data.ceilingH)}`}
+                  color={theme.dimension}
+                />,
+              ];
+              if (plan.roof) {
+                const axis = sectionAxis(section);
+                const roofAxis = plan.roof.slopeAxis ?? "x";
+                const span =
+                  Math.max(...wallCuts.map((c) => c.end)) -
+                  Math.min(...wallCuts.map((c) => c.start)) +
+                  2 * plan.roof.overhang;
+                const rise =
+                  axis === roofAxis && (plan.roof.kind === "flat" || plan.roof.kind === "mono")
+                    ? Math.tan((plan.roof.pitch * Math.PI) / 180) * Math.max(0, span)
+                    : 0;
+                if (rise >= 1) {
+                  const highInterior = plan.roof.eaveHeight + rise;
+                  const highExterior = highInterior + roofThickness(plan.roof);
+                  dims.push(
+                    <VerticalDim
+                      key="hsp-high"
+                      xPos={xPos + 38}
+                      yTop={toY(highInterior)}
+                      yBot={toY(0)}
+                      label={`HSP haut ${m(highInterior)}`}
+                      color={theme.dimension}
+                    />,
+                    <VerticalDim
+                      key="ext-high"
+                      xPos={xPos + 82}
+                      yTop={toY(highExterior)}
+                      yBot={toY(0)}
+                      label={`Ext. haut ${m(highExterior)}`}
+                      color={theme.dimension}
+                    />,
+                  );
+                }
+              }
+              return <>{dims}</>;
+            })()}
 
           {/* Horizontal top dim */}
           {sectionDisplay.showHorizontalDims &&
