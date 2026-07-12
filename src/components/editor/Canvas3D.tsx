@@ -10,11 +10,14 @@ import { FurnitureMesh3D } from "./FurnitureMesh3D";
 
 const SCALE = 0.01;
 
-
 class SceneErrorBoundary extends Component<{ children: ReactNode }, { err: Error | null }> {
   state = { err: null as Error | null };
-  static getDerivedStateFromError(err: Error) { return { err }; }
-  componentDidCatch(err: Error) { console.error("[Canvas3D]", err); }
+  static getDerivedStateFromError(err: Error) {
+    return { err };
+  }
+  componentDidCatch(err: Error) {
+    console.error("[Canvas3D]", err);
+  }
   render() {
     if (this.state.err) {
       return (
@@ -37,14 +40,20 @@ class SceneErrorBoundary extends Component<{ children: ReactNode }, { err: Error
 }
 
 function Scene() {
-  const { plan, wall3DColor, floor3DColor, show3DRoof, wallSettings } = useEditor();
+  const { plan, wall3DColor, floor3DColor, show3DRoof } = useEditor();
   const ceilingH = plan.ceilingHeight ?? 250;
 
   const camera = useMemo(() => {
     if (plan.walls.length === 0) {
-      return { position: [8, 8, 8] as [number, number, number], target: [0, 1, 0] as [number, number, number] };
+      return {
+        position: [8, 8, 8] as [number, number, number],
+        target: [0, 1, 0] as [number, number, number],
+      };
     }
-    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    let minX = Infinity,
+      maxX = -Infinity,
+      minZ = Infinity,
+      maxZ = -Infinity;
     for (const w of plan.walls) {
       minX = Math.min(minX, w.a.x, w.b.x);
       maxX = Math.max(maxX, w.a.x, w.b.x);
@@ -63,11 +72,14 @@ function Scene() {
     };
   }, [plan.walls, ceilingH]);
 
-
   // Bounding box for roof
   const roofBox = useMemo(() => {
     if (!plan.roof || !show3DRoof || plan.walls.length === 0) return null;
-    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, maxT = 0;
+    let minX = Infinity,
+      maxX = -Infinity,
+      minZ = Infinity,
+      maxZ = -Infinity,
+      maxT = 0;
     for (const w of plan.walls) {
       minX = Math.min(minX, w.a.x, w.b.x);
       maxX = Math.max(maxX, w.a.x, w.b.x);
@@ -77,12 +89,13 @@ function Scene() {
     }
     const overhang = plan.roof.overhang ?? 40;
     const eave = plan.roof.eaveHeight ?? ceilingH;
-    const pitch = (plan.roof.pitch ?? 25) * Math.PI / 180;
+    const pitch = ((plan.roof.pitch ?? 0) * Math.PI) / 180;
+    const thickness = Math.max(1, plan.roof.thickness ?? 20) * SCALE;
     const w = (maxX - minX + maxT + 2 * overhang) * SCALE;
     const d = (maxZ - minZ + maxT + 2 * overhang) * SCALE;
     const cx = ((minX + maxX) / 2) * SCALE;
     const cz = ((minZ + maxZ) / 2) * SCALE;
-    return { cx, cz, w, d, eave: eave * SCALE, pitch, kind: plan.roof.kind };
+    return { cx, cz, w, d, eave: eave * SCALE, pitch, thickness, kind: plan.roof.kind };
   }, [plan.roof, plan.walls, show3DRoof, ceilingH]);
 
   return (
@@ -141,13 +154,18 @@ function Scene() {
           const openTop = sill + oH;
           const next: typeof rects = [];
           for (const r of rects) {
-            if (oX1 <= r.x0 || oX0 >= r.x1) { next.push(r); continue; }
+            if (oX1 <= r.x0 || oX0 >= r.x1) {
+              next.push(r);
+              continue;
+            }
             if (oX0 > r.x0) next.push({ x0: r.x0, x1: oX0, y0: r.y0, y1: r.y1 });
             if (oX1 < r.x1) next.push({ x0: oX1, x1: r.x1, y0: r.y0, y1: r.y1 });
             const midX0 = Math.max(oX0, r.x0);
             const midX1 = Math.min(oX1, r.x1);
-            if (sill > r.y0) next.push({ x0: midX0, x1: midX1, y0: r.y0, y1: Math.min(sill, r.y1) });
-            if (openTop < r.y1) next.push({ x0: midX0, x1: midX1, y0: Math.max(openTop, r.y0), y1: r.y1 });
+            if (sill > r.y0)
+              next.push({ x0: midX0, x1: midX1, y0: r.y0, y1: Math.min(sill, r.y1) });
+            if (openTop < r.y1)
+              next.push({ x0: midX0, x1: midX1, y0: Math.max(openTop, r.y0), y1: r.y1 });
           }
           rects.length = 0;
           rects.push(...next);
@@ -156,65 +174,91 @@ function Scene() {
         return (
           <group key={w.id} position={[cx, 0, cz]} rotation={[0, -ang, 0]}>
             {rects.map((r, i) => (
-              <mesh key={i} position={[(r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, 0]} castShadow receiveShadow>
-                <boxGeometry args={[Math.max(0.001, r.x1 - r.x0), Math.max(0.001, r.y1 - r.y0), thick]} />
+              <mesh
+                key={i}
+                position={[(r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, 0]}
+                castShadow
+                receiveShadow
+              >
+                <boxGeometry
+                  args={[Math.max(0.001, r.x1 - r.x0), Math.max(0.001, r.y1 - r.y0), thick]}
+                />
                 <meshStandardMaterial color={wallColor} roughness={0.9} />
               </mesh>
             ))}
-            {openings.filter((o) => o.type === "window").map((o) => {
-              const oW = o.width * SCALE;
-              const oX = (o.t - 0.5) * rawLen * SCALE;
-              const oH = openingHeight(o) * SCALE;
-              const sill = openingSill(o) * SCALE;
+            {openings
+              .filter((o) => o.type === "window")
+              .map((o) => {
+                const oW = o.width * SCALE;
+                const oX = (o.t - 0.5) * rawLen * SCALE;
+                const oH = openingHeight(o) * SCALE;
+                const sill = openingSill(o) * SCALE;
 
-              return (
-                <mesh key={o.id} position={[oX, sill + oH / 2, 0]}>
-                  <boxGeometry args={[oW * 0.95, oH * 0.95, thick * 0.15]} />
-                  <meshStandardMaterial color="#a8c8d8" transparent opacity={0.45} roughness={0.15} metalness={0.1} />
-                </mesh>
-              );
-            })}
-            {openings.filter((o) => o.type === "door" && o.kind !== "door_slide" && o.kind !== "door_pocket").map((o) => {
-              const oW = o.width * SCALE;
-              const oX = (o.t - 0.5) * rawLen * SCALE;
-              const oH = openingHeight(o) * SCALE;
-              const leafThick = 0.04;
-              const hinge: "a" | "b" = o.hingeSide ?? "a";
-              const swing: "p" | "n" = o.swingSide ?? "p";
-              // Hinge is at one end of the opening along the wall (local X)
-              const hingeX = hinge === "a" ? oX - oW / 2 : oX + oW / 2;
-              // Swing direction on Z: positive normal ↔ +Z here (wall local frame)
-              const swingSign = swing === "p" ? 1 : -1;
-              // Which way the leaf points along X from the hinge when closed
-              const leafSignX = hinge === "a" ? 1 : -1;
-              const angDeg = Math.max(0, Math.min(120, o.openAngle ?? 90));
-              const angRad = (angDeg * Math.PI) / 180;
-              // Rotation around Y at hinge: opens toward swingSign*Z from +leafSignX*X
-              const rotY = leafSignX * swingSign * angRad;
-              return (
-                <group key={o.id} position={[hingeX, oH / 2, 0]} rotation={[0, rotY, 0]}>
-                  <mesh position={[(leafSignX * oW) / 2, 0, swingSign * leafThick / 2]} castShadow>
-                    <boxGeometry args={[oW * 0.98, oH * 0.98, leafThick]} />
+                return (
+                  <mesh key={o.id} position={[oX, sill + oH / 2, 0]}>
+                    <boxGeometry args={[oW * 0.95, oH * 0.95, thick * 0.15]} />
+                    <meshStandardMaterial
+                      color="#a8c8d8"
+                      transparent
+                      opacity={0.45}
+                      roughness={0.15}
+                      metalness={0.1}
+                    />
+                  </mesh>
+                );
+              })}
+            {openings
+              .filter(
+                (o) => o.type === "door" && o.kind !== "door_slide" && o.kind !== "door_pocket",
+              )
+              .map((o) => {
+                const oW = o.width * SCALE;
+                const oX = (o.t - 0.5) * rawLen * SCALE;
+                const oH = openingHeight(o) * SCALE;
+                const leafThick = 0.04;
+                const hinge: "a" | "b" = o.hingeSide ?? "a";
+                const swing: "p" | "n" = o.swingSide ?? "p";
+                // Hinge is at one end of the opening along the wall (local X)
+                const hingeX = hinge === "a" ? oX - oW / 2 : oX + oW / 2;
+                // Swing direction on Z: positive normal ↔ +Z here (wall local frame)
+                const swingSign = swing === "p" ? 1 : -1;
+                // Which way the leaf points along X from the hinge when closed
+                const leafSignX = hinge === "a" ? 1 : -1;
+                const angDeg = Math.max(0, Math.min(120, o.openAngle ?? 90));
+                const angRad = (angDeg * Math.PI) / 180;
+                // Rotation around Y at hinge: opens toward swingSign*Z from +leafSignX*X
+                const rotY = leafSignX * swingSign * angRad;
+                return (
+                  <group key={o.id} position={[hingeX, oH / 2, 0]} rotation={[0, rotY, 0]}>
+                    <mesh
+                      position={[(leafSignX * oW) / 2, 0, (swingSign * leafThick) / 2]}
+                      castShadow
+                    >
+                      <boxGeometry args={[oW * 0.98, oH * 0.98, leafThick]} />
+                      <meshStandardMaterial color="#8a5a2f" roughness={0.55} />
+                    </mesh>
+                  </group>
+                );
+              })}
+            {openings
+              .filter(
+                (o) => o.type === "door" && (o.kind === "door_slide" || o.kind === "door_pocket"),
+              )
+              .map((o) => {
+                const oW = o.width * SCALE;
+                const oX = (o.t - 0.5) * rawLen * SCALE;
+                const oH = openingHeight(o) * SCALE;
+                const swing: "p" | "n" = o.swingSide ?? "p";
+                const zOff = (swing === "p" ? 1 : -1) * (thick * 0.35);
+                // Sliding door — leaf offset in wall thickness, slid to one side
+                const slideX = oX + (o.hingeSide === "b" ? -oW * 0.5 : oW * 0.5);
+                return (
+                  <mesh key={o.id} position={[slideX, oH / 2, zOff]} castShadow>
+                    <boxGeometry args={[oW * 0.98, oH * 0.98, 0.03]} />
                     <meshStandardMaterial color="#8a5a2f" roughness={0.55} />
                   </mesh>
-                </group>
-              );
-            })}
-            {openings.filter((o) => o.type === "door" && (o.kind === "door_slide" || o.kind === "door_pocket")).map((o) => {
-              const oW = o.width * SCALE;
-              const oX = (o.t - 0.5) * rawLen * SCALE;
-              const oH = openingHeight(o) * SCALE;
-              const swing: "p" | "n" = o.swingSide ?? "p";
-              const zOff = (swing === "p" ? 1 : -1) * (thick * 0.35);
-              // Sliding door — leaf offset in wall thickness, slid to one side
-              const slideX = oX + (o.hingeSide === "b" ? -oW * 0.5 : oW * 0.5);
-              return (
-                <mesh key={o.id} position={[slideX, oH / 2, zOff]} castShadow>
-                  <boxGeometry args={[oW * 0.98, oH * 0.98, 0.03]} />
-                  <meshStandardMaterial color="#8a5a2f" roughness={0.55} />
-                </mesh>
-              );
-            })}
+                );
+              })}
           </group>
         );
       })}
@@ -242,13 +286,31 @@ function Scene() {
   );
 }
 
-function RoofMesh({ box }: { box: { cx: number; cz: number; w: number; d: number; eave: number; pitch: number; kind: "flat" | "mono" | "gable" | "hip" } }) {
+function RoofMesh({
+  box,
+}: {
+  box: {
+    cx: number;
+    cz: number;
+    w: number;
+    d: number;
+    eave: number;
+    pitch: number;
+    thickness: number;
+    kind: "flat" | "mono" | "gable" | "hip";
+  };
+}) {
   const color = "#8b5a3c";
-  const { cx, cz, w, d, eave, pitch, kind } = box;
-  const thick = 0.05;
+  const { cx, cz, w, d, eave, pitch, thickness, kind } = box;
+  const thick = thickness;
   if (kind === "flat") {
     return (
-      <mesh position={[cx, eave + thick / 2, cz]} castShadow receiveShadow>
+      <mesh
+        position={[cx, eave - thick / 2, cz]}
+        rotation={[0, 0, -pitch]}
+        castShadow
+        receiveShadow
+      >
         <boxGeometry args={[w, thick, d]} />
         <meshStandardMaterial color={color} roughness={0.85} />
       </mesh>
@@ -257,7 +319,12 @@ function RoofMesh({ box }: { box: { cx: number; cz: number; w: number; d: number
   if (kind === "mono") {
     const rise = w * Math.tan(pitch);
     return (
-      <mesh position={[cx, eave + rise / 2, cz]} rotation={[0, 0, -Math.atan2(rise, w)]} castShadow receiveShadow>
+      <mesh
+        position={[cx, eave - rise / 2 - thick / 2, cz]}
+        rotation={[0, 0, -Math.atan2(rise, w)]}
+        castShadow
+        receiveShadow
+      >
         <boxGeometry args={[Math.hypot(w, rise), thick, d]} />
         <meshStandardMaterial color={color} roughness={0.85} />
       </mesh>
@@ -271,7 +338,7 @@ function RoofMesh({ box }: { box: { cx: number; cz: number; w: number; d: number
   const slopeLen = Math.hypot(span / 2, rise);
   const slopeAng = Math.atan2(rise, span / 2);
   const half = span / 2;
-  const yMid = eave + rise / 2;
+  const yMid = eave - rise / 2 - thick / 2;
   return (
     <group position={[cx, 0, cz]}>
       {[-1, 1].map((s) => {
@@ -280,7 +347,13 @@ function RoofMesh({ box }: { box: { cx: number; cz: number; w: number; d: number
         const px = spanIsX ? 0 : (s * half) / 2;
         const pz = spanIsX ? (s * half) / 2 : 0;
         return (
-          <mesh key={s} position={[px, yMid, pz]} rotation={[rotX, 0, rotZ]} castShadow receiveShadow>
+          <mesh
+            key={s}
+            position={[px, yMid, pz]}
+            rotation={[rotX, 0, rotZ]}
+            castShadow
+            receiveShadow
+          >
             <boxGeometry args={spanIsX ? [long, thick, slopeLen] : [slopeLen, thick, long]} />
             <meshStandardMaterial color={color} roughness={0.85} />
           </mesh>
@@ -293,14 +366,20 @@ function RoofMesh({ box }: { box: { cx: number; cz: number; w: number; d: number
 export function Canvas3D() {
   const { show3DRoof, toggle3DRoof, plan } = useEditor();
   const stats = useMemo(() => {
-    const hsp = plan.ceilingHeight ?? 250;
+    const fallback = plan.ceilingHeight ?? 250;
+    const exterior = plan.walls.filter((w) => (w.wallType ?? "exterior") === "exterior");
+    const source = exterior.length ? exterior : plan.walls;
+    const envelopeH = source.length
+      ? Math.max(...source.map((w) => w.height ?? fallback))
+      : fallback;
+    const hsp = Math.max(1, envelopeH - (plan.roof ? Math.max(1, plan.roof.thickness ?? 20) : 0));
     const rooms = summarizeRooms(plan);
     const totalArea = rooms.reduce((s, r) => s + r.area, 0);
     let maxWall = 0;
     for (const w of plan.walls) if ((w.height ?? hsp) > maxWall) maxWall = w.height ?? hsp;
     const floor = 20;
 
-    const horsTout = maxWall + floor + (plan.roof ? (plan.roof.pitch ? 150 : 20) : 0);
+    const horsTout = maxWall + floor;
     return { hsp, totalArea, horsTout };
   }, [plan]);
   return (
@@ -319,9 +398,18 @@ export function Canvas3D() {
       {plan.walls.length > 0 && (
         <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-card/95 px-3 py-2 text-[11px] shadow-panel backdrop-blur">
           <div className="flex flex-col gap-0.5 font-mono">
-            <div><span className="text-muted-foreground">Surface :</span> <span className="font-semibold">{stats.totalArea.toFixed(1)} m²</span></div>
-            <div><span className="text-muted-foreground">HSP :</span> <span className="font-semibold">{(stats.hsp / 100).toFixed(2)} m</span></div>
-            <div><span className="text-muted-foreground">Hors-tout :</span> <span className="font-semibold">{(stats.horsTout / 100).toFixed(2)} m</span></div>
+            <div>
+              <span className="text-muted-foreground">Surface :</span>{" "}
+              <span className="font-semibold">{stats.totalArea.toFixed(1)} m²</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">HSP :</span>{" "}
+              <span className="font-semibold">{(stats.hsp / 100).toFixed(2)} m</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Hors-tout :</span>{" "}
+              <span className="font-semibold">{(stats.horsTout / 100).toFixed(2)} m</span>
+            </div>
           </div>
         </div>
       )}
@@ -331,4 +419,3 @@ export function Canvas3D() {
     </div>
   );
 }
-

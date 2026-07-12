@@ -8,7 +8,10 @@ import { openingHeight, openingSill } from "./opening-defaults";
  */
 export function autoSectionsFromPlan(plan: Plan): SectionLine[] {
   if (plan.walls.length === 0) return [];
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
   for (const w of plan.walls) {
     minX = Math.min(minX, w.a.x, w.b.x);
     minY = Math.min(minY, w.a.y, w.b.y);
@@ -27,9 +30,6 @@ export function autoSectionsFromPlan(plan: Plan): SectionLine[] {
     { id: "__auto_E", name: "E", a: { x: cx, y: minY - pad }, b: { x: cx, y: maxY + pad } },
   ];
 }
-
-
-
 
 export type CutSegment = {
   type: "wall" | "door" | "window";
@@ -56,7 +56,6 @@ export type ElevationWall = {
   depth: number; // signed perp distance for depth ordering
   wall: Wall;
 };
-
 
 /** Project point onto section line, return signed distance from A along AB, and perpendicular distance. */
 function project(p: Point, a: Point, b: Point) {
@@ -98,11 +97,10 @@ function segIntersectWall(sec: SectionLine, wall: Wall): { s0: number; s1: numbe
     const p2 = box[(i + 1) % 4];
     const ex = p2.x - p1.x;
     const ey = p2.y - p1.y;
-    const denom = secDx * (-ey) - secDy * (-ex);
+    const denom = secDx * -ey - secDy * -ex;
     if (Math.abs(denom) < 1e-6) continue;
-    const s = ((p1.x - sec.a.x) * (-ey) - (p1.y - sec.a.y) * (-ex)) / denom;
-    const u = ((p1.x - sec.a.x) * (-secDy) - (p1.y - sec.a.y) * (-secDx)) /
-      (-secDx * ey + secDy * ex);
+    const s = ((p1.x - sec.a.x) * -ey - (p1.y - sec.a.y) * -ex) / denom;
+    const u = ((p1.x - sec.a.x) * -secDy - (p1.y - sec.a.y) * -secDx) / (-secDx * ey + secDy * ex);
     if (s >= 0 && s <= 1 && u >= 0 && u <= 1) {
       ts.push(s);
     }
@@ -112,9 +110,18 @@ function segIntersectWall(sec: SectionLine, wall: Wall): { s0: number; s1: numbe
   return { s0: ts[0] * secLen, s1: ts[ts.length - 1] * secLen };
 }
 
+function syncedCeilingHeight(plan: Plan) {
+  const fallback = plan.ceilingHeight ?? 250;
+  const exterior = plan.walls.filter((w) => (w.wallType ?? "exterior") === "exterior");
+  const source = exterior.length ? exterior : plan.walls;
+  const exteriorH = source.length ? Math.max(...source.map((w) => w.height ?? fallback)) : fallback;
+  const roofThickness = plan.roof ? Math.max(1, plan.roof.thickness ?? 20) : 0;
+  return Math.max(1, exteriorH - roofThickness);
+}
+
 export function computeSection(plan: Plan, sec: SectionLine) {
   const secLen = Math.hypot(sec.b.x - sec.a.x, sec.b.y - sec.a.y);
-  const ceilingH = plan.ceilingHeight ?? 250;
+  const ceilingH = syncedCeilingHeight(plan);
   const cuts: CutSegment[] = [];
   const cutWallIds = new Set<string>();
 
@@ -167,9 +174,11 @@ export function computeSection(plan: Plan, sec: SectionLine) {
     // Skip walls entirely off-screen
     if (s1 < -50 || s0 > secLen + 50) continue;
     // Only include walls somewhat aligned with the cut (visible facade)
-    const wdx = w.b.x - w.a.x, wdy = w.b.y - w.a.y;
+    const wdx = w.b.x - w.a.x,
+      wdy = w.b.y - w.a.y;
     const wlen = Math.hypot(wdx, wdy) || 1;
-    const sdx = sec.b.x - sec.a.x, sdy = sec.b.y - sec.a.y;
+    const sdx = sec.b.x - sec.a.x,
+      sdy = sec.b.y - sec.a.y;
     const slen = Math.hypot(sdx, sdy) || 1;
     const dot = Math.abs((wdx / wlen) * (sdx / slen) + (wdy / wlen) * (sdy / slen));
     if (dot < 0.2) continue;
@@ -206,22 +215,52 @@ export function computeSection(plan: Plan, sec: SectionLine) {
   return { length: secLen, ceilingH, cuts, elevationWalls, furn };
 }
 
-
-
-
 export function furnitureDefaultHeight(kind: string): number {
   const map: Record<string, number> = {
-    bed: 55, bed_single: 55, nightstand: 55, wardrobe: 220, dresser: 90,
-    sofa: 85, sofa_l: 85, armchair: 90, chair: 90,
-    table: 45, coffee_table: 40, dining: 75, desk: 75,
-    bookshelf: 200, tv_console: 50, tv: 75,
-    toilet: 80, bidet: 40, sink: 90, vanity: 85, bath: 55, shower: 210,
-    radiator: 60, towel_rack: 120, washer: 85,
-    fridge: 180, stove: 90, oven: 90, microwave: 30, hood: 60, dishwasher: 90,
-    kitchen_island: 90, kitchen_base: 90, kitchen_upper: 70,
-    plant: 100, rug: 1,
-    staircase: 250, fireplace: 220, wood_stove: 110,
-    bbq: 100, garden_table: 75, garden_chair: 85, parasol: 240, pool: 20,
+    bed: 55,
+    bed_single: 55,
+    nightstand: 55,
+    wardrobe: 220,
+    dresser: 90,
+    sofa: 85,
+    sofa_l: 85,
+    armchair: 90,
+    chair: 90,
+    table: 45,
+    coffee_table: 40,
+    dining: 75,
+    desk: 75,
+    bookshelf: 200,
+    tv_console: 50,
+    tv: 75,
+    toilet: 80,
+    bidet: 40,
+    sink: 90,
+    vanity: 85,
+    bath: 55,
+    shower: 210,
+    radiator: 60,
+    towel_rack: 120,
+    washer: 85,
+    fridge: 180,
+    stove: 90,
+    oven: 90,
+    microwave: 30,
+    hood: 60,
+    dishwasher: 90,
+    kitchen_island: 90,
+    kitchen_base: 90,
+    kitchen_upper: 70,
+    plant: 100,
+    rug: 1,
+    staircase: 250,
+    fireplace: 220,
+    wood_stove: 110,
+    bbq: 100,
+    garden_table: 75,
+    garden_chair: 85,
+    parasol: 240,
+    pool: 20,
   };
   return map[kind] ?? 60;
 }

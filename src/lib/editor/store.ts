@@ -1,17 +1,74 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type {
-  Furniture, Opening, Plan, RoomLabel, Selection, SelectionItem, Tool, Wall, SectionLine, SectionDisplay, WallType, WallSettings,
+  Furniture,
+  Opening,
+  Plan,
+  RoomLabel,
+  Selection,
+  SelectionItem,
+  Tool,
+  Wall,
+  SectionLine,
+  SectionDisplay,
+  WallType,
+  WallSettings,
 } from "./types";
 import { uid } from "./geometry";
 import { DEFAULT_THEME, type Theme2D } from "./theme";
 import { defaultKind, OPENING_DEFAULTS } from "./opening-defaults";
 
-
 const POINT_EPS = 1.5;
 
 function samePoint(a: { x: number; y: number }, b: { x: number; y: number }) {
   return Math.hypot(a.x - b.x, a.y - b.y) <= POINT_EPS;
+}
+
+const DEFAULT_ROOF_THICKNESS = 20;
+
+function roofThickness(plan: Plan) {
+  return Math.max(1, plan.roof?.thickness ?? DEFAULT_ROOF_THICKNESS);
+}
+
+function exteriorWallHeight(plan: Plan, fallback = plan.ceilingHeight ?? 250) {
+  const exterior = plan.walls.filter((w) => (w.wallType ?? "exterior") === "exterior");
+  const source = exterior.length ? exterior : plan.walls;
+  if (!source.length) return fallback + (plan.roof ? roofThickness(plan) : 0);
+  return Math.max(...source.map((w) => w.height ?? fallback), 1);
+}
+
+function ceilingFromEnvelope(plan: Plan) {
+  const outsideH = exteriorWallHeight(plan);
+  return Math.max(1, outsideH - (plan.roof ? roofThickness(plan) : 0));
+}
+
+function withSyncedCeiling(plan: Plan): Plan {
+  const ceilingHeight = ceilingFromEnvelope(plan);
+  return {
+    ...plan,
+    ceilingHeight,
+    roof: plan.roof
+      ? { ...plan.roof, eaveHeight: exteriorWallHeight(plan), thickness: roofThickness(plan) }
+      : undefined,
+  };
+}
+
+function setEnvelopeFromCeiling(plan: Plan, ceilingHeight: number): Plan {
+  const outsideH = Math.max(1, ceilingHeight + (plan.roof ? roofThickness(plan) : 0));
+  return {
+    ...plan,
+    ceilingHeight,
+    walls: plan.walls.map((w) => {
+      const type = w.wallType ?? "exterior";
+      return {
+        ...w,
+        height: type === "exterior" ? outsideH : Math.min(w.height ?? ceilingHeight, ceilingHeight),
+      };
+    }),
+    roof: plan.roof
+      ? { ...plan.roof, eaveHeight: outsideH, thickness: roofThickness(plan) }
+      : undefined,
+  };
 }
 
 function applyEndpointMoves(walls: Wall[], moves: Array<{ from: Wall["a"]; to: Wall["a"] }>) {
@@ -96,7 +153,6 @@ type State = {
   show3DRoof: boolean;
 };
 
-
 type Actions = {
   setTool: (t: Tool) => void;
   setView: (v: View) => void;
@@ -142,7 +198,6 @@ type Actions = {
   setRoof: (r: Partial<import("./types").Roof> | null) => void;
   toggle3DRoof: () => void;
 
-
   deleteSelected: () => void;
   clearAll: () => void;
 
@@ -153,7 +208,14 @@ type Actions = {
   loadPlan: (p: Plan) => void;
 };
 
-const emptyPlan: Plan = { walls: [], openings: [], furniture: [], labels: [], sections: [], ceilingHeight: 250 };
+const emptyPlan: Plan = {
+  walls: [],
+  openings: [],
+  furniture: [],
+  labels: [],
+  sections: [],
+  ceilingHeight: 250,
+};
 
 const defaultSectionDisplay: SectionDisplay = {
   showVerticalDims: true,
@@ -166,390 +228,514 @@ const defaultSectionDisplay: SectionDisplay = {
   showAxes: true,
 };
 
-export const useEditor = create<State & Actions>()(persist((set, get) => ({
-  plan: emptyPlan,
-  tool: "wall",
-  selection: null,
-  view: "2d",
-  grid: 20,
-  snapEnabled: true,
-  showGrid: true,
-  showDimensions: true,
-  showExteriorDims: true,
-  showInteriorDims: false,
-  projectName: "Nouveau plan",
-  history: [],
-  future: [],
-  theme: DEFAULT_THEME,
-  wall3DColor: "#f0e8d8",
-  floor3DColor: "#e8dcc4",
-  activeSectionId: null,
-  sectionDisplay: defaultSectionDisplay,
-  wallSettings: {
-    interior: { thickness: 10, height: 250 },
-    exterior: { thickness: 30, height: 270 },
-  },
-  currentWallType: "exterior",
-  show3DRoof: true,
-
-
-  setTool: (tool) => set({ tool, selection: null }),
-  setView: (view) => set({ view }),
-  setSelection: (selection) => set({ selection }),
-  setProjectName: (projectName) => set({ projectName }),
-  toggleSnap: () => set((s) => ({ snapEnabled: !s.snapEnabled })),
-  toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
-  toggleDimensions: () => set((s) => ({ showDimensions: !s.showDimensions })),
-  toggleExteriorDims: () => set((s) => ({ showExteriorDims: !s.showExteriorDims })),
-  toggleInteriorDims: () => set((s) => ({ showInteriorDims: !s.showInteriorDims })),
-
-  commit: () => set((s) => ({ history: [...s.history.slice(-49), s.plan], future: [] })),
-
-  addWall: (w) => {
-    const id = uid();
-    get().commit();
-    const st = get();
-    const type = w.wallType ?? st.currentWallType;
-    const spec = st.wallSettings[type];
-    set((s) => ({
-      plan: {
-        ...s.plan,
-        walls: [
-          ...s.plan.walls,
-          { ...w, thickness: spec.thickness, height: spec.height, wallType: type, id },
-        ],
-      },
-    }));
-    return id;
-  },
-  updateWall: (id, patch) =>
-    set((s) => ({ plan: { ...s.plan, walls: updateWallWithConnectedEndpoints(s.plan.walls, id, patch) } })),
-  resizeWallLength: (id, length) =>
-    set((s) => ({ plan: { ...s.plan, walls: resizeWallAndOpposite(s.plan.walls, id, Math.max(10, length)) } })),
-
-  setWallSettings: (patch) =>
-    set((s) => {
-      const ws: WallSettings = {
-        interior: { ...s.wallSettings.interior, ...(patch.interior ?? {}) },
-        exterior: { ...s.wallSettings.exterior, ...(patch.exterior ?? {}) },
-      };
-      return { wallSettings: ws };
-    }),
-  setCurrentWallType: (t) => set({ currentWallType: t }),
-  applyWallTypeToAll: () =>
-    set((s) => {
-      const ws = s.wallSettings;
-      return {
-        plan: {
-          ...s.plan,
-          walls: s.plan.walls.map((w) => {
-            const type = w.wallType ?? "exterior";
-            const spec = ws[type];
-            return { ...w, thickness: spec.thickness, height: spec.height };
-          }),
-        },
-      };
-    }),
-  addOpening: (o) => {
-    const id = uid();
-    get().commit();
-    const kind = o.kind ?? defaultKind(o.type);
-    const defaults = OPENING_DEFAULTS[kind];
-    set((s) => ({
-      plan: {
-        ...s.plan,
-        openings: [
-          ...s.plan.openings,
-          {
-            height: defaults.height,
-            sillHeight: defaults.sillHeight,
-            kind,
-            hingeSide: "a",
-            swingSide: "p",
-            ...o,
-            id,
-          },
-        ],
-      },
-    }));
-    return id;
-  },
-  updateOpening: (id, patch) =>
-    set((s) => ({ plan: { ...s.plan, openings: s.plan.openings.map((o) => (o.id === id ? { ...o, ...patch } : o)) } })),
-  flipOpeningHinge: (id) => {
-    get().commit();
-    set((s) => ({
-      plan: {
-        ...s.plan,
-        openings: s.plan.openings.map((o) =>
-          o.id === id ? { ...o, hingeSide: (o.hingeSide ?? "a") === "a" ? "b" : "a" } : o,
-        ),
-      },
-    }));
-  },
-  flipOpeningSwing: (id) => {
-    get().commit();
-    set((s) => ({
-      plan: {
-        ...s.plan,
-        openings: s.plan.openings.map((o) =>
-          o.id === id ? { ...o, swingSide: (o.swingSide ?? "p") === "p" ? "n" : "p" } : o,
-        ),
-      },
-    }));
-  },
-  setOpeningAngle: (id, deg) => {
-    const clamped = Math.max(0, Math.min(120, Math.round(deg)));
-    set((s) => ({ plan: { ...s.plan, openings: s.plan.openings.map((o) => (o.id === id ? { ...o, openAngle: clamped } : o)) } }));
-  },
-  cycleOpeningKind: (id, dir = 1) => {
-    get().commit();
-    const doorKinds: Array<Opening["kind"]> = ["door_simple", "door_double", "door_slide", "door_pocket", "entrance"];
-    const winKinds: Array<Opening["kind"]> = ["window_1", "window_2", "window_oscillo", "bay", "bay_slide", "fixed"];
-    set((s) => ({
-      plan: {
-        ...s.plan,
-        openings: s.plan.openings.map((o) => {
-          if (o.id !== id) return o;
-          const list = o.type === "door" ? doorKinds : winKinds;
-          const idx = Math.max(0, list.indexOf(o.kind ?? list[0]));
-          const next = list[(idx + dir + list.length) % list.length];
-          return { ...o, kind: next };
-        }),
-      },
-    }));
-  },
-  nudgeOpening: (id, deltaCm) => {
-    set((s) => ({
-      plan: {
-        ...s.plan,
-        openings: s.plan.openings.map((o) => {
-          if (o.id !== id) return o;
-          const wall = s.plan.walls.find((w) => w.id === o.wallId);
-          if (!wall) return o;
-          const len = Math.hypot(wall.b.x - wall.a.x, wall.b.y - wall.a.y) || 1;
-          const dt = deltaCm / len;
-          const halfW = (o.width / 2) / len + 0.02;
-          const nt = Math.max(halfW, Math.min(1 - halfW, o.t + dt));
-          return { ...o, t: nt };
-        }),
-      },
-    }));
-  },
-  addFurniture: (f) => {
-    const id = uid();
-    get().commit();
-    set((s) => ({ plan: { ...s.plan, furniture: [...s.plan.furniture, { ...f, id }] } }));
-    return id;
-  },
-  updateFurniture: (id, patch) =>
-    set((s) => ({ plan: { ...s.plan, furniture: s.plan.furniture.map((f) => (f.id === id ? { ...f, ...patch } : f)) } })),
-  addLabel: (l) => {
-    const id = uid();
-    get().commit();
-    set((s) => ({ plan: { ...s.plan, labels: [...s.plan.labels, { ...l, id }] } }));
-    return id;
-  },
-  updateLabel: (id, patch) =>
-    set((s) => ({ plan: { ...s.plan, labels: s.plan.labels.map((l) => (l.id === id ? { ...l, ...patch } : l)) } })),
-
-  duplicateItems: (items, offset = { x: 30, y: 30 }) => {
-    if (!items.length) return [];
-    get().commit();
-    const state = get();
-    const wallIds = new Map<string, string>();
-    const selected: SelectionItem[] = [];
-    const nextWalls: Wall[] = [];
-    const nextOpenings: Opening[] = [];
-    const nextFurniture: Furniture[] = [];
-    const nextLabels: RoomLabel[] = [];
-    const nextSections: SectionLine[] = [];
-
-    for (const item of items) {
-      if (item.type !== "wall") continue;
-      const wall = state.plan.walls.find((w) => w.id === item.id);
-      if (!wall) continue;
-      const id = uid();
-      wallIds.set(wall.id, id);
-      nextWalls.push({
-        ...wall,
-        id,
-        a: { x: wall.a.x + offset.x, y: wall.a.y + offset.y },
-        b: { x: wall.b.x + offset.x, y: wall.b.y + offset.y },
-      });
-      selected.push({ type: "wall", id });
-    }
-
-    for (const item of items) {
-      if (item.type === "opening") {
-        const opening = state.plan.openings.find((o) => o.id === item.id);
-        if (!opening) continue;
-        const id = uid();
-        nextOpenings.push({ ...opening, id, wallId: wallIds.get(opening.wallId) ?? opening.wallId });
-        selected.push({ type: "opening", id });
-      }
-      if (item.type === "furniture") {
-        const furniture = state.plan.furniture.find((f) => f.id === item.id);
-        if (!furniture) continue;
-        const id = uid();
-        nextFurniture.push({ ...furniture, id, x: furniture.x + offset.x, y: furniture.y + offset.y });
-        selected.push({ type: "furniture", id });
-      }
-      if (item.type === "label") {
-        const label = state.plan.labels.find((l) => l.id === item.id);
-        if (!label) continue;
-        const id = uid();
-        nextLabels.push({ ...label, id, x: label.x + offset.x, y: label.y + offset.y });
-        selected.push({ type: "label", id });
-      }
-      if (item.type === "section") {
-        const section = state.plan.sections.find((sec) => sec.id === item.id);
-        if (!section) continue;
-        const id = uid();
-        nextSections.push({
-          ...section,
-          id,
-          a: { x: section.a.x + offset.x, y: section.a.y + offset.y },
-          b: { x: section.b.x + offset.x, y: section.b.y + offset.y },
-        });
-        selected.push({ type: "section", id });
-      }
-    }
-
-    const explicitlyCopiedOpeningIds = new Set(items.filter((item) => item.type === "opening").map((item) => item.id));
-    for (const wall of nextWalls) {
-      for (const opening of state.plan.openings) {
-        const mappedWallId = wallIds.get(opening.wallId);
-        if (mappedWallId !== wall.id) continue;
-        if (explicitlyCopiedOpeningIds.has(opening.id)) continue;
-        const id = uid();
-        nextOpenings.push({ ...opening, id, wallId: wall.id });
-        selected.push({ type: "opening", id });
-      }
-    }
-
-    set((s) => ({
-      plan: {
-        ...s.plan,
-        walls: [...s.plan.walls, ...nextWalls],
-        openings: [...s.plan.openings, ...nextOpenings],
-        furniture: [...s.plan.furniture, ...nextFurniture],
-        labels: [...s.plan.labels, ...nextLabels],
-        sections: [...s.plan.sections, ...nextSections],
-      },
-      selection: selected.length === 1 ? selected[0] : selected.length ? { type: "multi", items: selected } : s.selection,
-    }));
-    return selected;
-  },
-
-  duplicateSelected: () => {
-    const selection = get().selection;
-    if (!selection) return;
-    const items = selection.type === "multi" ? selection.items : [selection];
-    get().duplicateItems(items);
-  },
-
-  addSection: (s) => {
-    const id = uid();
-    get().commit();
-    const letter = String.fromCharCode(65 + get().plan.sections.length);
-    set((st) => ({ plan: { ...st.plan, sections: [...st.plan.sections, { ...s, name: s.name || letter, id }] }, activeSectionId: id }));
-    return id;
-  },
-  updateSection: (id, patch) =>
-    set((s) => ({ plan: { ...s.plan, sections: s.plan.sections.map((x) => (x.id === id ? { ...x, ...patch } : x)) } })),
-  setActiveSection: (id) => set({ activeSectionId: id }),
-  setSectionDisplay: (patch) => set((s) => ({ sectionDisplay: { ...s.sectionDisplay, ...patch } })),
-
-  setTheme: (theme) => set({ theme }),
-  patchTheme: (patch) => set((s) => ({ theme: { ...s.theme, ...patch } })),
-  setWall3DColor: (c) => set({ wall3DColor: c }),
-  setFloor3DColor: (c) => set({ floor3DColor: c }),
-  setCeilingHeight: (h) => set((s) => ({ plan: { ...s.plan, ceilingHeight: h } })),
-  setRoof: (r) => set((s) => {
-    if (r === null) { const { roof, ...rest } = s.plan; return { plan: rest }; }
-    const cur = s.plan.roof ?? { kind: "flat" as const, pitch: 0, eaveHeight: 250, overhang: 40 };
-    return { plan: { ...s.plan, roof: { ...cur, ...r } } };
-  }),
-  toggle3DRoof: () => set((s) => ({ show3DRoof: !s.show3DRoof })),
-
-
-
-  deleteSelected: () => {
-    const sel = get().selection;
-    if (!sel) return;
-    get().commit();
-    set((s) => {
-      const p = { ...s.plan };
-      const items = sel.type === "multi" ? sel.items : [sel];
-      const wallIds = new Set(items.filter((item) => item.type === "wall").map((item) => item.id));
-      const openingIds = new Set(items.filter((item) => item.type === "opening").map((item) => item.id));
-      const furnitureIds = new Set(items.filter((item) => item.type === "furniture").map((item) => item.id));
-      const labelIds = new Set(items.filter((item) => item.type === "label").map((item) => item.id));
-      const sectionIds = new Set(items.filter((item) => item.type === "section").map((item) => item.id));
-      p.walls = p.walls.filter((w) => !wallIds.has(w.id));
-      p.openings = p.openings.filter((o) => !openingIds.has(o.id) && !wallIds.has(o.wallId));
-      p.furniture = p.furniture.filter((f) => !furnitureIds.has(f.id));
-      p.labels = p.labels.filter((l) => !labelIds.has(l.id));
-      p.sections = p.sections.filter((x) => !sectionIds.has(x.id));
-      return { plan: p, selection: null };
-    });
-  },
-
-  clearAll: () => {
-    get().commit();
-    set({ plan: emptyPlan, selection: null });
-  },
-
-  undo: () =>
-    set((s) => {
-      if (!s.history.length) return {};
-      const prev = s.history[s.history.length - 1];
-      return {
-        plan: prev,
-        history: s.history.slice(0, -1),
-        future: [s.plan, ...s.future].slice(0, 50),
-        selection: null,
-      };
-    }),
-  redo: () =>
-    set((s) => {
-      if (!s.future.length) return {};
-      const next = s.future[0];
-      return {
-        plan: next,
-        history: [...s.history, s.plan].slice(-50),
-        future: s.future.slice(1),
-        selection: null,
-      };
-    }),
-
-  loadPlan: (plan) =>
-    set({
-      plan: { ceilingHeight: 250, ...plan, sections: plan.sections ?? [] },
+export const useEditor = create<State & Actions>()(
+  persist(
+    (set, get) => ({
+      plan: emptyPlan,
+      tool: "wall",
       selection: null,
+      view: "2d",
+      grid: 20,
+      snapEnabled: true,
+      showGrid: true,
+      showDimensions: true,
+      showExteriorDims: true,
+      showInteriorDims: false,
+      projectName: "Nouveau plan",
       history: [],
       future: [],
-    }),
-}), {
-  name: "residale-editor-v1",
-  storage: createJSONStorage(() => localStorage),
-  partialize: (s) => ({
-    plan: s.plan,
-    projectName: s.projectName,
-    theme: s.theme,
-    wall3DColor: s.wall3DColor,
-    floor3DColor: s.floor3DColor,
-    sectionDisplay: s.sectionDisplay,
-    wallSettings: s.wallSettings,
-    currentWallType: s.currentWallType,
-    show3DRoof: s.show3DRoof,
-    showGrid: s.showGrid,
-    showDimensions: s.showDimensions,
-    showExteriorDims: s.showExteriorDims,
-    showInteriorDims: s.showInteriorDims,
-    snapEnabled: s.snapEnabled,
-    grid: s.grid,
-  }),
-}));
+      theme: DEFAULT_THEME,
+      wall3DColor: "#f0e8d8",
+      floor3DColor: "#e8dcc4",
+      activeSectionId: null,
+      sectionDisplay: defaultSectionDisplay,
+      wallSettings: {
+        interior: { thickness: 10, height: 250 },
+        exterior: { thickness: 30, height: 270 },
+      },
+      currentWallType: "exterior",
+      show3DRoof: true,
 
+      setTool: (tool) => set({ tool, selection: null }),
+      setView: (view) => set({ view }),
+      setSelection: (selection) => set({ selection }),
+      setProjectName: (projectName) => set({ projectName }),
+      toggleSnap: () => set((s) => ({ snapEnabled: !s.snapEnabled })),
+      toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
+      toggleDimensions: () => set((s) => ({ showDimensions: !s.showDimensions })),
+      toggleExteriorDims: () => set((s) => ({ showExteriorDims: !s.showExteriorDims })),
+      toggleInteriorDims: () => set((s) => ({ showInteriorDims: !s.showInteriorDims })),
+
+      commit: () => set((s) => ({ history: [...s.history.slice(-49), s.plan], future: [] })),
+
+      addWall: (w) => {
+        const id = uid();
+        get().commit();
+        const st = get();
+        const type = w.wallType ?? st.currentWallType;
+        const spec = st.wallSettings[type];
+        set((s) => ({
+          plan: {
+            ...s.plan,
+            walls: [
+              ...s.plan.walls,
+              { ...w, thickness: spec.thickness, height: spec.height, wallType: type, id },
+            ],
+          },
+        }));
+        return id;
+      },
+      updateWall: (id, patch) =>
+        set((s) => {
+          const walls = updateWallWithConnectedEndpoints(s.plan.walls, id, patch);
+          const nextPlan = { ...s.plan, walls };
+          const wall = walls.find((w) => w.id === id);
+          return {
+            plan:
+              patch.height !== undefined && (wall?.wallType ?? "exterior") === "exterior"
+                ? withSyncedCeiling(nextPlan)
+                : nextPlan,
+          };
+        }),
+      resizeWallLength: (id, length) =>
+        set((s) => ({
+          plan: { ...s.plan, walls: resizeWallAndOpposite(s.plan.walls, id, Math.max(10, length)) },
+        })),
+
+      setWallSettings: (patch) =>
+        set((s) => {
+          const ws: WallSettings = {
+            interior: { ...s.wallSettings.interior, ...(patch.interior ?? {}) },
+            exterior: { ...s.wallSettings.exterior, ...(patch.exterior ?? {}) },
+          };
+          const shouldSyncHeight = patch.exterior?.height !== undefined;
+          if (!shouldSyncHeight) return { wallSettings: ws };
+          const planWithExteriorHeight = {
+            ...s.plan,
+            walls: s.plan.walls.map((w) =>
+              (w.wallType ?? "exterior") === "exterior" ? { ...w, height: ws.exterior.height } : w,
+            ),
+          };
+          return { wallSettings: ws, plan: withSyncedCeiling(planWithExteriorHeight) };
+        }),
+      setCurrentWallType: (t) => set({ currentWallType: t }),
+      applyWallTypeToAll: () =>
+        set((s) => {
+          const ws = s.wallSettings;
+          const nextPlan = {
+            ...s.plan,
+            walls: s.plan.walls.map((w) => {
+              const type = w.wallType ?? "exterior";
+              const spec = ws[type];
+              return { ...w, thickness: spec.thickness, height: spec.height };
+            }),
+          };
+          return { plan: withSyncedCeiling(nextPlan) };
+        }),
+      addOpening: (o) => {
+        const id = uid();
+        get().commit();
+        const kind = o.kind ?? defaultKind(o.type);
+        const defaults = OPENING_DEFAULTS[kind];
+        set((s) => ({
+          plan: {
+            ...s.plan,
+            openings: [
+              ...s.plan.openings,
+              {
+                height: defaults.height,
+                sillHeight: defaults.sillHeight,
+                kind,
+                hingeSide: "a",
+                swingSide: "p",
+                ...o,
+                id,
+              },
+            ],
+          },
+        }));
+        return id;
+      },
+      updateOpening: (id, patch) =>
+        set((s) => ({
+          plan: {
+            ...s.plan,
+            openings: s.plan.openings.map((o) => (o.id === id ? { ...o, ...patch } : o)),
+          },
+        })),
+      flipOpeningHinge: (id) => {
+        get().commit();
+        set((s) => ({
+          plan: {
+            ...s.plan,
+            openings: s.plan.openings.map((o) =>
+              o.id === id ? { ...o, hingeSide: (o.hingeSide ?? "a") === "a" ? "b" : "a" } : o,
+            ),
+          },
+        }));
+      },
+      flipOpeningSwing: (id) => {
+        get().commit();
+        set((s) => ({
+          plan: {
+            ...s.plan,
+            openings: s.plan.openings.map((o) =>
+              o.id === id ? { ...o, swingSide: (o.swingSide ?? "p") === "p" ? "n" : "p" } : o,
+            ),
+          },
+        }));
+      },
+      setOpeningAngle: (id, deg) => {
+        const clamped = Math.max(0, Math.min(120, Math.round(deg)));
+        set((s) => ({
+          plan: {
+            ...s.plan,
+            openings: s.plan.openings.map((o) => (o.id === id ? { ...o, openAngle: clamped } : o)),
+          },
+        }));
+      },
+      cycleOpeningKind: (id, dir = 1) => {
+        get().commit();
+        const doorKinds: Array<Opening["kind"]> = [
+          "door_simple",
+          "door_double",
+          "door_slide",
+          "door_pocket",
+          "entrance",
+        ];
+        const winKinds: Array<Opening["kind"]> = [
+          "window_1",
+          "window_2",
+          "window_oscillo",
+          "bay",
+          "bay_slide",
+          "fixed",
+        ];
+        set((s) => ({
+          plan: {
+            ...s.plan,
+            openings: s.plan.openings.map((o) => {
+              if (o.id !== id) return o;
+              const list = o.type === "door" ? doorKinds : winKinds;
+              const idx = Math.max(0, list.indexOf(o.kind ?? list[0]));
+              const next = list[(idx + dir + list.length) % list.length];
+              return { ...o, kind: next };
+            }),
+          },
+        }));
+      },
+      nudgeOpening: (id, deltaCm) => {
+        set((s) => ({
+          plan: {
+            ...s.plan,
+            openings: s.plan.openings.map((o) => {
+              if (o.id !== id) return o;
+              const wall = s.plan.walls.find((w) => w.id === o.wallId);
+              if (!wall) return o;
+              const len = Math.hypot(wall.b.x - wall.a.x, wall.b.y - wall.a.y) || 1;
+              const dt = deltaCm / len;
+              const halfW = o.width / 2 / len + 0.02;
+              const nt = Math.max(halfW, Math.min(1 - halfW, o.t + dt));
+              return { ...o, t: nt };
+            }),
+          },
+        }));
+      },
+      addFurniture: (f) => {
+        const id = uid();
+        get().commit();
+        set((s) => ({ plan: { ...s.plan, furniture: [...s.plan.furniture, { ...f, id }] } }));
+        return id;
+      },
+      updateFurniture: (id, patch) =>
+        set((s) => ({
+          plan: {
+            ...s.plan,
+            furniture: s.plan.furniture.map((f) => (f.id === id ? { ...f, ...patch } : f)),
+          },
+        })),
+      addLabel: (l) => {
+        const id = uid();
+        get().commit();
+        set((s) => ({ plan: { ...s.plan, labels: [...s.plan.labels, { ...l, id }] } }));
+        return id;
+      },
+      updateLabel: (id, patch) =>
+        set((s) => ({
+          plan: {
+            ...s.plan,
+            labels: s.plan.labels.map((l) => (l.id === id ? { ...l, ...patch } : l)),
+          },
+        })),
+
+      duplicateItems: (items, offset = { x: 30, y: 30 }) => {
+        if (!items.length) return [];
+        get().commit();
+        const state = get();
+        const wallIds = new Map<string, string>();
+        const selected: SelectionItem[] = [];
+        const nextWalls: Wall[] = [];
+        const nextOpenings: Opening[] = [];
+        const nextFurniture: Furniture[] = [];
+        const nextLabels: RoomLabel[] = [];
+        const nextSections: SectionLine[] = [];
+
+        for (const item of items) {
+          if (item.type !== "wall") continue;
+          const wall = state.plan.walls.find((w) => w.id === item.id);
+          if (!wall) continue;
+          const id = uid();
+          wallIds.set(wall.id, id);
+          nextWalls.push({
+            ...wall,
+            id,
+            a: { x: wall.a.x + offset.x, y: wall.a.y + offset.y },
+            b: { x: wall.b.x + offset.x, y: wall.b.y + offset.y },
+          });
+          selected.push({ type: "wall", id });
+        }
+
+        for (const item of items) {
+          if (item.type === "opening") {
+            const opening = state.plan.openings.find((o) => o.id === item.id);
+            if (!opening) continue;
+            const id = uid();
+            nextOpenings.push({
+              ...opening,
+              id,
+              wallId: wallIds.get(opening.wallId) ?? opening.wallId,
+            });
+            selected.push({ type: "opening", id });
+          }
+          if (item.type === "furniture") {
+            const furniture = state.plan.furniture.find((f) => f.id === item.id);
+            if (!furniture) continue;
+            const id = uid();
+            nextFurniture.push({
+              ...furniture,
+              id,
+              x: furniture.x + offset.x,
+              y: furniture.y + offset.y,
+            });
+            selected.push({ type: "furniture", id });
+          }
+          if (item.type === "label") {
+            const label = state.plan.labels.find((l) => l.id === item.id);
+            if (!label) continue;
+            const id = uid();
+            nextLabels.push({ ...label, id, x: label.x + offset.x, y: label.y + offset.y });
+            selected.push({ type: "label", id });
+          }
+          if (item.type === "section") {
+            const section = state.plan.sections.find((sec) => sec.id === item.id);
+            if (!section) continue;
+            const id = uid();
+            nextSections.push({
+              ...section,
+              id,
+              a: { x: section.a.x + offset.x, y: section.a.y + offset.y },
+              b: { x: section.b.x + offset.x, y: section.b.y + offset.y },
+            });
+            selected.push({ type: "section", id });
+          }
+        }
+
+        const explicitlyCopiedOpeningIds = new Set(
+          items.filter((item) => item.type === "opening").map((item) => item.id),
+        );
+        for (const wall of nextWalls) {
+          for (const opening of state.plan.openings) {
+            const mappedWallId = wallIds.get(opening.wallId);
+            if (mappedWallId !== wall.id) continue;
+            if (explicitlyCopiedOpeningIds.has(opening.id)) continue;
+            const id = uid();
+            nextOpenings.push({ ...opening, id, wallId: wall.id });
+            selected.push({ type: "opening", id });
+          }
+        }
+
+        set((s) => ({
+          plan: {
+            ...s.plan,
+            walls: [...s.plan.walls, ...nextWalls],
+            openings: [...s.plan.openings, ...nextOpenings],
+            furniture: [...s.plan.furniture, ...nextFurniture],
+            labels: [...s.plan.labels, ...nextLabels],
+            sections: [...s.plan.sections, ...nextSections],
+          },
+          selection:
+            selected.length === 1
+              ? selected[0]
+              : selected.length
+                ? { type: "multi", items: selected }
+                : s.selection,
+        }));
+        return selected;
+      },
+
+      duplicateSelected: () => {
+        const selection = get().selection;
+        if (!selection) return;
+        const items = selection.type === "multi" ? selection.items : [selection];
+        get().duplicateItems(items);
+      },
+
+      addSection: (s) => {
+        const id = uid();
+        get().commit();
+        const letter = String.fromCharCode(65 + get().plan.sections.length);
+        set((st) => ({
+          plan: {
+            ...st.plan,
+            sections: [...st.plan.sections, { ...s, name: s.name || letter, id }],
+          },
+          activeSectionId: id,
+        }));
+        return id;
+      },
+      updateSection: (id, patch) =>
+        set((s) => ({
+          plan: {
+            ...s.plan,
+            sections: s.plan.sections.map((x) => (x.id === id ? { ...x, ...patch } : x)),
+          },
+        })),
+      setActiveSection: (id) => set({ activeSectionId: id }),
+      setSectionDisplay: (patch) =>
+        set((s) => ({ sectionDisplay: { ...s.sectionDisplay, ...patch } })),
+
+      setTheme: (theme) => set({ theme }),
+      patchTheme: (patch) => set((s) => ({ theme: { ...s.theme, ...patch } })),
+      setWall3DColor: (c) => set({ wall3DColor: c }),
+      setFloor3DColor: (c) => set({ floor3DColor: c }),
+      setCeilingHeight: (h) =>
+        set((s) => {
+          const nextPlan = setEnvelopeFromCeiling(s.plan, h);
+          return {
+            plan: nextPlan,
+            wallSettings: {
+              ...s.wallSettings,
+              exterior: {
+                ...s.wallSettings.exterior,
+                height: h + (s.plan.roof ? roofThickness(s.plan) : 0),
+              },
+              interior: {
+                ...s.wallSettings.interior,
+                height: Math.min(s.wallSettings.interior.height, h),
+              },
+            },
+          };
+        }),
+      setRoof: (r) =>
+        set((s) => {
+          if (r === null) {
+            const { roof, ...rest } = s.plan;
+            return { plan: withSyncedCeiling(rest) };
+          }
+          const outsideH = exteriorWallHeight(s.plan, s.wallSettings.exterior.height);
+          const cur = s.plan.roof ?? {
+            kind: "flat" as const,
+            pitch: 1,
+            eaveHeight: outsideH,
+            thickness: DEFAULT_ROOF_THICKNESS,
+            overhang: 0,
+          };
+          const roof = {
+            ...cur,
+            ...r,
+            thickness: Math.max(1, r.thickness ?? cur.thickness ?? DEFAULT_ROOF_THICKNESS),
+          };
+          return { plan: withSyncedCeiling({ ...s.plan, roof }) };
+        }),
+      toggle3DRoof: () => set((s) => ({ show3DRoof: !s.show3DRoof })),
+
+      deleteSelected: () => {
+        const sel = get().selection;
+        if (!sel) return;
+        get().commit();
+        set((s) => {
+          const p = { ...s.plan };
+          const items = sel.type === "multi" ? sel.items : [sel];
+          const wallIds = new Set(
+            items.filter((item) => item.type === "wall").map((item) => item.id),
+          );
+          const openingIds = new Set(
+            items.filter((item) => item.type === "opening").map((item) => item.id),
+          );
+          const furnitureIds = new Set(
+            items.filter((item) => item.type === "furniture").map((item) => item.id),
+          );
+          const labelIds = new Set(
+            items.filter((item) => item.type === "label").map((item) => item.id),
+          );
+          const sectionIds = new Set(
+            items.filter((item) => item.type === "section").map((item) => item.id),
+          );
+          p.walls = p.walls.filter((w) => !wallIds.has(w.id));
+          p.openings = p.openings.filter((o) => !openingIds.has(o.id) && !wallIds.has(o.wallId));
+          p.furniture = p.furniture.filter((f) => !furnitureIds.has(f.id));
+          p.labels = p.labels.filter((l) => !labelIds.has(l.id));
+          p.sections = p.sections.filter((x) => !sectionIds.has(x.id));
+          return { plan: p, selection: null };
+        });
+      },
+
+      clearAll: () => {
+        get().commit();
+        set({ plan: emptyPlan, selection: null });
+      },
+
+      undo: () =>
+        set((s) => {
+          if (!s.history.length) return {};
+          const prev = s.history[s.history.length - 1];
+          return {
+            plan: prev,
+            history: s.history.slice(0, -1),
+            future: [s.plan, ...s.future].slice(0, 50),
+            selection: null,
+          };
+        }),
+      redo: () =>
+        set((s) => {
+          if (!s.future.length) return {};
+          const next = s.future[0];
+          return {
+            plan: next,
+            history: [...s.history, s.plan].slice(-50),
+            future: s.future.slice(1),
+            selection: null,
+          };
+        }),
+
+      loadPlan: (plan) =>
+        set({
+          plan: withSyncedCeiling({ ceilingHeight: 250, ...plan, sections: plan.sections ?? [] }),
+          selection: null,
+          history: [],
+          future: [],
+        }),
+    }),
+    {
+      name: "residale-editor-v1",
+      storage: createJSONStorage(() => localStorage),
+      partialize: (s) => ({
+        plan: s.plan,
+        projectName: s.projectName,
+        theme: s.theme,
+        wall3DColor: s.wall3DColor,
+        floor3DColor: s.floor3DColor,
+        sectionDisplay: s.sectionDisplay,
+        wallSettings: s.wallSettings,
+        currentWallType: s.currentWallType,
+        show3DRoof: s.show3DRoof,
+        showGrid: s.showGrid,
+        showDimensions: s.showDimensions,
+        showExteriorDims: s.showExteriorDims,
+        showInteriorDims: s.showInteriorDims,
+        snapEnabled: s.snapEnabled,
+        grid: s.grid,
+      }),
+    },
+  ),
+);

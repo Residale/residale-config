@@ -121,8 +121,9 @@ export type SectionLine = {
 export type RoofKind = "flat" | "mono" | "gable" | "hip";
 export type Roof = {
   kind: RoofKind;
-  pitch: number; // degrees (0-60). ignored for flat
-  eaveHeight: number; // cm — height of the eave above ± 0.00 (top of wall)
+  pitch: number; // degrees (0-60), including flat roofs for drainage slope
+  eaveHeight: number; // cm — exterior wall/top-of-roof envelope above ± 0.00
+  thickness: number; // cm — structural roof thickness; kept inside the wall height
   overhang: number; // cm — horizontal overhang past exterior face
   ridgeAxis?: "x" | "y"; // for gable, direction along which the ridge runs
 };
@@ -133,26 +134,19 @@ export type Plan = {
   furniture: Furniture[];
   labels: RoomLabel[];
   sections: SectionLine[];
-  ceilingHeight?: number; // cm, default 250
+  ceilingHeight?: number; // cm, default 250 — finished floor to underside of ceiling/roof
   roof?: Roof;
 };
 
 export type Tool =
-  | "select"
-  | "wall"
-  | "rectangle"
-  | "door"
-  | "window"
-  | "label"
-  | "eraser"
-  | "section";
+  "select" | "wall" | "rectangle" | "door" | "window" | "label" | "eraser" | "section";
 
-export type SelectionItem = { type: "wall" | "opening" | "furniture" | "label" | "section"; id: string };
+export type SelectionItem = {
+  type: "wall" | "opening" | "furniture" | "label" | "section";
+  id: string;
+};
 
-export type Selection =
-  | SelectionItem
-  | { type: "multi"; items: SelectionItem[] }
-  | null;
+export type Selection = SelectionItem | { type: "multi"; items: SelectionItem[] } | null;
 
 export type SectionDisplay = {
   showVerticalDims: boolean;
