@@ -103,7 +103,8 @@ export async function login(email: string, password: string) {
 
 export async function requestPasswordReset(email: string) {
   const sb = requireSupabase();
-  const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
+  const redirectTo =
+    typeof window !== "undefined" ? new URL("/", window.location.origin).toString() : undefined;
   const { error } = await sb.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
     redirectTo,
   });

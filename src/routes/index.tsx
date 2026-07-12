@@ -60,7 +60,8 @@ function isPasswordRecoveryUrl() {
   return (
     hashParams.get("type") === "recovery" ||
     searchParams.get("type") === "recovery" ||
-    hashParams.has("access_token")
+    hashParams.has("access_token") ||
+    searchParams.has("access_token")
   );
 }
 
@@ -98,7 +99,7 @@ function Index() {
         if (!authenticated) return;
         const member = await getCurrentMember();
         if (!cancelled) {
-          setMemberLabel(member?.display_name || member?.email || "Compte CRM");
+          setMemberLabel(member?.display_name || member?.email || "Compte Floor Whisper");
         }
         const existing = await listSavedPlans();
         if (existing.length === 0) {
@@ -172,7 +173,7 @@ function Index() {
         onLogin={async () => {
           setAuthed(true);
           const member = await getCurrentMember();
-          setMemberLabel(member?.display_name || member?.email || "Compte CRM");
+          setMemberLabel(member?.display_name || member?.email || "Compte Floor Whisper");
           await refreshPlans();
         }}
       />
@@ -245,7 +246,7 @@ function LoginScreen({
       console.error(err);
       setError(
         isSupabaseConfigured
-          ? "Identifiants CRM incorrects, mot de passe invalide ou compte désactivé. Cliquez sur « Mot de passe oublié » pour réinitialiser."
+          ? "Identifiants incorrects, mot de passe invalide ou compte désactivé. Cliquez sur « Mot de passe oublié » pour réinitialiser."
           : "Backend Supabase non configuré pour Floor Whisper.",
       );
     } finally {
@@ -255,7 +256,7 @@ function LoginScreen({
 
   const submitForgot = async () => {
     if (!email.trim()) {
-      setError("Indiquez votre email CRM pour recevoir le lien de réinitialisation.");
+      setError("Indiquez votre email pour recevoir le lien de réinitialisation.");
       return;
     }
     setLoading(true);
@@ -316,16 +317,16 @@ function LoginScreen({
         <div className="font-display text-2xl">Floor Whisper</div>
         <div className="mt-1 text-sm text-muted-foreground">
           {mode === "forgot"
-            ? "Réinitialisation du mot de passe CRM"
+            ? "Réinitialisation du mot de passe"
             : mode === "reset"
               ? "Choisir un nouveau mot de passe"
-              : "Connexion avec votre compte CRM Residale"}
+              : "Connexion à Floor Whisper"}
         </div>
 
         {mode !== "reset" ? (
           <>
             <label className="mt-6 block text-xs font-medium text-muted-foreground">
-              Email CRM
+              Email
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -335,7 +336,7 @@ function LoginScreen({
             </label>
             {mode === "login" && (
               <label className="mt-3 block text-xs font-medium text-muted-foreground">
-                Mot de passe CRM
+                Mot de passe
                 <input
                   type="password"
                   value={password}
@@ -457,11 +458,11 @@ function PlansHome({
             </div>
             <h1 className="font-display text-4xl">Mes plans</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Sauvegarde CRM par compte, accès partagé via l’espace commun, exports PDF/PNG/JSON
-              dans l’éditeur.
+              Sauvegarde par compte, accès partagé via l’espace commun, exports PDF/PNG/JSON dans
+              l’éditeur.
             </p>
             {memberLabel && (
-              <p className="mt-2 text-xs text-muted-foreground">Connecté : {memberLabel}</p>
+              <p className="mt-2 text-xs text-muted-foreground">Compte : {memberLabel}</p>
             )}
           </div>
           <div className="flex flex-wrap justify-end gap-2">
