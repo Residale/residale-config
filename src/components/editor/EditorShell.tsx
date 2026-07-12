@@ -56,16 +56,27 @@ export function EditorShell({
 
   useEffect(() => {
     if (!activePlanId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const save = () => {
-      const st = useEditor.getState();
-      updateSavedPlan(activePlanId, {
-        name: st.projectName || "Sans titre",
-        plan: st.plan,
-        theme: st.theme,
-      });
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        const st = useEditor.getState();
+        void updateSavedPlan(activePlanId, {
+          name: st.projectName || "Sans titre",
+          plan: st.plan,
+          theme: st.theme,
+        }).catch((err) => {
+          console.error(err);
+          toast.error("Sauvegarde du plan impossible.");
+        });
+      }, 450);
     };
     save();
-    return useEditor.subscribe(save);
+    const unsubscribe = useEditor.subscribe(save);
+    return () => {
+      unsubscribe();
+      if (timer) clearTimeout(timer);
+    };
   }, [activePlanId]);
 
   useEffect(() => {
