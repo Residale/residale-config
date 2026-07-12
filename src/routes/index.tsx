@@ -14,7 +14,9 @@ import {
   listSavedPlans,
   login,
   logout,
+  requestPasswordReset,
   setActivePlanId as persistActivePlanId,
+  updatePassword,
   updateSavedPlan,
   type SavedPlan,
   type SavedPlanScope,
@@ -51,6 +53,17 @@ const EMPTY_PLAN: Plan = {
   ceilingHeight: 270,
 };
 
+function isPasswordRecoveryUrl() {
+  if (typeof window === "undefined") return false;
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const searchParams = new URLSearchParams(window.location.search);
+  return (
+    hashParams.get("type") === "recovery" ||
+    searchParams.get("type") === "recovery" ||
+    hashParams.has("access_token")
+  );
+}
+
 function Index() {
   const [mounted, setMounted] = useState(false);
   const [authed, setAuthed] = useState(false);
@@ -73,6 +86,11 @@ function Index() {
     let cancelled = false;
     async function boot() {
       try {
+        if (isPasswordRecoveryUrl()) {
+          setMounted(true);
+          setAuthed(false);
+          return;
+        }
         const authenticated = await isAuthenticated();
         if (cancelled) return;
         setMounted(true);
@@ -203,66 +221,205 @@ function LoginScreen({
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<"login" | "forgot" | "reset">(() =>
+    isPasswordRecoveryUrl() ? "reset" : "login",
+  );
+
+  const clearFeedback = () => {
+    setError("");
+    setMessage("");
+  };
+
+  const submitLogin = async () => {
+    setLoading(true);
+    clearFeedback();
+    try {
+      await login(email, password);
+      await onLogin();
+    } catch (err) {
+      console.error(err);
+      setError(
+        isSupabaseConfigured
+          ? "Identifiants CRM incorrects, mot de passe invalide ou compte désactivé. Cliquez sur « Mot de passe oublié » pour réinitialiser."
+          : "Backend Supabase non configuré pour Floor Whisper.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitForgot = async () => {
+    if (!email.trim()) {
+      setError("Indiquez votre email CRM pour recevoir le lien de réinitialisation.");
+      return;
+    }
+    setLoading(true);
+    clearFeedback();
+    try {
+      await requestPasswordReset(email);
+      setMessage(
+        "Email envoyé. Ouvrez le lien reçu, puis choisissez un nouveau mot de passe sur cette page.",
+      );
+    } catch (err) {
+      console.error(err);
+      setError(
+        isSupabaseConfigured
+          ? "Impossible d’envoyer l’email de réinitialisation. Vérifiez l’email saisi."
+          : "Backend Supabase non configuré pour Floor Whisper.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitReset = async () => {
+    if (newPassword.length < 8) {
+      setError("Le nouveau mot de passe doit contenir au moins 8 caractères.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Les deux mots de passe ne correspondent pas.");
+      return;
+    }
+    setLoading(true);
+    clearFeedback();
+    try {
+      await updatePassword(newPassword);
+      if (typeof window !== "undefined")
+        window.history.replaceState(null, "", window.location.pathname);
+      setMessage("Mot de passe modifié. Vous pouvez maintenant accéder à vos plans.");
+      await onLogin();
+    } catch (err) {
+      console.error(err);
+      setError("Lien expiré ou invalide. Redemandez un email avec « Mot de passe oublié ».");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f5f0e6] p-6">
       <form
-        onSubmit={async (e) => {
+        onSubmit={(e) => {
           e.preventDefault();
-          setLoading(true);
-          setError("");
-          try {
-            await login(email, password);
-            await onLogin();
-          } catch (err) {
-            console.error(err);
-            setError(
-              isSupabaseConfigured
-                ? "Identifiants CRM incorrects ou compte désactivé."
-                : "Backend Supabase non configuré pour Floor Whisper.",
-            );
-          } finally {
-            setLoading(false);
-          }
+          if (mode === "forgot") void submitForgot();
+          else if (mode === "reset") void submitReset();
+          else void submitLogin();
         }}
         className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-panel"
       >
         <div className="font-display text-2xl">Floor Whisper</div>
         <div className="mt-1 text-sm text-muted-foreground">
-          Connexion avec votre compte CRM Residale
+          {mode === "forgot"
+            ? "Réinitialisation du mot de passe CRM"
+            : mode === "reset"
+              ? "Choisir un nouveau mot de passe"
+              : "Connexion avec votre compte CRM Residale"}
         </div>
-        <label className="mt-6 block text-xs font-medium text-muted-foreground">
-          Email CRM
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-            className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-ink outline-none focus:border-brass"
-          />
-        </label>
-        <label className="mt-3 block text-xs font-medium text-muted-foreground">
-          Mot de passe CRM
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-ink outline-none focus:border-brass"
-          />
-        </label>
+
+        {mode !== "reset" ? (
+          <>
+            <label className="mt-6 block text-xs font-medium text-muted-foreground">
+              Email CRM
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-ink outline-none focus:border-brass"
+              />
+            </label>
+            {mode === "login" && (
+              <label className="mt-3 block text-xs font-medium text-muted-foreground">
+                Mot de passe CRM
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-ink outline-none focus:border-brass"
+                />
+              </label>
+            )}
+          </>
+        ) : (
+          <>
+            <label className="mt-6 block text-xs font-medium text-muted-foreground">
+              Nouveau mot de passe
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+                className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-ink outline-none focus:border-brass"
+              />
+            </label>
+            <label className="mt-3 block text-xs font-medium text-muted-foreground">
+              Confirmer le mot de passe
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-ink outline-none focus:border-brass"
+              />
+            </label>
+          </>
+        )}
+
         {(error || externalError) && (
           <div className="mt-3 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {error || externalError}
           </div>
         )}
+        {message && (
+          <div className="mt-3 rounded bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700">
+            {message}
+          </div>
+        )}
+
         <button
           disabled={loading}
           className="mt-5 w-full rounded bg-ink px-4 py-2 text-sm font-medium text-paper hover:bg-ink/85 disabled:opacity-60"
         >
-          {loading ? "Connexion…" : "Se connecter"}
+          {loading
+            ? "Veuillez patienter…"
+            : mode === "forgot"
+              ? "Envoyer le lien de réinitialisation"
+              : mode === "reset"
+                ? "Enregistrer le nouveau mot de passe"
+                : "Se connecter"}
         </button>
+
+        <div className="mt-4 flex items-center justify-between text-xs">
+          {mode !== "login" ? (
+            <button
+              type="button"
+              onClick={() => {
+                clearFeedback();
+                setMode("login");
+              }}
+              className="text-muted-foreground underline-offset-2 hover:text-ink hover:underline"
+            >
+              Retour connexion
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                clearFeedback();
+                setMode("forgot");
+              }}
+              className="text-muted-foreground underline-offset-2 hover:text-ink hover:underline"
+            >
+              Mot de passe oublié ?
+            </button>
+          )}
+        </div>
       </form>
     </div>
   );

@@ -101,6 +101,22 @@ export async function login(email: string, password: string) {
   return true;
 }
 
+export async function requestPasswordReset(email: string) {
+  const sb = requireSupabase();
+  const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
+  const { error } = await sb.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo,
+  });
+  if (error) throw error;
+}
+
+export async function updatePassword(newPassword: string) {
+  const sb = requireSupabase();
+  const { error } = await sb.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+  await migrateLocalPlansToCloud();
+}
+
 export async function logout() {
   if (isSupabaseConfigured) await requireSupabase().auth.signOut();
   if (typeof window !== "undefined") localStorage.removeItem(ACTIVE_PLAN_KEY);
