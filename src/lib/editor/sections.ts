@@ -115,8 +115,7 @@ function syncedCeilingHeight(plan: Plan) {
   const exterior = plan.walls.filter((w) => (w.wallType ?? "exterior") === "exterior");
   const source = exterior.length ? exterior : plan.walls;
   const exteriorH = source.length ? Math.max(...source.map((w) => w.height ?? fallback)) : fallback;
-  const roofThickness = plan.roof ? Math.max(1, plan.roof.thickness ?? 20) : 0;
-  return Math.max(1, exteriorH - roofThickness);
+  return Math.max(1, exteriorH);
 }
 
 export function computeSection(plan: Plan, sec: SectionLine) {

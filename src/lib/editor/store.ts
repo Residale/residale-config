@@ -33,13 +33,14 @@ function roofThickness(plan: Plan) {
 function exteriorWallHeight(plan: Plan, fallback = plan.ceilingHeight ?? 250) {
   const exterior = plan.walls.filter((w) => (w.wallType ?? "exterior") === "exterior");
   const source = exterior.length ? exterior : plan.walls;
-  if (!source.length) return fallback + (plan.roof ? roofThickness(plan) : 0);
+  if (!source.length) return fallback;
   return Math.max(...source.map((w) => w.height ?? fallback), 1);
 }
 
 function ceilingFromEnvelope(plan: Plan) {
-  const outsideH = exteriorWallHeight(plan);
-  return Math.max(1, outsideH - (plan.roof ? roofThickness(plan) : 0));
+  // Architect convention in this editor: exterior wall height is the support height;
+  // roof thickness sits above it and must not be subtracted from the wall/HSP value.
+  return exteriorWallHeight(plan);
 }
 
 function withSyncedCeiling(plan: Plan): Plan {
@@ -54,7 +55,7 @@ function withSyncedCeiling(plan: Plan): Plan {
 }
 
 function setEnvelopeFromCeiling(plan: Plan, ceilingHeight: number): Plan {
-  const outsideH = Math.max(1, ceilingHeight + (plan.roof ? roofThickness(plan) : 0));
+  const outsideH = Math.max(1, ceilingHeight);
   return {
     ...plan,
     ceilingHeight,

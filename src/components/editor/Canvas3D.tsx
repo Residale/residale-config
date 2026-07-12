@@ -95,7 +95,18 @@ function Scene() {
     const d = (maxZ - minZ + maxT + 2 * overhang) * SCALE;
     const cx = ((minX + maxX) / 2) * SCALE;
     const cz = ((minZ + maxZ) / 2) * SCALE;
-    return { cx, cz, w, d, eave: eave * SCALE, pitch, thickness, kind: plan.roof.kind };
+    return {
+      cx,
+      cz,
+      w,
+      d,
+      eave: eave * SCALE,
+      pitch,
+      thickness,
+      kind: plan.roof.kind,
+      slopeAxis: plan.roof.slopeAxis ?? "x",
+      slopeDirection: plan.roof.slopeDirection ?? 1,
+    };
   }, [plan.roof, plan.walls, show3DRoof, ceilingH]);
 
   return (
@@ -298,34 +309,27 @@ function RoofMesh({
     pitch: number;
     thickness: number;
     kind: "flat" | "mono" | "gable" | "hip";
+    slopeAxis: "x" | "y";
+    slopeDirection: 1 | -1;
   };
 }) {
   const color = "#8b5a3c";
-  const { cx, cz, w, d, eave, pitch, thickness, kind } = box;
+  const { cx, cz, w, d, eave, pitch, thickness, kind, slopeAxis, slopeDirection } = box;
   const thick = thickness;
-  if (kind === "flat") {
+  if (kind === "flat" || kind === "mono") {
+    const run = slopeAxis === "x" ? w : d;
+    const rise = run * Math.tan(pitch);
+    const slopeLen = Math.hypot(run, rise);
+    const rotation: [number, number, number] =
+      slopeAxis === "x" ? [0, 0, pitch * slopeDirection] : [-pitch * slopeDirection, 0, 0];
     return (
       <mesh
-        position={[cx, eave - thick / 2, cz]}
-        rotation={[0, 0, -pitch]}
+        position={[cx, eave + rise / 2 + thick / 2, cz]}
+        rotation={rotation}
         castShadow
         receiveShadow
       >
-        <boxGeometry args={[w, thick, d]} />
-        <meshStandardMaterial color={color} roughness={0.85} />
-      </mesh>
-    );
-  }
-  if (kind === "mono") {
-    const rise = w * Math.tan(pitch);
-    return (
-      <mesh
-        position={[cx, eave - rise / 2 - thick / 2, cz]}
-        rotation={[0, 0, -Math.atan2(rise, w)]}
-        castShadow
-        receiveShadow
-      >
-        <boxGeometry args={[Math.hypot(w, rise), thick, d]} />
+        <boxGeometry args={slopeAxis === "x" ? [slopeLen, thick, d] : [w, thick, slopeLen]} />
         <meshStandardMaterial color={color} roughness={0.85} />
       </mesh>
     );
@@ -338,7 +342,7 @@ function RoofMesh({
   const slopeLen = Math.hypot(span / 2, rise);
   const slopeAng = Math.atan2(rise, span / 2);
   const half = span / 2;
-  const yMid = eave - rise / 2 - thick / 2;
+  const yMid = eave + rise / 2 + thick / 2;
   return (
     <group position={[cx, 0, cz]}>
       {[-1, 1].map((s) => {
@@ -372,14 +376,21 @@ export function Canvas3D() {
     const envelopeH = source.length
       ? Math.max(...source.map((w) => w.height ?? fallback))
       : fallback;
-    const hsp = Math.max(1, envelopeH - (plan.roof ? Math.max(1, plan.roof.thickness ?? 20) : 0));
+    const hsp = Math.max(1, envelopeH);
     const rooms = summarizeRooms(plan);
     const totalArea = rooms.reduce((s, r) => s + r.area, 0);
     let maxWall = 0;
     for (const w of plan.walls) if ((w.height ?? hsp) > maxWall) maxWall = w.height ?? hsp;
     const floor = 20;
 
-    const horsTout = maxWall + floor;
+    const roofRun = plan.roof
+      ? Math.max(
+          0,
+          Math.tan(((plan.roof.pitch ?? 0) * Math.PI) / 180) *
+            ((plan.roof.slopeAxis ?? "x") === "x" ? 800 : 400),
+        ) + Math.max(1, plan.roof.thickness ?? 20)
+      : 0;
+    const horsTout = maxWall + floor + roofRun;
     return { hsp, totalArea, horsTout };
   }, [plan]);
   return (

@@ -10,16 +10,31 @@ import { Canvas3D } from "./Canvas3D";
 import { CanvasSection } from "./CanvasSection";
 import { CommandPalette } from "./CommandPalette";
 import { exportDossierPDF, findStageDataURL } from "@/lib/editor/pdf-export";
-import { DEFAULT_SHEET_CONFIG, exportArchitectSheetPDF, type SheetPaper } from "@/lib/editor/sheet-export";
+import {
+  DEFAULT_SHEET_CONFIG,
+  exportArchitectSheetPDF,
+  type SheetPaper,
+} from "@/lib/editor/sheet-export";
 import { toast } from "sonner";
+import { updateSavedPlan } from "@/lib/editor/plan-library";
 
-export function EditorShell() {
+export function EditorShell({
+  activePlanId,
+  onBackToPlans,
+}: {
+  activePlanId?: string | null;
+  onBackToPlans?: () => void;
+}) {
   const view = useEditor((s) => s.view);
   const exportRef = useRef<() => string | null>(() => null);
 
   useEffect(() => {
     const st = useEditor.getState();
-    if (typeof window !== "undefined" && !localStorage.getItem("residale-seeded-v1") && st.plan.walls.length === 0) {
+    if (
+      typeof window !== "undefined" &&
+      !localStorage.getItem("residale-seeded-v1") &&
+      st.plan.walls.length === 0
+    ) {
       const ext = st.wallSettings.exterior.thickness;
       const pts = [
         { x: -400, y: -200 },
@@ -27,29 +42,56 @@ export function EditorShell() {
         { x: 400, y: 200 },
         { x: -400, y: 200 },
       ];
-      for (let i = 0; i < 4; i++) st.addWall({ a: pts[i], b: pts[(i + 1) % 4], thickness: ext, wallType: "exterior" });
-      st.addWall({ a: { x: -200, y: -200 }, b: { x: -200, y: 40 }, thickness: st.wallSettings.interior.thickness, wallType: "interior" });
+      for (let i = 0; i < 4; i++)
+        st.addWall({ a: pts[i], b: pts[(i + 1) % 4], thickness: ext, wallType: "exterior" });
+      st.addWall({
+        a: { x: -200, y: -200 },
+        b: { x: -200, y: 40 },
+        thickness: st.wallSettings.interior.thickness,
+        wallType: "interior",
+      });
       localStorage.setItem("residale-seeded-v1", "1");
     }
   }, []);
 
   useEffect(() => {
+    if (!activePlanId) return;
+    const save = () => {
+      const st = useEditor.getState();
+      updateSavedPlan(activePlanId, {
+        name: st.projectName || "Sans titre",
+        plan: st.plan,
+        theme: st.theme,
+      });
+    };
+    save();
+    return useEditor.subscribe(save);
+  }, [activePlanId]);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (
+        target &&
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+      )
+        return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const map: Record<string, "2d" | "3d" | "section" | "split"> = {
-        "1": "2d", "2": "3d", "3": "split", "4": "section",
+        "1": "2d",
+        "2": "3d",
+        "3": "split",
+        "4": "section",
       };
       const v = map[e.key];
-      if (v) { useEditor.getState().setView(v); e.preventDefault(); }
+      if (v) {
+        useEditor.getState().setView(v);
+        e.preventDefault();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-
-
-
 
   const handleExportPNG = () => {
     const url = exportRef.current();
@@ -62,7 +104,11 @@ export function EditorShell() {
 
   const handleExportJSON = () => {
     const state = useEditor.getState();
-    const data = JSON.stringify({ name: state.projectName, plan: state.plan, theme: state.theme }, null, 2);
+    const data = JSON.stringify(
+      { name: state.projectName, plan: state.plan, theme: state.theme },
+      null,
+      2,
+    );
     const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -87,11 +133,12 @@ export function EditorShell() {
           if (data.name) useEditor.getState().setProjectName(data.name);
           if (data.theme) useEditor.getState().setTheme(data.theme);
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     };
     input.click();
   };
-
 
   const handleExportArchitectSheet = () => {
     const state = useEditor.getState();
@@ -100,12 +147,24 @@ export function EditorShell() {
       return;
     }
 
-    const company = window.prompt("Cartouche — société", DEFAULT_SHEET_CONFIG.company) || DEFAULT_SHEET_CONFIG.company;
-    const projectName = window.prompt("Nom du projet", state.projectName || "AURA 48") || state.projectName || "AURA 48";
-    const version = window.prompt("Version", DEFAULT_SHEET_CONFIG.version) || DEFAULT_SHEET_CONFIG.version;
-    const scaleRaw = window.prompt("Échelle souhaitée (ex: 100 pour 1:100)", String(DEFAULT_SHEET_CONFIG.scale));
+    const company =
+      window.prompt("Cartouche — société", DEFAULT_SHEET_CONFIG.company) ||
+      DEFAULT_SHEET_CONFIG.company;
+    const projectName =
+      window.prompt("Nom du projet", state.projectName || "AURA 48") ||
+      state.projectName ||
+      "AURA 48";
+    const version =
+      window.prompt("Version", DEFAULT_SHEET_CONFIG.version) || DEFAULT_SHEET_CONFIG.version;
+    const scaleRaw = window.prompt(
+      "Échelle souhaitée (ex: 100 pour 1:100)",
+      String(DEFAULT_SHEET_CONFIG.scale),
+    );
     const scale = Number(scaleRaw) > 0 ? Number(scaleRaw) : DEFAULT_SHEET_CONFIG.scale;
-    const paperRaw = (window.prompt("Format papier: A4 ou A3", DEFAULT_SHEET_CONFIG.paper.toUpperCase()) || DEFAULT_SHEET_CONFIG.paper).toLowerCase();
+    const paperRaw = (
+      window.prompt("Format papier: A4 ou A3", DEFAULT_SHEET_CONFIG.paper.toUpperCase()) ||
+      DEFAULT_SHEET_CONFIG.paper
+    ).toLowerCase();
     const paper: SheetPaper = paperRaw === "a3" ? "a3" : "a4";
 
     try {
@@ -169,6 +228,7 @@ export function EditorShell() {
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden">
       <TopBar
+        onBackToPlans={onBackToPlans}
         onExportPNG={handleExportPNG}
         onExportJSON={handleExportJSON}
         onImportJSON={handleImportJSON}
@@ -190,7 +250,6 @@ export function EditorShell() {
           {(view === "2d" || view === "split") && <ShortcutsHelp />}
         </main>
         <RightPanel />
-
       </div>
       <CommandPalette />
     </div>

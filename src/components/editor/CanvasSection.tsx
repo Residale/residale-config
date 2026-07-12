@@ -20,6 +20,15 @@ function roofThickness(roof: NonNullable<ReturnType<typeof useEditor.getState>["
   return Math.max(1, roof.thickness ?? 20);
 }
 
+function sectionAxis(section: SectionLine): "x" | "y" {
+  return Math.abs(section.b.x - section.a.x) >= Math.abs(section.b.y - section.a.y) ? "x" : "y";
+}
+
+function sectionDirection(section: SectionLine, axis: "x" | "y") {
+  const delta = axis === "x" ? section.b.x - section.a.x : section.b.y - section.a.y;
+  return delta >= 0 ? 1 : -1;
+}
+
 export function CanvasSection() {
   const { plan, theme } = useEditor();
   const sections = useMemo(() => {
@@ -133,8 +142,19 @@ function SectionPanel({
         ? Math.max(...wallCuts.map((c) => c.height), data.ceilingH)
         : data.ceilingH;
       if (!plan.roof || !wallCuts.length) return maxWallH;
-      // Roof is drawn inside the exterior wall envelope: eaveHeight is the top limit, not added above walls.
-      return Math.max(maxWallH, plan.roof.eaveHeight ?? maxWallH);
+      const roofAxis = plan.roof.slopeAxis ?? "x";
+      const axis = sectionAxis(section);
+      const spanStart = Math.min(...wallCuts.map((c) => c.start));
+      const spanEnd = Math.max(...wallCuts.map((c) => c.end));
+      const run = axis === roofAxis ? spanEnd - spanStart + 2 * plan.roof.overhang : 0;
+      const rise =
+        plan.roof.kind === "flat" || plan.roof.kind === "mono"
+          ? Math.tan((plan.roof.pitch * Math.PI) / 180) * Math.max(0, run)
+          : Math.tan((plan.roof.pitch * Math.PI) / 180) * Math.max(0, run / 2);
+      return Math.max(
+        maxWallH,
+        (plan.roof.eaveHeight ?? maxWallH) + rise + roofThickness(plan.roof),
+      );
     })();
     const belowGround = 60;
     const totalH = roofMaxH + belowGround;
@@ -146,7 +166,7 @@ function SectionPanel({
     const originX = marginX;
     const originY = marginY + roofMaxH * fitScale;
     return { totalLen, cuts, wallCuts, roofMaxH, fitScale, originX, originY };
-  }, [data, plan.roof, size.w, size.h]);
+  }, [data, plan.roof, section, size.w, size.h]);
 
   const s = scale * layout.fitScale;
   const originX = layout.originX + pos.x;
@@ -293,45 +313,49 @@ function SectionPanel({
               const spanStart = Math.min(...wallCuts.map((c) => c.start));
               const spanEnd = Math.max(...wallCuts.map((c) => c.end));
               const ov = plan.roof.overhang;
-              const topLimit = plan.roof.eaveHeight;
+              const base = plan.roof.eaveHeight;
               const thick = roofThickness(plan.roof);
               const pitchRad = (plan.roof.pitch * Math.PI) / 180;
               const xL = spanStart - ov,
                 xR = spanEnd + ov;
               const run = Math.max(1, xR - xL);
+              const axis = sectionAxis(section);
+              const roofAxis = plan.roof.slopeAxis ?? "x";
               let poly: number[] = [];
               if (plan.roof.kind === "flat" || plan.roof.kind === "mono") {
-                const rise = Math.tan(pitchRad) * run;
-                const lowTop = Math.max(data.ceilingH, topLimit - rise);
-                const highTop = topLimit;
+                const visibleSlope = axis === roofAxis;
+                const rise = visibleSlope ? Math.tan(pitchRad) * run : 0;
+                const dir = sectionDirection(section, axis) * (plan.roof.slopeDirection ?? 1);
+                const leftBase = dir === 1 ? base : base + rise;
+                const rightBase = dir === 1 ? base + rise : base;
                 poly = [
                   toX(xL),
-                  toY(lowTop),
+                  toY(leftBase + thick),
                   toX(xR),
-                  toY(highTop),
+                  toY(rightBase + thick),
                   toX(xR),
-                  toY(highTop - thick),
+                  toY(rightBase),
                   toX(xL),
-                  toY(lowTop - thick),
+                  toY(leftBase),
                 ];
               } else {
                 const midX = (xL + xR) / 2;
                 const rise = Math.tan(pitchRad) * Math.max(1, run / 2);
-                const eaveTop = Math.max(data.ceilingH, topLimit - rise);
-                const ridgeTop = topLimit;
+                const eaveTop = base;
+                const ridgeTop = base + rise;
                 poly = [
                   toX(xL),
+                  toY(eaveTop + thick),
+                  toX(midX),
+                  toY(ridgeTop + thick),
+                  toX(xR),
+                  toY(eaveTop + thick),
+                  toX(xR),
                   toY(eaveTop),
                   toX(midX),
                   toY(ridgeTop),
-                  toX(xR),
-                  toY(eaveTop),
-                  toX(xR),
-                  toY(eaveTop - thick),
-                  toX(midX),
-                  toY(ridgeTop - thick),
                   toX(xL),
-                  toY(eaveTop - thick),
+                  toY(eaveTop),
                 ];
               }
               return (
@@ -484,6 +508,32 @@ function SectionPanel({
                 fontFamily="JetBrains Mono"
                 fill={theme.dimension}
               />
+              {plan.roof &&
+                (() => {
+                  const axis = sectionAxis(section);
+                  const roofAxis = plan.roof.slopeAxis ?? "x";
+                  const span = wallCuts.length
+                    ? Math.max(...wallCuts.map((c) => c.end)) -
+                      Math.min(...wallCuts.map((c) => c.start)) +
+                      2 * plan.roof.overhang
+                    : 0;
+                  const rise =
+                    axis === roofAxis && (plan.roof.kind === "flat" || plan.roof.kind === "mono")
+                      ? Math.tan((plan.roof.pitch * Math.PI) / 180) * Math.max(0, span)
+                      : 0;
+                  if (rise < 1) return null;
+                  const high = plan.roof.eaveHeight + rise;
+                  return (
+                    <Text
+                      x={toX(-50) - 55}
+                      y={toY(high) - 6}
+                      text={`haut + ${m(high)}`}
+                      fontSize={9}
+                      fontFamily="JetBrains Mono"
+                      fill={theme.dimension}
+                    />
+                  );
+                })()}
             </Group>
           )}
 

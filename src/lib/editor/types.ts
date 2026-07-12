@@ -122,9 +122,11 @@ export type RoofKind = "flat" | "mono" | "gable" | "hip";
 export type Roof = {
   kind: RoofKind;
   pitch: number; // degrees (0-60), including flat roofs for drainage slope
-  eaveHeight: number; // cm — exterior wall/top-of-roof envelope above ± 0.00
-  thickness: number; // cm — structural roof thickness; kept inside the wall height
+  eaveHeight: number; // cm — low support/eave height above ± 0.00, usually the exterior wall top
+  thickness: number; // cm — structural roof thickness above the exterior wall top
   overhang: number; // cm — horizontal overhang past exterior face
+  slopeAxis?: "x" | "y"; // mono/flat drainage direction in plan: x = length, y = width
+  slopeDirection?: 1 | -1; // slope rises toward the positive or negative side of slopeAxis
   ridgeAxis?: "x" | "y"; // for gable, direction along which the ridge runs
 };
 

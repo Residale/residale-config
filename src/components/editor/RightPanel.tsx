@@ -9,7 +9,7 @@ function syncedCeilingHeight(plan: Plan) {
   const exterior = plan.walls.filter((w) => (w.wallType ?? "exterior") === "exterior");
   const source = exterior.length ? exterior : plan.walls;
   const exteriorH = source.length ? Math.max(...source.map((w) => w.height ?? fallback)) : fallback;
-  return Math.max(1, exteriorH - (plan.roof ? Math.max(1, plan.roof.thickness ?? 20) : 0));
+  return Math.max(1, exteriorH);
 }
 
 const KIND_LABELS: Record<OpeningKind, string> = {
@@ -84,8 +84,8 @@ export function RightPanel() {
               onChange={(v) => setCeilingHeight(v)}
             />
             <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
-              HSP = hauteur intérieure entre sol fini et sous-face du plafond/toit. Si une toiture
-              existe, son épaisseur reste dans la hauteur extérieure des murs.
+              HSP = hauteur intérieure au support bas du toit. Le toit se pose au-dessus des murs
+              extérieurs; en pente, la coupe indique aussi les niveaux bas/haut.
             </p>
           </div>
 
@@ -131,7 +131,7 @@ export function RightPanel() {
             {plan.roof && (
               <div className="space-y-2">
                 <NumberField
-                  label="Hauteur extérieure / acrotère (cm)"
+                  label="Hauteur support toiture / murs ext. (cm)"
                   value={plan.roof.eaveHeight}
                   min={200}
                   max={600}
@@ -158,6 +158,36 @@ export function RightPanel() {
                   max={150}
                   onChange={(v) => setRoof({ overhang: v })}
                 />
+                {(plan.roof.kind === "flat" || plan.roof.kind === "mono") && (
+                  <div className="space-y-2 rounded border border-border bg-background/50 p-2">
+                    <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                      Sens de pente
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 rounded border border-border bg-card p-0.5">
+                      {(["x", "y"] as const).map((axis) => (
+                        <button
+                          key={axis}
+                          onClick={() => setRoof({ slopeAxis: axis })}
+                          className={`rounded px-2 py-1 text-[10px] font-medium ${
+                            (plan.roof?.slopeAxis ?? "x") === axis
+                              ? "bg-ink text-paper"
+                              : "text-muted-foreground hover:text-ink"
+                          }`}
+                        >
+                          {axis === "x" ? "Longueur" : "Largeur"}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() =>
+                        setRoof({ slopeDirection: (plan.roof?.slopeDirection ?? 1) === 1 ? -1 : 1 })
+                      }
+                      className="w-full rounded border border-border bg-card px-2 py-1 text-[10px] font-medium hover:border-brass hover:bg-brass/10"
+                    >
+                      Inverser bas/haut ({(plan.roof?.slopeDirection ?? 1) === 1 ? "→" : "←"})
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
