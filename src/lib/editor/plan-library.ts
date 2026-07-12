@@ -8,6 +8,10 @@ import {
 
 const PLANS_KEY = "residale-floor-whisper-plans-v1";
 const ACTIVE_PLAN_KEY = "residale-floor-whisper-active-plan-v1";
+const TEMP_ACCESS_SESSION_KEY = "residale-floor-whisper-temp-access-v1";
+const TEMP_ACCESS_EMAIL = "iznaour@residale.com";
+const TEMP_ACCESS_PASSWORD_SHA256 =
+  "871d91668c68f99d92e9593fecaa8f01ed2e95940d8a780d0a4b4cd6f07fae34";
 
 export type SavedPlanScope = "private" | "shared";
 
@@ -73,7 +77,44 @@ function writeLocalPlans(plans: SavedPlan[]) {
   localStorage.setItem(PLANS_KEY, JSON.stringify(plans));
 }
 
+function isTempAccessSession() {
+  return typeof window !== "undefined" && localStorage.getItem(TEMP_ACCESS_SESSION_KEY) === "true";
+}
+
+async function sha256Hex(input: string) {
+  const bytes = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function loginWithTempAccess(email: string, password: string) {
+  if (email.trim().toLowerCase() !== TEMP_ACCESS_EMAIL) return false;
+  const digest = await sha256Hex(password);
+  if (digest !== TEMP_ACCESS_PASSWORD_SHA256) return false;
+  localStorage.setItem(TEMP_ACCESS_SESSION_KEY, "true");
+  return true;
+}
+
+export function isUsingTempAccess() {
+  return isTempAccessSession();
+}
+
+export function getTempAccessEmail() {
+  return TEMP_ACCESS_EMAIL;
+}
+
 export async function getCurrentMember(): Promise<FloorWhisperMember | null> {
+  if (isTempAccessSession()) {
+    return {
+      id: "temp-floor-whisper-access",
+      email: TEMP_ACCESS_EMAIL,
+      display_name: "Accès temporaire Floor Whisper",
+      role_key: "temp_admin",
+      is_admin: true,
+    };
+  }
   if (!isSupabaseConfigured) return null;
   const sb = requireSupabase();
   const { data: sessionData } = await sb.auth.getSession();
@@ -85,12 +126,14 @@ export async function getCurrentMember(): Promise<FloorWhisperMember | null> {
 }
 
 export async function isAuthenticated() {
+  if (isTempAccessSession()) return true;
   if (!isSupabaseConfigured) return false;
   const { data } = await requireSupabase().auth.getSession();
   return Boolean(data.session);
 }
 
 export async function login(email: string, password: string) {
+  if (await loginWithTempAccess(email, password)) return true;
   const sb = requireSupabase();
   const { error } = await sb.auth.signInWithPassword({
     email: email.trim().toLowerCase(),
@@ -119,12 +162,15 @@ export async function updatePassword(newPassword: string) {
 }
 
 export async function logout() {
-  if (isSupabaseConfigured) await requireSupabase().auth.signOut();
-  if (typeof window !== "undefined") localStorage.removeItem(ACTIVE_PLAN_KEY);
+  if (isSupabaseConfigured && !isTempAccessSession()) await requireSupabase().auth.signOut();
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(ACTIVE_PLAN_KEY);
+    localStorage.removeItem(TEMP_ACCESS_SESSION_KEY);
+  }
 }
 
 export async function listSavedPlans(): Promise<SavedPlan[]> {
-  if (!isSupabaseConfigured) return localPlans();
+  if (isTempAccessSession() || !isSupabaseConfigured) return localPlans();
   const { data, error } = await requireSupabase()
     .from("floor_whisper_plans")
     .select("id, owner_id, name, plan, theme, scope, created_at, updated_at")
@@ -134,7 +180,8 @@ export async function listSavedPlans(): Promise<SavedPlan[]> {
 }
 
 export async function getSavedPlan(id: string) {
-  if (!isSupabaseConfigured) return localPlans().find((p) => p.id === id) ?? null;
+  if (isTempAccessSession() || !isSupabaseConfigured)
+    return localPlans().find((p) => p.id === id) ?? null;
   const { data, error } = await requireSupabase()
     .from("floor_whisper_plans")
     .select("id, owner_id, name, plan, theme, scope, created_at, updated_at")
@@ -145,7 +192,7 @@ export async function getSavedPlan(id: string) {
 }
 
 export async function savePlan(record: SavedPlan) {
-  if (!isSupabaseConfigured) {
+  if (isTempAccessSession() || !isSupabaseConfigured) {
     const plans = localPlans();
     const idx = plans.findIndex((p) => p.id === record.id);
     const next =
@@ -193,7 +240,7 @@ export async function updateSavedPlan(
 }
 
 export async function deleteSavedPlan(id: string) {
-  if (!isSupabaseConfigured) {
+  if (isTempAccessSession() || !isSupabaseConfigured) {
     writeLocalPlans(localPlans().filter((p) => p.id !== id));
   } else {
     const { error } = await requireSupabase().from("floor_whisper_plans").delete().eq("id", id);
@@ -214,7 +261,7 @@ export function setActivePlanId(id: string | null) {
 }
 
 async function migrateLocalPlansToCloud() {
-  if (!isSupabaseConfigured) return;
+  if (isTempAccessSession() || !isSupabaseConfigured) return;
   const locals = localPlans();
   if (locals.length === 0 || localStorage.getItem(`${PLANS_KEY}-migrated-to-cloud`) === "true")
     return;

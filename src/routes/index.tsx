@@ -10,6 +10,7 @@ import {
   getActivePlanId,
   getCurrentMember,
   getSavedPlan,
+  getTempAccessEmail,
   isAuthenticated,
   listSavedPlans,
   login,
@@ -220,7 +221,7 @@ function LoginScreen({
   onLogin: () => Promise<void>;
   error?: string;
 }) {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(getTempAccessEmail());
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
