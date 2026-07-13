@@ -171,8 +171,8 @@ function SectionPanel({
   const s = scale * layout.fitScale;
   const originX = layout.originX + pos.x;
   const originY = layout.originY + pos.y;
-  const toX = (cm: number) => originX + cm * s;
-  const toY = (heightCm: number) => originY - heightCm * s;
+  const toX = useCallback((cm: number) => originX + cm * s, [originX, s]);
+  const toY = useCallback((heightCm: number) => originY - heightCm * s, [originY, s]);
 
   const onWheel = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
