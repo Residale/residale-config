@@ -1,4 +1,4 @@
-import { Component, Suspense, useMemo, type ReactNode } from "react";
+import { Component, Suspense, useCallback, useMemo, type ReactNode } from "react";
 import * as THREE from "three";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, Grid, ContactShadows } from "@react-three/drei";
@@ -10,6 +10,54 @@ import { summarizeRooms } from "@/lib/editor/rooms";
 import { FurnitureMesh3D } from "./FurnitureMesh3D";
 
 const SCALE = 0.01;
+const EPS = 0.001;
+
+function slopedBoxGeometry(
+  x0: number,
+  x1: number,
+  y0: number,
+  top0: number,
+  top1: number,
+  thick: number,
+) {
+  const z0 = -thick / 2;
+  const z1 = thick / 2;
+  const positions = [
+    x0,
+    y0,
+    z0,
+    x1,
+    y0,
+    z0,
+    x1,
+    top1,
+    z0,
+    x0,
+    top0,
+    z0,
+    x0,
+    y0,
+    z1,
+    x1,
+    y0,
+    z1,
+    x1,
+    top1,
+    z1,
+    x0,
+    top0,
+    z1,
+  ];
+  const indices = [
+    0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6, 0, 4, 5, 0, 5, 1, 3, 2, 6, 3, 6, 7, 1, 5, 6, 1, 6, 2, 0, 3,
+    7, 0, 7, 4,
+  ];
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  g.setIndex(indices);
+  g.computeVertexNormals();
+  return g;
+}
 
 class SceneErrorBoundary extends Component<{ children: ReactNode }, { err: Error | null }> {
   state = { err: null as Error | null };
@@ -101,6 +149,10 @@ function Scene() {
       cz,
       w,
       d,
+      x0: cx - w / 2,
+      x1: cx + w / 2,
+      z0: cz - d / 2,
+      z1: cz + d / 2,
       eave: eave * SCALE,
       pitch,
       thickness,
@@ -109,6 +161,34 @@ function Scene() {
       slopeDirection: plan.roof.slopeDirection ?? 1,
     };
   }, [plan.roof, plan.walls, show3DRoof, ceilingH]);
+
+  const roofUndersideAt = useCallback(
+    (x: number, z: number) => {
+      if (!roofBox) return null;
+      const pitchRise = Math.tan(roofBox.pitch);
+      if (roofBox.kind === "flat" || roofBox.kind === "mono") {
+        const run = roofBox.slopeAxis === "x" ? roofBox.w : roofBox.d;
+        const rise = run * pitchRise;
+        const t =
+          roofBox.slopeAxis === "x"
+            ? roofBox.slopeDirection === 1
+              ? (x - roofBox.x0) / Math.max(EPS, roofBox.w)
+              : (roofBox.x1 - x) / Math.max(EPS, roofBox.w)
+            : roofBox.slopeDirection === 1
+              ? (z - roofBox.z0) / Math.max(EPS, roofBox.d)
+              : (roofBox.z1 - z) / Math.max(EPS, roofBox.d);
+        return roofBox.eave + rise * Math.max(0, Math.min(1, t));
+      }
+      // Gable/hip envelope: ridge follows the longer side, so gable-end walls grow
+      // triangularly up to the ridge instead of leaving a void under the roof.
+      const ridgeAlongX = roofBox.w >= roofBox.d;
+      const halfSpan = (ridgeAlongX ? roofBox.d : roofBox.w) / 2;
+      const coord = ridgeAlongX ? z - roofBox.cz : x - roofBox.cx;
+      const rise = Math.max(0, halfSpan - Math.abs(coord)) * pitchRise;
+      return roofBox.eave + rise;
+    },
+    [roofBox],
+  );
 
   return (
     <Canvas camera={{ position: camera.position, fov: 45 }} shadows>
@@ -185,19 +265,26 @@ function Scene() {
 
         return (
           <group key={w.id} position={[cx, 0, cz]} rotation={[0, -ang, 0]}>
-            {rects.map((r, i) => (
-              <mesh
-                key={i}
-                position={[(r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, 0]}
-                castShadow
-                receiveShadow
-              >
-                <boxGeometry
-                  args={[Math.max(0.001, r.x1 - r.x0), Math.max(0.001, r.y1 - r.y0), thick]}
-                />
-                <meshStandardMaterial color={wallColor} roughness={0.9} />
-              </mesh>
-            ))}
+            {rects.map((r, i) => {
+              const worldAtLocalX = (lx: number) => ({
+                x: cx + Math.cos(ang) * lx,
+                z: cz + Math.sin(ang) * lx,
+              });
+              const p0 = worldAtLocalX(r.x0);
+              const p1 = worldAtLocalX(r.x1);
+              const followsRoof =
+                (w.wallType ?? "exterior") === "exterior" && Math.abs(r.y1 - wallH) < EPS;
+              const roof0 = followsRoof ? roofUndersideAt(p0.x, p0.z) : null;
+              const roof1 = followsRoof ? roofUndersideAt(p1.x, p1.z) : null;
+              const top0 = Math.max(r.y1, roof0 ?? r.y1);
+              const top1 = Math.max(r.y1, roof1 ?? r.y1);
+              const geom = slopedBoxGeometry(r.x0, r.x1, r.y0, top0, top1, thick);
+              return (
+                <mesh key={i} geometry={geom} castShadow receiveShadow>
+                  <meshStandardMaterial color={wallColor} roughness={0.9} />
+                </mesh>
+              );
+            })}
             {openings
               .filter((o) => o.type === "window")
               .map((o) => {
@@ -306,6 +393,10 @@ function RoofMesh({
     cz: number;
     w: number;
     d: number;
+    x0: number;
+    x1: number;
+    z0: number;
+    z1: number;
     eave: number;
     pitch: number;
     thickness: number;
@@ -396,35 +487,49 @@ function RoofMesh({
       </mesh>
     );
   }
-  // gable / hip: two slopes over the shorter axis
-  const spanIsX = w >= d;
-  const span = spanIsX ? d : w;
-  const long = spanIsX ? w : d;
-  const rise = (span / 2) * Math.tan(pitch);
-  const slopeLen = Math.hypot(span / 2, rise);
-  const slopeAng = Math.atan2(rise, span / 2);
-  const half = span / 2;
-  const yMid = eave + rise / 2 + thick / 2;
+  // gable / hip: explicit prism surfaces instead of rotated boxes, so the
+  // underside is the same envelope used by the walls and no daylight gap appears.
+  const ridgeAlongX = w >= d;
+  const halfSpan = (ridgeAlongX ? d : w) / 2;
+  const rise = halfSpan * Math.tan(pitch);
+  const makePlane = (side: -1 | 1) => {
+    const x0 = -w / 2,
+      x1 = w / 2,
+      z0 = -d / 2,
+      z1 = d / 2;
+    const base: Array<[number, number, number]> = ridgeAlongX
+      ? [
+          [x0, eave, side < 0 ? z0 : z1],
+          [x1, eave, side < 0 ? z0 : z1],
+          [x1, eave + rise, 0],
+          [x0, eave + rise, 0],
+        ]
+      : [
+          [side < 0 ? x0 : x1, eave, z0],
+          [side < 0 ? x0 : x1, eave, z1],
+          [0, eave + rise, z1],
+          [0, eave + rise, z0],
+        ];
+    const normalOffset = thick;
+    const top = base.map(([x, y, z]) => [x, y + normalOffset, z] as [number, number, number]);
+    const positions = [...base, ...top].flat();
+    const indices = [
+      0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6, 0, 4, 5, 0, 5, 1, 1, 5, 6, 1, 6, 2, 2, 6, 7, 2, 7, 3, 3,
+      7, 4, 3, 4, 0,
+    ];
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    g.setIndex(indices);
+    g.computeVertexNormals();
+    return g;
+  };
   return (
     <group position={[cx, 0, cz]}>
-      {[-1, 1].map((s) => {
-        const rotZ = spanIsX ? 0 : -s * slopeAng;
-        const rotX = spanIsX ? s * slopeAng : 0;
-        const px = spanIsX ? 0 : (s * half) / 2;
-        const pz = spanIsX ? (s * half) / 2 : 0;
-        return (
-          <mesh
-            key={s}
-            position={[px, yMid, pz]}
-            rotation={[rotX, 0, rotZ]}
-            castShadow
-            receiveShadow
-          >
-            <boxGeometry args={spanIsX ? [long, thick, slopeLen] : [slopeLen, thick, long]} />
-            <meshStandardMaterial color={color} roughness={0.85} />
-          </mesh>
-        );
-      })}
+      {([-1, 1] as const).map((side) => (
+        <mesh key={side} geometry={makePlane(side)} castShadow receiveShadow>
+          <meshStandardMaterial color={color} roughness={0.85} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
     </group>
   );
 }

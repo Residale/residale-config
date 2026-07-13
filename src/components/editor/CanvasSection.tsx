@@ -235,6 +235,67 @@ function SectionPanel({
   const { totalLen, cuts, wallCuts } = layout;
   const topDimY = originY - layout.roofMaxH * s - 20;
 
+  const roofHeightAtAlong = useCallback(
+    (along: number) => {
+      if (!plan.roof || wallCuts.length === 0) return null;
+      const spanStart = Math.min(...wallCuts.map((c) => c.start)) - plan.roof.overhang;
+      const spanEnd = Math.max(...wallCuts.map((c) => c.end)) + plan.roof.overhang;
+      const run = Math.max(1, spanEnd - spanStart);
+      const pitchRad = (plan.roof.pitch * Math.PI) / 180;
+      const axis = sectionAxis(section);
+      const roofAxis = plan.roof.slopeAxis ?? "x";
+      const base = plan.roof.eaveHeight;
+      if (plan.roof.kind === "flat" || plan.roof.kind === "mono") {
+        if (axis !== roofAxis) return base;
+        const dir = sectionDirection(section, axis) * (plan.roof.slopeDirection ?? 1);
+        const t = dir === 1 ? (along - spanStart) / run : (spanEnd - along) / run;
+        return base + Math.tan(pitchRad) * run * Math.max(0, Math.min(1, t));
+      }
+      const mid = (spanStart + spanEnd) / 2;
+      const rise = Math.tan(pitchRad) * Math.max(0, run / 2 - Math.abs(along - mid));
+      return base + rise;
+    },
+    [plan.roof, section, wallCuts],
+  );
+
+  const wallTopAt = useCallback(
+    (along: number, baseHeight: number, wallType?: string) => {
+      if (wallType !== "interior") {
+        const roofH = roofHeightAtAlong(along);
+        if (roofH !== null) return Math.max(baseHeight, roofH);
+      }
+      return baseHeight;
+    },
+    [roofHeightAtAlong],
+  );
+
+  const renderWallPolygon = useCallback(
+    (
+      key: string,
+      start: number,
+      end: number,
+      height: number,
+      wallType: string | undefined,
+      opacity = 1,
+      strokeWidth = 1,
+    ) => {
+      const h0 = wallTopAt(start, height, wallType);
+      const h1 = wallTopAt(end, height, wallType);
+      return (
+        <Line
+          key={key}
+          points={[toX(start), toY(0), toX(end), toY(0), toX(end), toY(h1), toX(start), toY(h0)]}
+          closed
+          fill={theme.wallFill}
+          stroke={theme.wallStroke}
+          strokeWidth={strokeWidth}
+          opacity={opacity}
+        />
+      );
+    },
+    [theme.wallFill, theme.wallStroke, toX, toY, wallTopAt],
+  );
+
   return (
     <div
       ref={containerRef}
@@ -371,35 +432,16 @@ function SectionPanel({
             })()}
 
           {/* Elevation walls (behind — draw first, greyed) */}
-          {data.elevationWalls?.map((ew, i) => (
-            <Rect
-              key={`ew${i}`}
-              x={toX(ew.start)}
-              y={toY(ew.height)}
-              width={(ew.end - ew.start) * s}
-              height={ew.height * s}
-              fill={theme.wallFill}
-              stroke={theme.wallStroke}
-              strokeWidth={0.6}
-              opacity={0.35}
-            />
-          ))}
+          {data.elevationWalls?.map((ew, i) =>
+            renderWallPolygon(`ew${i}`, ew.start, ew.end, ew.height, ew.wall.wallType, 0.35, 0.6),
+          )}
 
           {/* Cut walls (poché) */}
           {cuts
             .filter((c) => c.type === "wall")
-            .map((c, i) => (
-              <Rect
-                key={`w${i}`}
-                x={toX(c.start)}
-                y={toY(c.height)}
-                width={(c.end - c.start) * s}
-                height={c.height * s}
-                fill={theme.wallFill}
-                stroke={theme.wallStroke}
-                strokeWidth={1}
-              />
-            ))}
+            .map((c, i) =>
+              renderWallPolygon(`w${i}`, c.start, c.end, c.height, c.wall.wallType, 1, 1),
+            )}
 
           {/* Openings */}
           {cuts
@@ -445,11 +487,11 @@ function SectionPanel({
                   {sectionDisplay.showOpeningLabels && (
                     <Text
                       x={toX((c.start + c.end) / 2) - 80}
-                      y={toY(c.height) - 18}
+                      y={toY(c.height) - 18 - (i % 3) * 13}
                       width={160}
                       align="center"
                       text={`${kind} ${Math.round(openW)} × ${Math.round(openH)} cm`}
-                      fontSize={10}
+                      fontSize={9}
                       fontFamily="Inter"
                       fill={theme.dimension}
                     />
@@ -588,7 +630,7 @@ function SectionPanel({
                   dims.push(
                     <VerticalDim
                       key="hsp-high"
-                      xPos={xPos + 38}
+                      xPos={xPos + 52}
                       yTop={toY(highInterior)}
                       yBot={toY(0)}
                       label={`HSP haut ${m(highInterior)}`}
@@ -596,7 +638,7 @@ function SectionPanel({
                     />,
                     <VerticalDim
                       key="ext-high"
-                      xPos={xPos + 82}
+                      xPos={xPos + 106}
                       yTop={toY(highExterior)}
                       yBot={toY(0)}
                       label={`Ext. haut ${m(highExterior)}`}

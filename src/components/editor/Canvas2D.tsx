@@ -3,7 +3,14 @@ import { Stage, Layer, Line, Rect, Circle, Group, Text, Path } from "react-konva
 import type Konva from "konva";
 import { useEditor } from "@/lib/editor/store";
 import { CATALOG } from "@/lib/editor/furniture-catalog";
-import type { Furniture, Opening, Point, SectionLine, SelectionItem, Wall } from "@/lib/editor/types";
+import type {
+  Furniture,
+  Opening,
+  Point,
+  SectionLine,
+  SelectionItem,
+  Wall,
+} from "@/lib/editor/types";
 import {
   dist,
   pointOnWall,
@@ -14,8 +21,6 @@ import {
 } from "@/lib/editor/geometry";
 import { collectJunctions } from "@/lib/editor/wall-geometry";
 import { FurnitureShape2D } from "./FurnitureShape2D";
-
-
 
 type Props = { onExportRef?: (fn: () => string | null) => void };
 
@@ -30,24 +35,73 @@ export function Canvas2D({ onExportRef }: Props) {
   const [rectStart, setRectStart] = useState<Point | null>(null);
   const [sectionStart, setSectionStart] = useState<Point | null>(null);
   const [spaceDown, setSpaceDown] = useState(false);
-  const [dragHandle, setDragHandle] = useState<null | { wallId: string; end: "a" | "b" | "mid"; origA: Point; origB: Point; startPointer: Point }>(null);
-  const [openingDrag, setOpeningDrag] = useState<null | { openingId: string; origWallId: string; origT: number; origWidth: number; mode: "move" | "resizeA" | "resizeB" }>(null);
-  const [furnitureTransform, setFurnitureTransform] = useState<null | { furnitureId: string; mode: "nw" | "ne" | "se" | "sw" | "rotate"; orig: Furniture }>(null);
-  const [moveDrag, setMoveDrag] = useState<null | { items: SelectionItem[]; startPointer: Point; furniture: Furniture[]; walls: Wall[]; sections: SectionLine[] }>(null);
+  const [dragHandle, setDragHandle] = useState<null | {
+    wallId: string;
+    end: "a" | "b" | "mid";
+    origA: Point;
+    origB: Point;
+    startPointer: Point;
+  }>(null);
+  const [openingDrag, setOpeningDrag] = useState<null | {
+    openingId: string;
+    origWallId: string;
+    origT: number;
+    origWidth: number;
+    mode: "move" | "resizeA" | "resizeB";
+  }>(null);
+  const [furnitureTransform, setFurnitureTransform] = useState<null | {
+    furnitureId: string;
+    mode: "nw" | "ne" | "se" | "sw" | "rotate";
+    orig: Furniture;
+  }>(null);
+  const [moveDrag, setMoveDrag] = useState<null | {
+    items: SelectionItem[];
+    startPointer: Point;
+    furniture: Furniture[];
+    walls: Wall[];
+    sections: SectionLine[];
+  }>(null);
   const [selectionRect, setSelectionRect] = useState<null | { start: Point; current: Point }>(null);
   const [hoverWallForDrop, setHoverWallForDrop] = useState<string | null>(null);
-  const [dragPreview, setDragPreview] = useState<null | { kind: "opening" | "furniture"; pos: Point; width: number; height: number; wallId?: string; type?: "door" | "window" }>(null);
+  const [dragPreview, setDragPreview] = useState<null | {
+    kind: "opening" | "furniture";
+    pos: Point;
+    width: number;
+    height: number;
+    wallId?: string;
+    type?: "door" | "window";
+  }>(null);
   const didFitRef = useRef(false);
   const clipboardRef = useRef<SelectionItem[]>([]);
-  const [contextMenu, setContextMenu] = useState<null | { screen: { x: number; y: number }; target: SelectionItem | null }>(null);
-
+  const [contextMenu, setContextMenu] = useState<null | {
+    screen: { x: number; y: number };
+    target: SelectionItem | null;
+  }>(null);
 
   const s = useEditor();
   const {
-    plan, tool, selection, grid, snapEnabled, showGrid, showDimensions,
-    showExteriorDims, showInteriorDims,
-    theme, setTool, setSelection, addWall, addOpening, addFurniture, addSection,
-    updateFurniture, updateWall, commit, deleteSelected, undo, redo,
+    plan,
+    tool,
+    selection,
+    grid,
+    snapEnabled,
+    showGrid,
+    showDimensions,
+    showExteriorDims,
+    showInteriorDims,
+    theme,
+    setTool,
+    setSelection,
+    addWall,
+    addOpening,
+    addFurniture,
+    addSection,
+    updateFurniture,
+    updateWall,
+    commit,
+    deleteSelected,
+    undo,
+    redo,
   } = s;
 
   useEffect(() => {
@@ -63,7 +117,10 @@ export function Canvas2D({ onExportRef }: Props) {
   useEffect(() => {
     if (didFitRef.current) return;
     if (plan.walls.length === 0 || size.w < 100 || size.h < 100) return;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
     for (const w of plan.walls) {
       minX = Math.min(minX, w.a.x, w.b.x);
       minY = Math.min(minY, w.a.y, w.b.y);
@@ -86,7 +143,7 @@ export function Canvas2D({ onExportRef }: Props) {
 
   const toWorld = useCallback(
     (p: Point): Point => ({ x: (p.x - pos.x) / scale, y: (p.y - pos.y) / scale }),
-    [pos, scale]
+    [pos, scale],
   );
 
   const getWorldPointer = useCallback((): Point | null => {
@@ -102,27 +159,37 @@ export function Canvas2D({ onExportRef }: Props) {
     return selection.type === "multi" ? selection.items : [selection];
   }, [selection]);
 
-  const isSelected = useCallback((type: SelectionItem["type"], id: string) => (
-    selectionItems.some((item) => item.type === type && item.id === id)
-  ), [selectionItems]);
+  const isSelected = useCallback(
+    (type: SelectionItem["type"], id: string) =>
+      selectionItems.some((item) => item.type === type && item.id === id),
+    [selectionItems],
+  );
 
-  const selectItem = useCallback((item: SelectionItem, additive: boolean) => {
-    if (!additive) {
-      setSelection(item);
-      return;
-    }
-    const exists = selectionItems.some((sel) => sel.type === item.type && sel.id === item.id);
-    const next = exists
-      ? selectionItems.filter((sel) => !(sel.type === item.type && sel.id === item.id))
-      : [...selectionItems, item];
-    setSelection(next.length === 0 ? null : next.length === 1 ? next[0] : { type: "multi", items: next });
-  }, [selectionItems, setSelection]);
+  const selectItem = useCallback(
+    (item: SelectionItem, additive: boolean) => {
+      if (!additive) {
+        setSelection(item);
+        return;
+      }
+      const exists = selectionItems.some((sel) => sel.type === item.type && sel.id === item.id);
+      const next = exists
+        ? selectionItems.filter((sel) => !(sel.type === item.type && sel.id === item.id))
+        : [...selectionItems, item];
+      setSelection(
+        next.length === 0 ? null : next.length === 1 ? next[0] : { type: "multi", items: next },
+      );
+    },
+    [selectionItems, setSelection],
+  );
 
   const fitToContent = useCallback(() => {
     const points: Point[] = [];
     for (const w of plan.walls) points.push(w.a, w.b);
     for (const f of plan.furniture) {
-      points.push({ x: f.x - f.width / 2, y: f.y - f.height / 2 }, { x: f.x + f.width / 2, y: f.y + f.height / 2 });
+      points.push(
+        { x: f.x - f.width / 2, y: f.y - f.height / 2 },
+        { x: f.x + f.width / 2, y: f.y + f.height / 2 },
+      );
     }
     if (!points.length) return;
     const minX = Math.min(...points.map((p) => p.x));
@@ -131,23 +198,49 @@ export function Canvas2D({ onExportRef }: Props) {
     const maxY = Math.max(...points.map((p) => p.y));
     const bw = Math.max(80, maxX - minX);
     const bh = Math.max(80, maxY - minY);
-    const nextScale = Math.max(0.15, Math.min(6, Math.min(size.w / (bw * 1.25), size.h / (bh * 1.25))));
+    const nextScale = Math.max(
+      0.15,
+      Math.min(6, Math.min(size.w / (bw * 1.25), size.h / (bh * 1.25))),
+    );
     setScale(nextScale);
-    setPos({ x: size.w / 2 - ((minX + maxX) / 2) * nextScale, y: size.h / 2 - ((minY + maxY) / 2) * nextScale });
+    setPos({
+      x: size.w / 2 - ((minX + maxX) / 2) * nextScale,
+      y: size.h / 2 - ((minY + maxY) / 2) * nextScale,
+    });
   }, [plan.furniture, plan.walls, size.h, size.w]);
 
   useEffect(() => {
     const kd = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
-      if (e.code === "Space") { e.preventDefault(); setSpaceDown(true); }
+      if (
+        target &&
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+      )
+        return;
+      if (e.code === "Space") {
+        e.preventDefault();
+        setSpaceDown(true);
+      }
       if (e.key === "Escape") {
         if (drawing) setTool("select");
-        setDrawing(null); setRectStart(null); setSectionStart(null); setSelection(null); setSelectionRect(null);
+        setDrawing(null);
+        setRectStart(null);
+        setSectionStart(null);
+        setSelection(null);
+        setSelectionRect(null);
       }
-      if ((e.key === "Delete" || e.key === "Backspace") && selection) { e.preventDefault(); deleteSelected(); }
-      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
-      if ((e.metaKey || e.ctrlKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) { e.preventDefault(); redo(); }
+      if ((e.key === "Delete" || e.key === "Backspace") && selection) {
+        e.preventDefault();
+        deleteSelected();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
+        e.preventDefault();
+        redo();
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "c" && selectionItems.length) {
         e.preventDefault();
         clipboardRef.current = selectionItems;
@@ -171,20 +264,47 @@ export function Canvas2D({ onExportRef }: Props) {
         ];
         setSelection(items.length ? { type: "multi", items } : null);
       }
-      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === "+") { e.preventDefault(); setScale((v) => Math.min(6, v * 1.1)); }
-      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === "-") { e.preventDefault(); setScale((v) => Math.max(0.15, v / 1.1)); }
-      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === "0") { e.preventDefault(); fitToContent(); }
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === "+") {
+        e.preventDefault();
+        setScale((v) => Math.min(6, v * 1.1));
+      }
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === "-") {
+        e.preventDefault();
+        setScale((v) => Math.max(0.15, v / 1.1));
+      }
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === "0") {
+        e.preventDefault();
+        fitToContent();
+      }
 
       if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         const map: Record<string, typeof tool> = {
-          v: "select", w: "wall", r: "rectangle", d: "door", f: "window",
-          s: "section", e: "eraser",
+          v: "select",
+          w: "wall",
+          r: "rectangle",
+          d: "door",
+          f: "window",
+          s: "section",
+          e: "eraser",
         };
         const t = map[e.key.toLowerCase()];
-        if (t) { e.preventDefault(); setTool(t); return; }
-        if (e.key === "1") { s.setView("2d"); return; }
-        if (e.key === "2") { s.setView("3d"); return; }
-        if (e.key === "3") { s.setView("section"); return; }
+        if (t) {
+          e.preventDefault();
+          setTool(t);
+          return;
+        }
+        if (e.key === "1") {
+          s.setView("2d");
+          return;
+        }
+        if (e.key === "2") {
+          s.setView("3d");
+          return;
+        }
+        if (e.key === "3") {
+          s.setView("section");
+          return;
+        }
       }
 
       if (selection?.type === "opening") {
@@ -196,18 +316,47 @@ export function Canvas2D({ onExportRef }: Props) {
           const order = ["ap", "bp", "bn", "an"];
           const nextIdx = (order.indexOf(cur) + 1) % order.length;
           const next = order[nextIdx];
-          s.updateOpening(op.id, { hingeSide: next[0] as "a" | "b", swingSide: next[1] as "p" | "n" });
+          s.updateOpening(op.id, {
+            hingeSide: next[0] as "a" | "b",
+            swingSide: next[1] as "p" | "n",
+          });
         }
-        if (e.key === "ArrowLeft") { e.preventDefault(); s.nudgeOpening(op.id, e.shiftKey ? -1 : -5); }
-        if (e.key === "ArrowRight") { e.preventDefault(); s.nudgeOpening(op.id, e.shiftKey ? 1 : 5); }
-        if (e.key.toLowerCase() === "k" && !e.metaKey && !e.ctrlKey) { e.preventDefault(); s.cycleOpeningKind(op.id, e.shiftKey ? -1 : 1); }
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          s.nudgeOpening(op.id, e.shiftKey ? -1 : -5);
+        }
+        if (e.key === "ArrowRight") {
+          e.preventDefault();
+          s.nudgeOpening(op.id, e.shiftKey ? 1 : 5);
+        }
+        if (e.key.toLowerCase() === "k" && !e.metaKey && !e.ctrlKey) {
+          e.preventDefault();
+          s.cycleOpeningKind(op.id, e.shiftKey ? -1 : 1);
+        }
       }
     };
-    const ku = (e: KeyboardEvent) => { if (e.code === "Space") setSpaceDown(false); };
+    const ku = (e: KeyboardEvent) => {
+      if (e.code === "Space") setSpaceDown(false);
+    };
     window.addEventListener("keydown", kd);
     window.addEventListener("keyup", ku);
-    return () => { window.removeEventListener("keydown", kd); window.removeEventListener("keyup", ku); };
-  }, [selection, selectionItems, deleteSelected, undo, redo, setSelection, setTool, drawing, s, tool, fitToContent]);
+    return () => {
+      window.removeEventListener("keydown", kd);
+      window.removeEventListener("keyup", ku);
+    };
+  }, [
+    selection,
+    selectionItems,
+    deleteSelected,
+    undo,
+    redo,
+    setSelection,
+    setTool,
+    drawing,
+    s,
+    tool,
+    fitToContent,
+  ]);
 
   const onWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
@@ -218,7 +367,10 @@ export function Canvas2D({ onExportRef }: Props) {
     const oldScale = scale;
     const direction = e.evt.deltaY > 0 ? -1 : 1;
     const factor = 1.05;
-    const newScale = Math.max(0.15, Math.min(6, direction > 0 ? oldScale * factor : oldScale / factor));
+    const newScale = Math.max(
+      0.15,
+      Math.min(6, direction > 0 ? oldScale * factor : oldScale / factor),
+    );
     const mp = { x: (pointer.x - pos.x) / oldScale, y: (pointer.y - pos.y) / oldScale };
     setScale(newScale);
     setPos({ x: pointer.x - mp.x * newScale, y: pointer.y - mp.y * newScale });
@@ -265,7 +417,8 @@ export function Canvas2D({ onExportRef }: Props) {
       const f = plan.furniture[i];
       const cos = Math.cos((-f.rotation * Math.PI) / 180);
       const sin = Math.sin((-f.rotation * Math.PI) / 180);
-      const dx = p.x - f.x; const dy = p.y - f.y;
+      const dx = p.x - f.x;
+      const dy = p.y - f.y;
       const lx = dx * cos - dy * sin;
       const ly = dx * sin + dy * cos;
       if (Math.abs(lx) <= f.width / 2 && Math.abs(ly) <= f.height / 2) return f;
@@ -274,28 +427,43 @@ export function Canvas2D({ onExportRef }: Props) {
   };
 
   const itemsInRect = (a: Point, b: Point): SelectionItem[] => {
-    const minX = Math.min(a.x, b.x), maxX = Math.max(a.x, b.x);
-    const minY = Math.min(a.y, b.y), maxY = Math.max(a.y, b.y);
+    const minX = Math.min(a.x, b.x),
+      maxX = Math.max(a.x, b.x);
+    const minY = Math.min(a.y, b.y),
+      maxY = Math.max(a.y, b.y);
     const inside = (p: Point) => p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY;
     const items: SelectionItem[] = [];
     for (const wall of plan.walls) {
-      if (inside(wall.a) || inside(wall.b) || inside({ x: (wall.a.x + wall.b.x) / 2, y: (wall.a.y + wall.b.y) / 2 })) {
+      if (
+        inside(wall.a) ||
+        inside(wall.b) ||
+        inside({ x: (wall.a.x + wall.b.x) / 2, y: (wall.a.y + wall.b.y) / 2 })
+      ) {
         items.push({ type: "wall", id: wall.id });
       }
     }
     for (const opening of plan.openings) {
       const wall = plan.walls.find((w) => w.id === opening.wallId);
       if (!wall) continue;
-      const p = { x: wall.a.x + (wall.b.x - wall.a.x) * opening.t, y: wall.a.y + (wall.b.y - wall.a.y) * opening.t };
+      const p = {
+        x: wall.a.x + (wall.b.x - wall.a.x) * opening.t,
+        y: wall.a.y + (wall.b.y - wall.a.y) * opening.t,
+      };
       if (inside(p)) items.push({ type: "opening", id: opening.id });
     }
     for (const f of plan.furniture) {
-      if (f.x + f.width / 2 >= minX && f.x - f.width / 2 <= maxX && f.y + f.height / 2 >= minY && f.y - f.height / 2 <= maxY) {
+      if (
+        f.x + f.width / 2 >= minX &&
+        f.x - f.width / 2 <= maxX &&
+        f.y + f.height / 2 >= minY &&
+        f.y - f.height / 2 <= maxY
+      ) {
         items.push({ type: "furniture", id: f.id });
       }
     }
     for (const label of plan.labels) if (inside(label)) items.push({ type: "label", id: label.id });
-    for (const section of plan.sections) if (inside(section.a) || inside(section.b)) items.push({ type: "section", id: section.id });
+    for (const section of plan.sections)
+      if (inside(section.a) || inside(section.b)) items.push({ type: "section", id: section.id });
     return items;
   };
 
@@ -307,11 +475,14 @@ export function Canvas2D({ onExportRef }: Props) {
         if (ignoreIds.has(wall.id)) continue;
         for (const end of [wall.a, wall.b]) {
           const d = dist(p, end);
-          if (d < threshold && (!best || d < best.d)) best = { d, dx: end.x - p.x, dy: end.y - p.y };
+          if (d < threshold && (!best || d < best.d))
+            best = { d, dx: end.x - p.x, dy: end.y - p.y };
         }
       }
     }
-    return best ? { a: { x: a.x + best.dx, y: a.y + best.dy }, b: { x: b.x + best.dx, y: b.y + best.dy } } : { a, b };
+    return best
+      ? { a: { x: a.x + best.dx, y: a.y + best.dy }, b: { x: b.x + best.dx, y: b.y + best.dy } }
+      : { a, b };
   };
 
   const normalizeWallAxis = (a: Point, b: Point) => {
@@ -383,7 +554,7 @@ export function Canvas2D({ onExportRef }: Props) {
     const nearOrtho = Math.abs(angDeg - nearest90) <= 10;
     let target: Point;
     if (nearOrtho) {
-      const isVertical = Math.abs(Math.abs(nearest90) % 180 - 90) < 1;
+      const isVertical = Math.abs((Math.abs(nearest90) % 180) - 90) < 1;
       target = isVertical
         ? { x: Math.round(fixed.x), y: Math.round(rawTarget.y) }
         : { x: Math.round(rawTarget.x), y: Math.round(fixed.y) };
@@ -394,7 +565,7 @@ export function Canvas2D({ onExportRef }: Props) {
 
     const node = snapWallEndpointToNode(target, wallId);
     if (nearOrtho) {
-      const isVertical = Math.abs(Math.abs(nearest90) % 180 - 90) < 1;
+      const isVertical = Math.abs((Math.abs(nearest90) % 180) - 90) < 1;
       return isVertical
         ? { x: Math.round(fixed.x), y: Math.round(node.y) }
         : { x: Math.round(node.x), y: Math.round(fixed.y) };
@@ -403,10 +574,15 @@ export function Canvas2D({ onExportRef }: Props) {
   };
 
   const moveSelectedBy = (drag: NonNullable<typeof moveDrag>, dx: number, dy: number) => {
-    const wallIds = new Set(drag.items.filter((item) => item.type === "wall").map((item) => item.id));
+    const wallIds = new Set(
+      drag.items.filter((item) => item.type === "wall").map((item) => item.id),
+    );
     for (const f of drag.furniture) {
       if (f.locked) continue;
-      const snapped = snapFurnitureToWalls({ x: f.x + dx, y: f.y + dy }, f.width, f.height, f.rotation);
+      const moved = { x: f.x + dx, y: f.y + dy };
+      const snapped = f.anchorToWall
+        ? snapFurnitureToWalls(moved, f.width, f.height, f.rotation)
+        : { ...moved, rotation: f.rotation };
       updateFurniture(f.id, { x: snapped.x, y: snapped.y, rotation: snapped.rotation });
     }
     for (const w of drag.walls) {
@@ -414,11 +590,7 @@ export function Canvas2D({ onExportRef }: Props) {
         { x: Math.round(w.a.x + dx), y: Math.round(w.a.y + dy) },
         { x: Math.round(w.b.x + dx), y: Math.round(w.b.y + dy) },
       );
-      const moved = snapWallMove(
-        axisLocked.a,
-        axisLocked.b,
-        wallIds,
-      );
+      const moved = snapWallMove(axisLocked.a, axisLocked.b, wallIds);
       updateWall(w.id, moved);
     }
     for (const sec of drag.sections) {
@@ -429,11 +601,11 @@ export function Canvas2D({ onExportRef }: Props) {
     }
   };
 
-
-
   // Hit-test opening at world point — returns the opening + a hint whether the click is on an edge (for resize) or center (for move).
   // For doors, the hit-box includes the arc of debattement area so clicking the swing curve selects the door.
-  const findOpeningAt = (p: Point): { opening: Opening; wall: Wall; mode: "move" | "resizeA" | "resizeB" } | null => {
+  const findOpeningAt = (
+    p: Point,
+  ): { opening: Opening; wall: Wall; mode: "move" | "resizeA" | "resizeB" } | null => {
     for (let i = plan.openings.length - 1; i >= 0; i--) {
       const o = plan.openings[i];
       const w = plan.walls.find((ww) => ww.id === o.wallId);
@@ -456,7 +628,7 @@ export function Canvas2D({ onExportRef }: Props) {
       let hit = Math.abs(along) <= halfW + 4 && Math.abs(perp) <= halfT;
 
       // Extended hit-box for doors: include arc quadrant so users can click near the swing curve
-      if (!hit && (o.type === "door") && (o.kind !== "door_slide" && o.kind !== "door_pocket")) {
+      if (!hit && o.type === "door" && o.kind !== "door_slide" && o.kind !== "door_pocket") {
         const hinge: "a" | "b" = o.hingeSide ?? "a";
         const swing: "p" | "n" = o.swingSide ?? "p";
         const swingSign = swing === "p" ? 1 : -1;
@@ -493,7 +665,9 @@ export function Canvas2D({ onExportRef }: Props) {
     return null;
   };
 
-  const findFurnitureHandleAt = (p: Point): { furniture: Furniture; mode: "nw" | "ne" | "se" | "sw" | "rotate" } | null => {
+  const findFurnitureHandleAt = (
+    p: Point,
+  ): { furniture: Furniture; mode: "nw" | "ne" | "se" | "sw" | "rotate" } | null => {
     for (let i = plan.furniture.length - 1; i >= 0; i--) {
       const f = plan.furniture[i];
       if (f.locked) continue;
@@ -501,7 +675,8 @@ export function Canvas2D({ onExportRef }: Props) {
 
       const cos = Math.cos((-f.rotation * Math.PI) / 180);
       const sin = Math.sin((-f.rotation * Math.PI) / 180);
-      const dx = p.x - f.x, dy = p.y - f.y;
+      const dx = p.x - f.x,
+        dy = p.y - f.y;
       const lx = dx * cos - dy * sin;
       const ly = dx * sin + dy * cos;
       const hit = 10 / scale;
@@ -518,7 +693,6 @@ export function Canvas2D({ onExportRef }: Props) {
     }
     return null;
   };
-
 
   const onMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (spaceDown || e.evt.button === 1) return;
@@ -540,9 +714,13 @@ export function Canvas2D({ onExportRef }: Props) {
       const snapped = applySnap(wp);
       if (!rectStart) setRectStart(snapped);
       else {
-        const a = rectStart, b = snapped;
+        const a = rectStart,
+          b = snapped;
         commit();
-        const c1={x:a.x,y:a.y}, c2={x:b.x,y:a.y}, c3={x:b.x,y:b.y}, c4={x:a.x,y:b.y};
+        const c1 = { x: a.x, y: a.y },
+          c2 = { x: b.x, y: a.y },
+          c3 = { x: b.x, y: b.y },
+          c4 = { x: a.x, y: b.y };
         addWall({ a: c1, b: c2, thickness: s.wallSettings[s.currentWallType].thickness });
         addWall({ a: c2, b: c3, thickness: s.wallSettings[s.currentWallType].thickness });
         addWall({ a: c3, b: c4, thickness: s.wallSettings[s.currentWallType].thickness });
@@ -577,9 +755,16 @@ export function Canvas2D({ onExportRef }: Props) {
     }
     if (tool === "eraser") {
       const f = findFurnitureAt(wp);
-      if (f) { setSelection({ type: "furniture", id: f.id }); deleteSelected(); return; }
+      if (f) {
+        setSelection({ type: "furniture", id: f.id });
+        deleteSelected();
+        return;
+      }
       const wh = findWallNear(wp);
-      if (wh) { setSelection({ type: "wall", id: wh.wall.id }); deleteSelected(); }
+      if (wh) {
+        setSelection({ type: "wall", id: wh.wall.id });
+        deleteSelected();
+      }
       return;
     }
     if (tool === "select") {
@@ -588,7 +773,11 @@ export function Canvas2D({ onExportRef }: Props) {
       if (fh) {
         commit();
         setSelection({ type: "furniture", id: fh.furniture.id });
-        setFurnitureTransform({ furnitureId: fh.furniture.id, mode: fh.mode, orig: { ...fh.furniture } });
+        setFurnitureTransform({
+          furnitureId: fh.furniture.id,
+          mode: fh.mode,
+          orig: { ...fh.furniture },
+        });
         return;
       }
       // Priority order: furniture → opening (edges then body) → wall endpoint → wall body → section
@@ -598,13 +787,20 @@ export function Canvas2D({ onExportRef }: Props) {
         selectItem(item, additive);
         if (!additive) {
           commit();
-          const items = isSelected("furniture", f.id) && selectionItems.length > 1 ? selectionItems : [item];
+          const items =
+            isSelected("furniture", f.id) && selectionItems.length > 1 ? selectionItems : [item];
           setMoveDrag({
             items,
             startPointer: wp,
-            furniture: plan.furniture.filter((x) => items.some((it) => it.type === "furniture" && it.id === x.id)),
-            walls: plan.walls.filter((x) => items.some((it) => it.type === "wall" && it.id === x.id)),
-            sections: plan.sections.filter((x) => items.some((it) => it.type === "section" && it.id === x.id)),
+            furniture: plan.furniture.filter((x) =>
+              items.some((it) => it.type === "furniture" && it.id === x.id),
+            ),
+            walls: plan.walls.filter((x) =>
+              items.some((it) => it.type === "wall" && it.id === x.id),
+            ),
+            sections: plan.sections.filter((x) =>
+              items.some((it) => it.type === "section" && it.id === x.id),
+            ),
           });
         }
         return;
@@ -638,9 +834,15 @@ export function Canvas2D({ onExportRef }: Props) {
           setMoveDrag({
             items,
             startPointer: wp,
-            furniture: plan.furniture.filter((x) => items.some((it) => it.type === "furniture" && it.id === x.id)),
-            walls: plan.walls.filter((x) => items.some((it) => it.type === "wall" && it.id === x.id)),
-            sections: plan.sections.filter((x) => items.some((it) => it.type === "section" && it.id === x.id)),
+            furniture: plan.furniture.filter((x) =>
+              items.some((it) => it.type === "furniture" && it.id === x.id),
+            ),
+            walls: plan.walls.filter((x) =>
+              items.some((it) => it.type === "wall" && it.id === x.id),
+            ),
+            sections: plan.sections.filter((x) =>
+              items.some((it) => it.type === "section" && it.id === x.id),
+            ),
           });
           return;
         }
@@ -666,7 +868,10 @@ export function Canvas2D({ onExportRef }: Props) {
       }
       for (const sec of plan.sections) {
         const info = pointOnWall(wp, { ...sec, id: sec.id, thickness: 30 } as Wall);
-        if (info.dist < 15 / scale) { selectItem({ type: "section", id: sec.id }, additive); return; }
+        if (info.dist < 15 / scale) {
+          selectItem({ type: "section", id: sec.id }, additive);
+          return;
+        }
       }
       if (e.evt.shiftKey) setSelectionRect({ start: wp, current: wp });
       // Keep the active selection stable by default: hovering/clicking around the
@@ -684,7 +889,11 @@ export function Canvas2D({ onExportRef }: Props) {
       return;
     }
     if (moveDrag) {
-      moveSelectedBy(moveDrag, Math.round(wp.x - moveDrag.startPointer.x), Math.round(wp.y - moveDrag.startPointer.y));
+      moveSelectedBy(
+        moveDrag,
+        Math.round(wp.x - moveDrag.startPointer.x),
+        Math.round(wp.y - moveDrag.startPointer.y),
+      );
       setCursor(wp);
       return;
     }
@@ -703,8 +912,14 @@ export function Canvas2D({ onExportRef }: Props) {
         updateFurniture(f.id, { rotation: ((snapped % 360) + 360) % 360 });
       } else {
         const keepRatio = false;
-        const leftFixed = furnitureTransform.mode === "ne" || furnitureTransform.mode === "se" ? -f.width / 2 : f.width / 2;
-        const topFixed = furnitureTransform.mode === "sw" || furnitureTransform.mode === "se" ? -f.height / 2 : f.height / 2;
+        const leftFixed =
+          furnitureTransform.mode === "ne" || furnitureTransform.mode === "se"
+            ? -f.width / 2
+            : f.width / 2;
+        const topFixed =
+          furnitureTransform.mode === "sw" || furnitureTransform.mode === "se"
+            ? -f.height / 2
+            : f.height / 2;
         let newW = Math.max(20, Math.round(Math.abs(lx - leftFixed)));
         let newH = Math.max(20, Math.round(Math.abs(ly - topFixed)));
         if (keepRatio) {
@@ -717,7 +932,12 @@ export function Canvas2D({ onExportRef }: Props) {
           x: f.x + centerLocal.x * Math.cos(ang) - centerLocal.y * Math.sin(ang),
           y: f.y + centerLocal.x * Math.sin(ang) + centerLocal.y * Math.cos(ang),
         };
-        updateFurniture(f.id, { x: Math.round(worldCenter.x), y: Math.round(worldCenter.y), width: newW, height: newH });
+        updateFurniture(f.id, {
+          x: Math.round(worldCenter.x),
+          y: Math.round(worldCenter.y),
+          width: newW,
+          height: newH,
+        });
       }
       setCursor(wp);
       return;
@@ -755,14 +975,16 @@ export function Canvas2D({ onExportRef }: Props) {
         // Resize: project cursor along wall, compute new width from opposite anchor (1 cm step)
         const info = pointOnWall(wp, wall);
         const wLen = wallLength(wall);
-        const anchorT = openingDrag.mode === "resizeA"
-          ? openingDrag.origT + openingDrag.origWidth / 2 / wLen
-          : openingDrag.origT - openingDrag.origWidth / 2 / wLen;
+        const anchorT =
+          openingDrag.mode === "resizeA"
+            ? openingDrag.origT + openingDrag.origWidth / 2 / wLen
+            : openingDrag.origT - openingDrag.origWidth / 2 / wLen;
         const anchorDist = anchorT * wLen;
         const curDist = info.t * wLen;
         let newW = Math.abs(curDist - anchorDist);
         newW = Math.max(40, Math.min(wLen - 10, Math.round(newW)));
-        const newCenter = openingDrag.mode === "resizeA" ? anchorDist - newW / 2 : anchorDist + newW / 2;
+        const newCenter =
+          openingDrag.mode === "resizeA" ? anchorDist - newW / 2 : anchorDist + newW / 2;
         const halfW = newW / 2 / wLen + 0.02;
         const newT = Math.max(halfW, Math.min(1 - halfW, newCenter / wLen));
         s.updateOpening(op.id, { width: newW, t: newT });
@@ -797,7 +1019,9 @@ export function Canvas2D({ onExportRef }: Props) {
   const onMouseUp = () => {
     if (selectionRect) {
       const items = itemsInRect(selectionRect.start, selectionRect.current);
-      setSelection(items.length === 0 ? null : items.length === 1 ? items[0] : { type: "multi", items });
+      setSelection(
+        items.length === 0 ? null : items.length === 1 ? items[0] : { type: "multi", items },
+      );
       setSelectionRect(null);
     }
     if (moveDrag) setMoveDrag(null);
@@ -807,10 +1031,19 @@ export function Canvas2D({ onExportRef }: Props) {
     if (hoverWallForDrop) setHoverWallForDrop(null);
   };
 
+  const onDblClick = () => {
+    if (tool === "wall") {
+      setDrawing(null);
+      setTool("select");
+    }
+  };
 
-  const onDblClick = () => { if (tool === "wall") { setDrawing(null); setTool("select"); } };
-
-  const snapFurnitureToWalls = (pos: Point, w: number, h: number, rotation = 0): Point & { rotation: number } => {
+  const snapFurnitureToWalls = (
+    pos: Point,
+    w: number,
+    h: number,
+    rotation = 0,
+  ): Point & { rotation: number } => {
     const threshold = 25 / scale;
     let best: { d: number; snap: Point & { rotation: number } } | null = null;
     for (const wall of plan.walls) {
@@ -845,7 +1078,14 @@ export function Canvas2D({ onExportRef }: Props) {
     const openingRaw = e.dataTransfer.getData("application/x-opening");
     if (openingRaw) {
       try {
-        const o = JSON.parse(openingRaw) as { kind: "door" | "window"; subKind?: import("@/lib/editor/types").OpeningKind; label: string; width: number; height: number; sillHeight: number };
+        const o = JSON.parse(openingRaw) as {
+          kind: "door" | "window";
+          subKind?: import("@/lib/editor/types").OpeningKind;
+          label: string;
+          width: number;
+          height: number;
+          sillHeight: number;
+        };
         const hit = findWallNear(world);
         if (hit) {
           const id = addOpening({
@@ -860,20 +1100,29 @@ export function Canvas2D({ onExportRef }: Props) {
           setSelection({ type: "opening", id });
           setTool("select");
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       return;
     }
 
     const kind = e.dataTransfer.getData("application/x-furniture");
     if (!kind) return;
-    const item = CATALOG.find((c) => c.kind === kind && c.label === e.dataTransfer.getData("application/x-furniture-label"))
-      || CATALOG.find((c) => c.kind === kind);
+    const item =
+      CATALOG.find(
+        (c) =>
+          c.kind === kind && c.label === e.dataTransfer.getData("application/x-furniture-label"),
+      ) || CATALOG.find((c) => c.kind === kind);
     if (!item) return;
     const base = snapEnabled ? snapPoint(world, grid / 2) : world;
-    const snapped = snapFurnitureToWalls(base, item.width, item.height);
     addFurniture({
-      kind: item.kind, x: snapped.x, y: snapped.y,
-      width: item.width, height: item.height, rotation: snapped.rotation, label: item.label,
+      kind: item.kind,
+      x: Math.round(base.x),
+      y: Math.round(base.y),
+      width: item.width,
+      height: item.height,
+      rotation: 0,
+      label: item.label,
     });
   };
 
@@ -888,20 +1137,41 @@ export function Canvas2D({ onExportRef }: Props) {
     const lines: React.ReactNode[] = [];
     for (let x = x0; x <= x1; x += step) {
       const major = Math.round(x / step) % majorEvery === 0;
-      lines.push(<Line key={`v${x}`} points={[x, y0, x, y1]} stroke={major ? theme.gridMajor : theme.grid} strokeWidth={(major ? 1 : 0.5) / scale} listening={false} />);
+      lines.push(
+        <Line
+          key={`v${x}`}
+          points={[x, y0, x, y1]}
+          stroke={major ? theme.gridMajor : theme.grid}
+          strokeWidth={(major ? 1 : 0.5) / scale}
+          listening={false}
+        />,
+      );
     }
     for (let y = y0; y <= y1; y += step) {
       const major = Math.round(y / step) % majorEvery === 0;
-      lines.push(<Line key={`h${y}`} points={[x0, y, x1, y]} stroke={major ? theme.gridMajor : theme.grid} strokeWidth={(major ? 1 : 0.5) / scale} listening={false} />);
+      lines.push(
+        <Line
+          key={`h${y}`}
+          points={[x0, y, x1, y]}
+          stroke={major ? theme.gridMajor : theme.grid}
+          strokeWidth={(major ? 1 : 0.5) / scale}
+          listening={false}
+        />,
+      );
     }
-    lines.push(<Circle key="o" x={0} y={0} radius={3 / scale} fill={theme.dimension} listening={false} />);
+    lines.push(
+      <Circle key="o" x={0} y={0} radius={3 / scale} fill={theme.dimension} listening={false} />,
+    );
     return lines;
   }, [showGrid, grid, pos, scale, size, theme]);
 
   // Floor polygon — union of enclosed area computed via bounding box of walls
   const floorRect = useMemo(() => {
     if (plan.walls.length === 0) return null;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
     for (const w of plan.walls) {
       minX = Math.min(minX, w.a.x, w.b.x);
       minY = Math.min(minY, w.a.y, w.b.y);
@@ -932,7 +1202,10 @@ export function Canvas2D({ onExportRef }: Props) {
     if (!showExteriorDims && !showInteriorDims) return ids;
     if (plan.walls.length === 0) return ids;
 
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
     for (const w of plan.walls) {
       minX = Math.min(minX, w.a.x, w.b.x);
       minY = Math.min(minY, w.a.y, w.b.y);
@@ -963,8 +1236,8 @@ export function Canvas2D({ onExportRef }: Props) {
     const cy = w.a.y + Math.sin(ang) * len * o.t;
     const ux = Math.cos(ang);
     const uy = Math.sin(ang);
-    const dx = ux * o.width / 2;
-    const dy = uy * o.width / 2;
+    const dx = (ux * o.width) / 2;
+    const dy = (uy * o.width) / 2;
     const isSel = isSelected("opening", o.id);
     const hinge: "a" | "b" = o.hingeSide ?? "a";
     const swing: "p" | "n" = o.swingSide ?? "p";
@@ -1005,12 +1278,37 @@ export function Canvas2D({ onExportRef }: Props) {
     // Door-family renderers
     // Jambages (short perpendicular ticks at both ends of the cut), typical architectural convention.
     const jambageLen = w.thickness * 0.9;
-    const jambages = (kind === "door_simple" || kind === "door_double" || kind === "entrance" || kind === "door_slide" || kind === "door_pocket") ? (
-      <>
-        <Line points={[cx - dx - (-uy) * jambageLen / 2, cy - dy - ux * jambageLen / 2, cx - dx + (-uy) * jambageLen / 2, cy - dy + ux * jambageLen / 2]} stroke={stroke} strokeWidth={sw * 0.7} listening={false} />
-        <Line points={[cx + dx - (-uy) * jambageLen / 2, cy + dy - ux * jambageLen / 2, cx + dx + (-uy) * jambageLen / 2, cy + dy + ux * jambageLen / 2]} stroke={stroke} strokeWidth={sw * 0.7} listening={false} />
-      </>
-    ) : null;
+    const jambages =
+      kind === "door_simple" ||
+      kind === "door_double" ||
+      kind === "entrance" ||
+      kind === "door_slide" ||
+      kind === "door_pocket" ? (
+        <>
+          <Line
+            points={[
+              cx - dx - (-uy * jambageLen) / 2,
+              cy - dy - (ux * jambageLen) / 2,
+              cx - dx + (-uy * jambageLen) / 2,
+              cy - dy + (ux * jambageLen) / 2,
+            ]}
+            stroke={stroke}
+            strokeWidth={sw * 0.7}
+            listening={false}
+          />
+          <Line
+            points={[
+              cx + dx - (-uy * jambageLen) / 2,
+              cy + dy - (ux * jambageLen) / 2,
+              cx + dx + (-uy * jambageLen) / 2,
+              cy + dy + (ux * jambageLen) / 2,
+            ]}
+            stroke={stroke}
+            strokeWidth={sw * 0.7}
+            listening={false}
+          />
+        </>
+      ) : null;
 
     let symbol: React.ReactNode = null;
     if (kind === "door_simple" || kind === "entrance") {
@@ -1018,9 +1316,23 @@ export function Canvas2D({ onExportRef }: Props) {
         <>
           {jambages}
           <Path data={arcOnly} stroke={stroke} strokeWidth={sw * 0.7} fill="transparent" />
-          <Line points={[hx, hy, tipX, tipY]} stroke={stroke} strokeWidth={sw * 1.6} lineCap="round" />
+          <Line
+            points={[hx, hy, tipX, tipY]}
+            stroke={stroke}
+            strokeWidth={sw * 1.6}
+            lineCap="round"
+          />
           {kind === "entrance" && (
-            <Rect x={cx - dx} y={cy - dy - w.thickness / 3} width={o.width} height={w.thickness / 1.5} rotation={(ang * 180) / Math.PI} stroke={stroke} strokeWidth={sw * 0.6} fill="transparent" />
+            <Rect
+              x={cx - dx}
+              y={cy - dy - w.thickness / 3}
+              width={o.width}
+              height={w.thickness / 1.5}
+              rotation={(ang * 180) / Math.PI}
+              stroke={stroke}
+              strokeWidth={sw * 0.6}
+              fill="transparent"
+            />
           )}
         </>
       );
@@ -1034,81 +1346,184 @@ export function Canvas2D({ onExportRef }: Props) {
       symbol = (
         <>
           {jambages}
-          <Path data={`M ${hx} ${hy} A ${o.width / 2} ${o.width / 2} 0 0 ${swA} ${tipL.x} ${tipL.y}`} stroke={stroke} strokeWidth={sw * 0.7} fill="transparent" />
-          <Path data={`M ${lx} ${ly} A ${o.width / 2} ${o.width / 2} 0 0 ${swB} ${tipR.x} ${tipR.y}`} stroke={stroke} strokeWidth={sw * 0.7} fill="transparent" />
-          <Line points={[hx, hy, midX, midY]} stroke={stroke} strokeWidth={sw * 1.6} lineCap="round" />
-          <Line points={[midX, midY, lx, ly]} stroke={stroke} strokeWidth={sw * 1.6} lineCap="round" />
+          <Path
+            data={`M ${hx} ${hy} A ${o.width / 2} ${o.width / 2} 0 0 ${swA} ${tipL.x} ${tipL.y}`}
+            stroke={stroke}
+            strokeWidth={sw * 0.7}
+            fill="transparent"
+          />
+          <Path
+            data={`M ${lx} ${ly} A ${o.width / 2} ${o.width / 2} 0 0 ${swB} ${tipR.x} ${tipR.y}`}
+            stroke={stroke}
+            strokeWidth={sw * 0.7}
+            fill="transparent"
+          />
+          <Line
+            points={[hx, hy, midX, midY]}
+            stroke={stroke}
+            strokeWidth={sw * 1.6}
+            lineCap="round"
+          />
+          <Line
+            points={[midX, midY, lx, ly]}
+            stroke={stroke}
+            strokeWidth={sw * 1.6}
+            lineCap="round"
+          />
         </>
       );
     } else if (kind === "door_slide") {
-      const off = w.thickness / 3 * swingSign;
+      const off = (w.thickness / 3) * swingSign;
       const offx = -uy * off;
       const offy = ux * off;
       symbol = (
         <>
-          <Line points={[cx - dx + offx, cy - dy + offy, cx + dx + offx, cy + dy + offy]} stroke={stroke} strokeWidth={sw} />
-          <Rect
-            x={cx - dx + offx} y={cy - dy + offy}
-            width={o.width} height={4 / scale}
-            rotation={(ang * 180) / Math.PI}
-            stroke={stroke} strokeWidth={sw * 0.7} fill="transparent"
+          <Line
+            points={[cx - dx + offx, cy - dy + offy, cx + dx + offx, cy + dy + offy]}
+            stroke={stroke}
+            strokeWidth={sw}
           />
-          <Line points={[cx - dx + offx, cy - dy + offy - 3 / scale, cx - dx + offx + ux * 8 / scale, cy - dy + offy - 3 / scale + uy * 8 / scale]} stroke={stroke} strokeWidth={sw * 0.7} />
+          <Rect
+            x={cx - dx + offx}
+            y={cy - dy + offy}
+            width={o.width}
+            height={4 / scale}
+            rotation={(ang * 180) / Math.PI}
+            stroke={stroke}
+            strokeWidth={sw * 0.7}
+            fill="transparent"
+          />
+          <Line
+            points={[
+              cx - dx + offx,
+              cy - dy + offy - 3 / scale,
+              cx - dx + offx + (ux * 8) / scale,
+              cy - dy + offy - 3 / scale + (uy * 8) / scale,
+            ]}
+            stroke={stroke}
+            strokeWidth={sw * 0.7}
+          />
         </>
       );
     } else if (kind === "door_pocket") {
       symbol = (
         <>
-          <Line points={[cx - dx, cy - dy, cx + dx, cy + dy]} stroke={stroke} strokeWidth={sw} dash={[3 / scale, 3 / scale]} />
+          <Line
+            points={[cx - dx, cy - dy, cx + dx, cy + dy]}
+            stroke={stroke}
+            strokeWidth={sw}
+            dash={[3 / scale, 3 / scale]}
+          />
         </>
       );
     } else if (kind === "window_1") {
       const off = w.thickness / 3;
-      const p1x = -uy * off, p1y = ux * off;
+      const p1x = -uy * off,
+        p1y = ux * off;
       symbol = (
         <>
-          <Line points={[cx - dx + p1x, cy - dy + p1y, cx + dx + p1x, cy + dy + p1y]} stroke={stroke} strokeWidth={sw * 0.6} />
-          <Line points={[cx - dx - p1x, cy - dy - p1y, cx + dx - p1x, cy + dy - p1y]} stroke={stroke} strokeWidth={sw * 0.6} />
+          <Line
+            points={[cx - dx + p1x, cy - dy + p1y, cx + dx + p1x, cy + dy + p1y]}
+            stroke={stroke}
+            strokeWidth={sw * 0.6}
+          />
+          <Line
+            points={[cx - dx - p1x, cy - dy - p1y, cx + dx - p1x, cy + dy - p1y]}
+            stroke={stroke}
+            strokeWidth={sw * 0.6}
+          />
           <Line points={[cx - dx, cy - dy, cx + dx, cy + dy]} stroke={stroke} strokeWidth={sw} />
         </>
       );
     } else if (kind === "window_2") {
       const off = w.thickness / 3;
-      const p1x = -uy * off, p1y = ux * off;
-      const midX = cx, midY = cy;
+      const p1x = -uy * off,
+        p1y = ux * off;
+      const midX = cx,
+        midY = cy;
       symbol = (
         <>
-          <Line points={[cx - dx + p1x, cy - dy + p1y, cx + dx + p1x, cy + dy + p1y]} stroke={stroke} strokeWidth={sw * 0.6} />
-          <Line points={[cx - dx - p1x, cy - dy - p1y, cx + dx - p1x, cy + dy - p1y]} stroke={stroke} strokeWidth={sw * 0.6} />
+          <Line
+            points={[cx - dx + p1x, cy - dy + p1y, cx + dx + p1x, cy + dy + p1y]}
+            stroke={stroke}
+            strokeWidth={sw * 0.6}
+          />
+          <Line
+            points={[cx - dx - p1x, cy - dy - p1y, cx + dx - p1x, cy + dy - p1y]}
+            stroke={stroke}
+            strokeWidth={sw * 0.6}
+          />
           <Line points={[cx - dx, cy - dy, cx + dx, cy + dy]} stroke={stroke} strokeWidth={sw} />
-          <Line points={[midX - uy * (w.thickness / 2), midY + ux * (w.thickness / 2), midX + uy * (w.thickness / 2), midY - ux * (w.thickness / 2)]} stroke={stroke} strokeWidth={sw * 0.6} />
+          <Line
+            points={[
+              midX - uy * (w.thickness / 2),
+              midY + ux * (w.thickness / 2),
+              midX + uy * (w.thickness / 2),
+              midY - ux * (w.thickness / 2),
+            ]}
+            stroke={stroke}
+            strokeWidth={sw * 0.6}
+          />
         </>
       );
     } else if (kind === "window_oscillo") {
       const off = w.thickness / 3;
-      const p1x = -uy * off, p1y = ux * off;
+      const p1x = -uy * off,
+        p1y = ux * off;
       symbol = (
         <>
-          <Line points={[cx - dx + p1x, cy - dy + p1y, cx + dx + p1x, cy + dy + p1y]} stroke={stroke} strokeWidth={sw * 0.6} />
-          <Line points={[cx - dx - p1x, cy - dy - p1y, cx + dx - p1x, cy + dy - p1y]} stroke={stroke} strokeWidth={sw * 0.6} />
+          <Line
+            points={[cx - dx + p1x, cy - dy + p1y, cx + dx + p1x, cy + dy + p1y]}
+            stroke={stroke}
+            strokeWidth={sw * 0.6}
+          />
+          <Line
+            points={[cx - dx - p1x, cy - dy - p1y, cx + dx - p1x, cy + dy - p1y]}
+            stroke={stroke}
+            strokeWidth={sw * 0.6}
+          />
           <Line points={[cx - dx, cy - dy, cx + dx, cy + dy]} stroke={stroke} strokeWidth={sw} />
           {/* triangle oscillo symbol */}
-          <Line points={[cx - dx, cy - dy, cx, cy + nyP * w.thickness / 2, cx + dx, cy + dy]} stroke={stroke} strokeWidth={sw * 0.7} />
+          <Line
+            points={[cx - dx, cy - dy, cx, cy + (nyP * w.thickness) / 2, cx + dx, cy + dy]}
+            stroke={stroke}
+            strokeWidth={sw * 0.7}
+          />
         </>
       );
     } else if (kind === "bay" || kind === "bay_slide") {
       const off = w.thickness / 4;
-      const p1x = -uy * off, p1y = ux * off;
+      const p1x = -uy * off,
+        p1y = ux * off;
       symbol = (
         <>
-          <Line points={[cx - dx + p1x, cy - dy + p1y, cx + dx + p1x, cy + dy + p1y]} stroke={stroke} strokeWidth={sw * 0.6} />
-          <Line points={[cx - dx - p1x, cy - dy - p1y, cx + dx - p1x, cy + dy - p1y]} stroke={stroke} strokeWidth={sw * 0.6} />
+          <Line
+            points={[cx - dx + p1x, cy - dy + p1y, cx + dx + p1x, cy + dy + p1y]}
+            stroke={stroke}
+            strokeWidth={sw * 0.6}
+          />
+          <Line
+            points={[cx - dx - p1x, cy - dy - p1y, cx + dx - p1x, cy + dy - p1y]}
+            stroke={stroke}
+            strokeWidth={sw * 0.6}
+          />
           <Line points={[cx - dx, cy - dy, cx, cy]} stroke={stroke} strokeWidth={sw} />
-          <Line points={[cx + ux * 2 / scale, cy + uy * 2 / scale, cx + dx, cy + dy]} stroke={stroke} strokeWidth={sw} />
+          <Line
+            points={[cx + (ux * 2) / scale, cy + (uy * 2) / scale, cx + dx, cy + dy]}
+            stroke={stroke}
+            strokeWidth={sw}
+          />
           {kind === "bay_slide" && (
             <Line
-              points={[cx - dx + ux * 4 / scale, cy - dy + uy * 4 / scale - 4 / scale, cx + dx - ux * 4 / scale, cy + dy - uy * 4 / scale - 4 / scale]}
-              stroke={stroke} strokeWidth={sw * 0.5} dash={[3 / scale, 2 / scale]}
+              points={[
+                cx - dx + (ux * 4) / scale,
+                cy - dy + (uy * 4) / scale - 4 / scale,
+                cx + dx - (ux * 4) / scale,
+                cy + dy - (uy * 4) / scale - 4 / scale,
+              ]}
+              stroke={stroke}
+              strokeWidth={sw * 0.5}
+              dash={[3 / scale, 2 / scale]}
             />
           )}
         </>
@@ -1117,7 +1532,17 @@ export function Canvas2D({ onExportRef }: Props) {
       symbol = (
         <>
           <Line points={[cx - dx, cy - dy, cx + dx, cy + dy]} stroke={stroke} strokeWidth={sw} />
-          <Line points={[cx - dx + ux * 4 / scale, cy - dy + uy * 4 / scale, cx + dx - ux * 4 / scale, cy + dy - uy * 4 / scale]} stroke={stroke} strokeWidth={sw * 0.5} dash={[2 / scale, 2 / scale]} />
+          <Line
+            points={[
+              cx - dx + (ux * 4) / scale,
+              cy - dy + (uy * 4) / scale,
+              cx + dx - (ux * 4) / scale,
+              cy + dy - (uy * 4) / scale,
+            ]}
+            stroke={stroke}
+            strokeWidth={sw * 0.5}
+            dash={[2 / scale, 2 / scale]}
+          />
         </>
       );
     }
@@ -1132,31 +1557,77 @@ export function Canvas2D({ onExportRef }: Props) {
             <Group
               x={hx + nxP * (w.thickness / 2 + 14 / scale)}
               y={hy + nyP * (w.thickness / 2 + 14 / scale)}
-              onMouseDown={(e) => { e.cancelBubble = true; s.flipOpeningHinge(o.id); }}
-              onTap={(e) => { e.cancelBubble = true; s.flipOpeningHinge(o.id); }}
+              onMouseDown={(e) => {
+                e.cancelBubble = true;
+                s.flipOpeningHinge(o.id);
+              }}
+              onTap={(e) => {
+                e.cancelBubble = true;
+                s.flipOpeningHinge(o.id);
+              }}
             >
-              <Circle radius={11 / scale} fill="#ffffff" stroke="#c9a961" strokeWidth={2 / scale} shadowColor="rgba(0,0,0,0.25)" shadowBlur={4 / scale} />
-              <Text text="⇄" fontSize={13 / scale} fill="#3d2f22" offsetX={4 / scale} offsetY={7 / scale} listening={false} />
+              <Circle
+                radius={11 / scale}
+                fill="#ffffff"
+                stroke="#c9a961"
+                strokeWidth={2 / scale}
+                shadowColor="rgba(0,0,0,0.25)"
+                shadowBlur={4 / scale}
+              />
+              <Text
+                text="⇄"
+                fontSize={13 / scale}
+                fill="#3d2f22"
+                offsetX={4 / scale}
+                offsetY={7 / scale}
+                listening={false}
+              />
             </Group>
             {/* Flip swing handle — opposite side */}
             <Group
               x={cx - nxP * (w.thickness / 2 + 14 / scale)}
               y={cy - nyP * (w.thickness / 2 + 14 / scale)}
-              onMouseDown={(e) => { e.cancelBubble = true; s.flipOpeningSwing(o.id); }}
-              onTap={(e) => { e.cancelBubble = true; s.flipOpeningSwing(o.id); }}
+              onMouseDown={(e) => {
+                e.cancelBubble = true;
+                s.flipOpeningSwing(o.id);
+              }}
+              onTap={(e) => {
+                e.cancelBubble = true;
+                s.flipOpeningSwing(o.id);
+              }}
             >
-              <Circle radius={11 / scale} fill="#ffffff" stroke="#c9a961" strokeWidth={2 / scale} shadowColor="rgba(0,0,0,0.25)" shadowBlur={4 / scale} />
-              <Text text="⇅" fontSize={13 / scale} fill="#3d2f22" offsetX={4 / scale} offsetY={7 / scale} listening={false} />
+              <Circle
+                radius={11 / scale}
+                fill="#ffffff"
+                stroke="#c9a961"
+                strokeWidth={2 / scale}
+                shadowColor="rgba(0,0,0,0.25)"
+                shadowBlur={4 / scale}
+              />
+              <Text
+                text="⇅"
+                fontSize={13 / scale}
+                fill="#3d2f22"
+                offsetX={4 / scale}
+                offsetY={7 / scale}
+                listening={false}
+              />
             </Group>
           </>
         )}
         {isSel && (
           <>
             <Rect
-              x={cx - dx - 2 / scale} y={cy - dy - w.thickness / 2 - 2 / scale}
-              width={o.width + 4 / scale} height={w.thickness + 4 / scale}
+              x={cx - dx - 2 / scale}
+              y={cy - dy - w.thickness / 2 - 2 / scale}
+              width={o.width + 4 / scale}
+              height={w.thickness + 4 / scale}
               rotation={(ang * 180) / Math.PI}
-              stroke="#c9a961" strokeWidth={1 / scale} dash={[4 / scale, 3 / scale]} fill="transparent" listening={false}
+              stroke="#c9a961"
+              strokeWidth={1 / scale}
+              dash={[4 / scale, 3 / scale]}
+              fill="transparent"
+              listening={false}
             />
             {/* End resize handles — chevron arrows aligned with the wall axis */}
             {(["a", "b"] as const).map((end) => {
@@ -1164,8 +1635,23 @@ export function Canvas2D({ onExportRef }: Props) {
               const ey = end === "a" ? cy - dy : cy + dy;
               return (
                 <Group key={`h${end}`} x={ex} y={ey} listening={false}>
-                  <Circle radius={9 / scale} fill="#ffffff" stroke="#c9a961" strokeWidth={1.5 / scale} shadowColor="rgba(0,0,0,0.25)" shadowBlur={4 / scale} />
-                  <Text text="↔" fontSize={12 / scale} fontStyle="bold" fill="#3d2f22" offsetX={5 / scale} offsetY={6 / scale} rotation={(ang * 180) / Math.PI} />
+                  <Circle
+                    radius={9 / scale}
+                    fill="#ffffff"
+                    stroke="#c9a961"
+                    strokeWidth={1.5 / scale}
+                    shadowColor="rgba(0,0,0,0.25)"
+                    shadowBlur={4 / scale}
+                  />
+                  <Text
+                    text="↔"
+                    fontSize={12 / scale}
+                    fontStyle="bold"
+                    fill="#3d2f22"
+                    offsetX={5 / scale}
+                    offsetY={6 / scale}
+                    rotation={(ang * 180) / Math.PI}
+                  />
                 </Group>
               );
             })}
@@ -1199,27 +1685,66 @@ export function Canvas2D({ onExportRef }: Props) {
     const label = len >= 100 ? `${(len / 100).toFixed(2)} m` : `${Math.round(len)} cm`;
     let deg = (ang * 180) / Math.PI;
     let flipped = false;
-    if (deg > 90 || deg < -90) { deg += 180; flipped = true; }
+    if (deg > 90 || deg < -90) {
+      deg += 180;
+      flipped = true;
+    }
     const strokeCol = theme.dimension;
     // Label anchored near "start" end (leftmost when reading) — use a-side
     // Position label offset slightly outside from dim line
     const labelOffset = 8 / scale;
-    const lx = ax + nx * labelOffset + Math.cos(ang) * 6 / scale;
-    const ly = ay + ny * labelOffset + Math.sin(ang) * 6 / scale;
+    const lx = ax + nx * labelOffset + (Math.cos(ang) * 6) / scale;
+    const ly = ay + ny * labelOffset + (Math.sin(ang) * 6) / scale;
     return (
       <Group key={`d${w.id}`} listening={false}>
         {/* extension lines */}
-        <Line points={[w.a.x + nx * extFrom, w.a.y + ny * extFrom, ax + nx * (2 / scale), ay + ny * (2 / scale)]} stroke={strokeCol} strokeWidth={0.6 / scale} />
-        <Line points={[w.b.x + nx * extFrom, w.b.y + ny * extFrom, bx + nx * (2 / scale), by + ny * (2 / scale)]} stroke={strokeCol} strokeWidth={0.6 / scale} />
+        <Line
+          points={[
+            w.a.x + nx * extFrom,
+            w.a.y + ny * extFrom,
+            ax + nx * (2 / scale),
+            ay + ny * (2 / scale),
+          ]}
+          stroke={strokeCol}
+          strokeWidth={0.6 / scale}
+        />
+        <Line
+          points={[
+            w.b.x + nx * extFrom,
+            w.b.y + ny * extFrom,
+            bx + nx * (2 / scale),
+            by + ny * (2 / scale),
+          ]}
+          stroke={strokeCol}
+          strokeWidth={0.6 / scale}
+        />
         {/* dim line */}
         <Line points={[ax, ay, bx, by]} stroke={strokeCol} strokeWidth={0.8 / scale} />
         {/* end ticks (short 45° slashes typical of architectural drawings) */}
-        <Line points={[ax - Math.cos(ang) * tick + nx * tick, ay - Math.sin(ang) * tick + ny * tick, ax + Math.cos(ang) * tick - nx * tick, ay + Math.sin(ang) * tick - ny * tick]} stroke={strokeCol} strokeWidth={1 / scale} />
-        <Line points={[bx - Math.cos(ang) * tick + nx * tick, by - Math.sin(ang) * tick + ny * tick, bx + Math.cos(ang) * tick - nx * tick, by + Math.sin(ang) * tick - ny * tick]} stroke={strokeCol} strokeWidth={1 / scale} />
+        <Line
+          points={[
+            ax - Math.cos(ang) * tick + nx * tick,
+            ay - Math.sin(ang) * tick + ny * tick,
+            ax + Math.cos(ang) * tick - nx * tick,
+            ay + Math.sin(ang) * tick - ny * tick,
+          ]}
+          stroke={strokeCol}
+          strokeWidth={1 / scale}
+        />
+        <Line
+          points={[
+            bx - Math.cos(ang) * tick + nx * tick,
+            by - Math.sin(ang) * tick + ny * tick,
+            bx + Math.cos(ang) * tick - nx * tick,
+            by + Math.sin(ang) * tick - ny * tick,
+          ]}
+          stroke={strokeCol}
+          strokeWidth={1 / scale}
+        />
         {/* label */}
         <Text
-          x={flipped ? bx - Math.cos(ang) * 6 / scale + nx * labelOffset : lx}
-          y={flipped ? by - Math.sin(ang) * 6 / scale + ny * labelOffset : ly}
+          x={flipped ? bx - (Math.cos(ang) * 6) / scale + nx * labelOffset : lx}
+          y={flipped ? by - (Math.sin(ang) * 6) / scale + ny * labelOffset : ly}
           text={label}
           fontSize={11 / scale}
           fontFamily="JetBrains Mono"
@@ -1238,7 +1763,10 @@ export function Canvas2D({ onExportRef }: Props) {
     if (!showExteriorDims && !showInteriorDims) return null;
     if (plan.walls.length === 0) return null;
 
-    let cenMinX = Infinity, cenMinY = Infinity, cenMaxX = -Infinity, cenMaxY = -Infinity;
+    let cenMinX = Infinity,
+      cenMinY = Infinity,
+      cenMaxX = -Infinity,
+      cenMaxY = -Infinity;
     let maxT = 0;
     for (const w of plan.walls) {
       cenMinX = Math.min(cenMinX, w.a.x, w.b.x);
@@ -1257,7 +1785,8 @@ export function Canvas2D({ onExportRef }: Props) {
     const inMinY = cenMinY + maxT / 2;
     const inMaxY = cenMaxY - maxT / 2;
 
-    if (outMaxX <= outMinX || outMaxY <= outMinY || inMaxX <= inMinX || inMaxY <= inMinY) return null;
+    if (outMaxX <= outMinX || outMaxY <= outMinY || inMaxX <= inMinX || inMaxY <= inMinY)
+      return null;
 
     const col = theme.dimension;
     const nodes: React.ReactNode[] = [];
@@ -1270,19 +1799,66 @@ export function Canvas2D({ onExportRef }: Props) {
 
       const dir = yDim >= yFace ? 1 : -1;
       // extension lines stop exactly at the dim line (no overshoot)
-      nodes.push(<Line key={`e1${key}`} points={[x0, yFace + dir * gap, x0, yDim]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
-      nodes.push(<Line key={`e2${key}`} points={[x1, yFace + dir * gap, x1, yDim]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
-      nodes.push(<Line key={`d${key}`} points={[x0, yDim, x1, yDim]} stroke={col} strokeWidth={0.8 / scale} listening={false} />);
-      nodes.push(<Line key={`t1${key}`} points={[x0 - tick, yDim - tick, x0 + tick, yDim + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
-      nodes.push(<Line key={`t2${key}`} points={[x1 - tick, yDim - tick, x1 + tick, yDim + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
+      nodes.push(
+        <Line
+          key={`e1${key}`}
+          points={[x0, yFace + dir * gap, x0, yDim]}
+          stroke={col}
+          strokeWidth={0.5 / scale}
+          listening={false}
+        />,
+      );
+      nodes.push(
+        <Line
+          key={`e2${key}`}
+          points={[x1, yFace + dir * gap, x1, yDim]}
+          stroke={col}
+          strokeWidth={0.5 / scale}
+          listening={false}
+        />,
+      );
+      nodes.push(
+        <Line
+          key={`d${key}`}
+          points={[x0, yDim, x1, yDim]}
+          stroke={col}
+          strokeWidth={0.8 / scale}
+          listening={false}
+        />,
+      );
+      nodes.push(
+        <Line
+          key={`t1${key}`}
+          points={[x0 - tick, yDim - tick, x0 + tick, yDim + tick]}
+          stroke={col}
+          strokeWidth={1 / scale}
+          listening={false}
+        />,
+      );
+      nodes.push(
+        <Line
+          key={`t2${key}`}
+          points={[x1 - tick, yDim - tick, x1 + tick, yDim + tick]}
+          stroke={col}
+          strokeWidth={1 / scale}
+          listening={false}
+        />,
+      );
       // centered label placed just OUTSIDE the dim line (opposite side from the wall)
       const labelY = dir > 0 ? yDim + 5 / scale : yDim - 17 / scale;
       nodes.push(
-        <Text key={`x${key}`}
+        <Text
+          key={`x${key}`}
           x={(x0 + x1) / 2 - 80 / scale}
           y={labelY}
-          width={160 / scale} align="center" text={label}
-          fontSize={11 / scale} fontFamily="JetBrains Mono" fill={col} listening={false} />
+          width={160 / scale}
+          align="center"
+          text={label}
+          fontSize={11 / scale}
+          fontFamily="JetBrains Mono"
+          fill={col}
+          listening={false}
+        />,
       );
     };
 
@@ -1291,20 +1867,67 @@ export function Canvas2D({ onExportRef }: Props) {
       const label = `${Math.round(len)}`;
 
       const dir = xDim >= xFace ? 1 : -1;
-      nodes.push(<Line key={`e1${key}`} points={[xFace + dir * gap, y0, xDim, y0]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
-      nodes.push(<Line key={`e2${key}`} points={[xFace + dir * gap, y1, xDim, y1]} stroke={col} strokeWidth={0.5 / scale} listening={false} />);
-      nodes.push(<Line key={`d${key}`} points={[xDim, y0, xDim, y1]} stroke={col} strokeWidth={0.8 / scale} listening={false} />);
-      nodes.push(<Line key={`t1${key}`} points={[xDim - tick, y0 - tick, xDim + tick, y0 + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
-      nodes.push(<Line key={`t2${key}`} points={[xDim - tick, y1 - tick, xDim + tick, y1 + tick]} stroke={col} strokeWidth={1 / scale} listening={false} />);
+      nodes.push(
+        <Line
+          key={`e1${key}`}
+          points={[xFace + dir * gap, y0, xDim, y0]}
+          stroke={col}
+          strokeWidth={0.5 / scale}
+          listening={false}
+        />,
+      );
+      nodes.push(
+        <Line
+          key={`e2${key}`}
+          points={[xFace + dir * gap, y1, xDim, y1]}
+          stroke={col}
+          strokeWidth={0.5 / scale}
+          listening={false}
+        />,
+      );
+      nodes.push(
+        <Line
+          key={`d${key}`}
+          points={[xDim, y0, xDim, y1]}
+          stroke={col}
+          strokeWidth={0.8 / scale}
+          listening={false}
+        />,
+      );
+      nodes.push(
+        <Line
+          key={`t1${key}`}
+          points={[xDim - tick, y0 - tick, xDim + tick, y0 + tick]}
+          stroke={col}
+          strokeWidth={1 / scale}
+          listening={false}
+        />,
+      );
+      nodes.push(
+        <Line
+          key={`t2${key}`}
+          points={[xDim - tick, y1 - tick, xDim + tick, y1 + tick]}
+          stroke={col}
+          strokeWidth={1 / scale}
+          listening={false}
+        />,
+      );
       // rotated -90° text placed just OUTSIDE the dim line
       const labelX = dir > 0 ? xDim + 5 / scale : xDim - 17 / scale;
       nodes.push(
-        <Text key={`x${key}`}
+        <Text
+          key={`x${key}`}
           x={labelX}
           y={(y0 + y1) / 2 + 80 / scale}
           rotation={-90}
-          width={160 / scale} align="center" text={label}
-          fontSize={11 / scale} fontFamily="JetBrains Mono" fill={col} listening={false} />
+          width={160 / scale}
+          align="center"
+          text={label}
+          fontSize={11 / scale}
+          fontFamily="JetBrains Mono"
+          fill={col}
+          listening={false}
+        />,
       );
     };
 
@@ -1328,22 +1951,32 @@ export function Canvas2D({ onExportRef }: Props) {
     const isSel = isSelected("furniture", f.id);
     const strokeColor = isSel ? "#c9a961" : theme.furnitureStroke;
     return (
-      <Group
-        key={f.id} x={f.x} y={f.y} rotation={f.rotation}
-        listening={false}
-      >
+      <Group key={f.id} x={f.x} y={f.y} rotation={f.rotation} listening={false}>
         <FurnitureShape2D f={f} strokeColor={strokeColor} />
         {isSel && (
           <>
             <Rect
-              x={-f.width / 2 - 2 / scale} y={-f.height / 2 - 2 / scale} width={f.width + 4 / scale} height={f.height + 4 / scale}
-              stroke="#c9a961" strokeWidth={1.5 / scale} dash={[6 / scale, 4 / scale]} listening={false}
+              x={-f.width / 2 - 2 / scale}
+              y={-f.height / 2 - 2 / scale}
+              width={f.width + 4 / scale}
+              height={f.height + 4 / scale}
+              stroke="#c9a961"
+              strokeWidth={1.5 / scale}
+              dash={[6 / scale, 4 / scale]}
+              listening={false}
             />
-            {([[-1, -1, "nw"], [1, -1, "ne"], [1, 1, "se"], [-1, 1, "sw"]] as const).map(([sx, sy, key]) => (
+            {(
+              [
+                [-1, -1, "nw"],
+                [1, -1, "ne"],
+                [1, 1, "se"],
+                [-1, 1, "sw"],
+              ] as const
+            ).map(([sx, sy, key]) => (
               <Rect
                 key={key}
-                x={sx * f.width / 2 - 5 / scale}
-                y={sy * f.height / 2 - 5 / scale}
+                x={(sx * f.width) / 2 - 5 / scale}
+                y={(sy * f.height) / 2 - 5 / scale}
                 width={10 / scale}
                 height={10 / scale}
                 fill="#ffffff"
@@ -1353,8 +1986,21 @@ export function Canvas2D({ onExportRef }: Props) {
                 listening={false}
               />
             ))}
-            <Line points={[0, -f.height / 2, 0, -f.height / 2 - 22 / scale]} stroke="#c9a961" strokeWidth={1 / scale} listening={false} />
-            <Circle x={0} y={-f.height / 2 - 28 / scale} radius={6 / scale} fill="#ffffff" stroke="#c9a961" strokeWidth={1.5 / scale} listening={false} />
+            <Line
+              points={[0, -f.height / 2, 0, -f.height / 2 - 22 / scale]}
+              stroke="#c9a961"
+              strokeWidth={1 / scale}
+              listening={false}
+            />
+            <Circle
+              x={0}
+              y={-f.height / 2 - 28 / scale}
+              radius={6 / scale}
+              fill="#ffffff"
+              stroke="#c9a961"
+              strokeWidth={1.5 / scale}
+              listening={false}
+            />
           </>
         )}
       </Group>
@@ -1374,13 +2020,28 @@ export function Canvas2D({ onExportRef }: Props) {
           stroke={isSel ? "#c9a961" : "#d94747"}
           strokeWidth={2 / scale}
           dash={[18 / scale, 6 / scale, 2 / scale, 6 / scale]}
-          onClick={(e) => tool === "select" && selectItem({ type: "section", id: sec.id }, e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey)}
+          onClick={(e) =>
+            tool === "select" &&
+            selectItem(
+              { type: "section", id: sec.id },
+              e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey,
+            )
+          }
           hitStrokeWidth={20 / scale}
         />
         {[sec.a, sec.b].map((p, i) => (
           <Group key={i} x={p.x + nx * off} y={p.y + ny * off}>
             <Circle radius={9 / scale} fill="#d94747" stroke="#fff" strokeWidth={1 / scale} />
-            <Text text={sec.name + (i === 0 ? "" : "'")} fontSize={11 / scale} fontFamily="Inter" fontStyle="bold" fill="#fff" offsetX={4 / scale} offsetY={5.5 / scale} listening={false} />
+            <Text
+              text={sec.name + (i === 0 ? "" : "'")}
+              fontSize={11 / scale}
+              fontFamily="Inter"
+              fontStyle="bold"
+              fill="#fff"
+              offsetX={4 / scale}
+              offsetY={5.5 / scale}
+              listening={false}
+            />
           </Group>
         ))}
       </Group>
@@ -1388,17 +2049,40 @@ export function Canvas2D({ onExportRef }: Props) {
   };
 
   const previewLine =
-    tool === "wall" && drawing?.length && cursor
-      ? (<Line points={[drawing[drawing.length - 1].x, drawing[drawing.length - 1].y, cursor.x, cursor.y]} stroke="#c9a961" strokeWidth={s.wallSettings[s.currentWallType].thickness} opacity={0.4} dash={[8, 6]} listening={false} />)
-      : null;
+    tool === "wall" && drawing?.length && cursor ? (
+      <Line
+        points={[drawing[drawing.length - 1].x, drawing[drawing.length - 1].y, cursor.x, cursor.y]}
+        stroke="#c9a961"
+        strokeWidth={s.wallSettings[s.currentWallType].thickness}
+        opacity={0.4}
+        dash={[8, 6]}
+        listening={false}
+      />
+    ) : null;
   const previewRect =
-    tool === "rectangle" && rectStart && cursor
-      ? (<Rect x={Math.min(rectStart.x, cursor.x)} y={Math.min(rectStart.y, cursor.y)} width={Math.abs(cursor.x - rectStart.x)} height={Math.abs(cursor.y - rectStart.y)} stroke="#c9a961" strokeWidth={2 / scale} dash={[6 / scale, 4 / scale]} fill="rgba(201,169,97,0.06)" listening={false} />)
-      : null;
+    tool === "rectangle" && rectStart && cursor ? (
+      <Rect
+        x={Math.min(rectStart.x, cursor.x)}
+        y={Math.min(rectStart.y, cursor.y)}
+        width={Math.abs(cursor.x - rectStart.x)}
+        height={Math.abs(cursor.y - rectStart.y)}
+        stroke="#c9a961"
+        strokeWidth={2 / scale}
+        dash={[6 / scale, 4 / scale]}
+        fill="rgba(201,169,97,0.06)"
+        listening={false}
+      />
+    ) : null;
   const previewSection =
-    tool === "section" && sectionStart && cursor
-      ? (<Line points={[sectionStart.x, sectionStart.y, cursor.x, cursor.y]} stroke="#d94747" strokeWidth={2 / scale} dash={[18 / scale, 6 / scale, 2 / scale, 6 / scale]} listening={false} />)
-      : null;
+    tool === "section" && sectionStart && cursor ? (
+      <Line
+        points={[sectionStart.x, sectionStart.y, cursor.x, cursor.y]}
+        stroke="#d94747"
+        strokeWidth={2 / scale}
+        dash={[18 / scale, 6 / scale, 2 / scale, 6 / scale]}
+        listening={false}
+      />
+    ) : null;
 
   useEffect(() => {
     if (!onExportRef) return;
@@ -1409,7 +2093,8 @@ export function Canvas2D({ onExportRef }: Props) {
     });
   }, [onExportRef]);
 
-  const selectedWall = selection?.type === "wall" ? plan.walls.find((w) => w.id === selection.id) : null;
+  const selectedWall =
+    selection?.type === "wall" ? plan.walls.find((w) => w.id === selection.id) : null;
 
   // Cursor hint based on what's under the pointer (select mode only).
   const cursorStyle = (() => {
@@ -1434,14 +2119,19 @@ export function Canvas2D({ onExportRef }: Props) {
         // Direction hint based on wall orientation.
         const ang = wallAngle(wh.wall);
         const deg = Math.abs((ang * 180) / Math.PI) % 180;
-        return deg < 22 || deg > 158 ? "ew-resize" : deg > 68 && deg < 112 ? "ns-resize" : "nwse-resize";
+        return deg < 22 || deg > 158
+          ? "ew-resize"
+          : deg > 68 && deg < 112
+            ? "ns-resize"
+            : "nwse-resize";
       }
       return "move";
     }
     return "default";
   })();
 
-  const stageDraggable = (spaceDown || tool === "select") && !dragHandle && !openingDrag && !moveDrag && !furnitureTransform && !selectionRect;
+  const stageDraggable =
+    spaceDown && !dragHandle && !openingDrag && !moveDrag && !furnitureTransform && !selectionRect;
 
   return (
     <div
@@ -1460,16 +2150,30 @@ export function Canvas2D({ onExportRef }: Props) {
             const ang = wallAngle(hit.wall);
             const cx = hit.wall.a.x + Math.cos(ang) * wallLength(hit.wall) * hit.t;
             const cy = hit.wall.a.y + Math.sin(ang) * wallLength(hit.wall) * hit.t;
-            setDragPreview({ kind: "opening", pos: { x: cx, y: cy }, width: 100, height: hit.wall.thickness, wallId: hit.wall.id });
+            setDragPreview({
+              kind: "opening",
+              pos: { x: cx, y: cy },
+              width: 100,
+              height: hit.wall.thickness,
+              wallId: hit.wall.id,
+            });
           } else {
             setDragPreview({ kind: "opening", pos: world, width: 100, height: 30 });
           }
         } else if (types.includes("application/x-furniture")) {
-          setDragPreview({ kind: "furniture", pos: snapFurnitureToWalls(world, 60, 60), width: 60, height: 60 });
+          setDragPreview({
+            kind: "furniture",
+            pos: snapEnabled ? snapPoint(world, grid / 2) : world,
+            width: 60,
+            height: 60,
+          });
         }
       }}
       onDragLeave={() => setDragPreview(null)}
-      onDrop={(e) => { setDragPreview(null); onDropHtml(e); }}
+      onDrop={(e) => {
+        setDragPreview(null);
+        onDropHtml(e);
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         const rect = containerRef.current?.getBoundingClientRect();
@@ -1493,36 +2197,71 @@ export function Canvas2D({ onExportRef }: Props) {
     >
       <Stage
         ref={stageRef}
-        width={size.w} height={size.h}
-        scaleX={scale} scaleY={scale} x={pos.x} y={pos.y}
+        width={size.w}
+        height={size.h}
+        scaleX={scale}
+        scaleY={scale}
+        x={pos.x}
+        y={pos.y}
         draggable={stageDraggable}
         onDragStart={(e) => {
           if (e.target !== e.target.getStage() || e.evt.shiftKey) {
             e.target.stopDrag();
           }
         }}
-        onDragEnd={(e) => { if (e.target === e.target.getStage()) setPos({ x: e.target.x(), y: e.target.y() }); }}
-        onWheel={onWheel} onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onDblClick={onDblClick}
+        onDragEnd={(e) => {
+          if (e.target === e.target.getStage()) setPos({ x: e.target.x(), y: e.target.y() });
+        }}
+        onWheel={onWheel}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onDblClick={onDblClick}
       >
-
         <Layer listening={false}>{gridLines}</Layer>
         <Layer>
           {floorRect && (
-            <Rect x={floorRect.x} y={floorRect.y} width={floorRect.w} height={floorRect.h} fill={theme.floor} listening={false} />
+            <Rect
+              x={floorRect.x}
+              y={floorRect.y}
+              width={floorRect.w}
+              height={floorRect.h}
+              fill={theme.floor}
+              listening={false}
+            />
           )}
           {plan.furniture.map(renderFurniture)}
           {plan.walls.map(renderWall)}
           {/* square junction patches: clean architectural corners, no rounded wall caps */}
           {junctions.map((j, i) => (
-            <Rect key={`j${i}`} x={j.p.x - j.radius} y={j.p.y - j.radius} width={j.radius * 2} height={j.radius * 2} fill={theme.wallFill} listening={false} />
+            <Rect
+              key={`j${i}`}
+              x={j.p.x - j.radius}
+              y={j.p.y - j.radius}
+              width={j.radius * 2}
+              height={j.radius * 2}
+              fill={theme.wallFill}
+              listening={false}
+            />
           ))}
           {plan.openings.map(renderOpening)}
           {showDimensions && plan.walls.map(renderDim)}
           {perimeterDims}
           {plan.sections.map(renderSection)}
-          {previewLine}{previewRect}{previewSection}
+          {previewLine}
+          {previewRect}
+          {previewSection}
           {plan.labels.map((l) => (
-            <Text key={l.id} x={l.x} y={l.y} text={l.text} fontSize={16} fontFamily="Fraunces" fill={theme.dimension} listening={false} />
+            <Text
+              key={l.id}
+              x={l.x}
+              y={l.y}
+              text={l.text}
+              fontSize={16}
+              fontFamily="Fraunces"
+              fill={theme.dimension}
+              listening={false}
+            />
           ))}
           {drawing?.map((p, i) => (
             <Circle key={i} x={p.x} y={p.y} radius={4 / scale} fill="#c9a961" listening={false} />
@@ -1535,10 +2274,12 @@ export function Canvas2D({ onExportRef }: Props) {
                 return (
                   <Circle
                     key={end}
-                    x={pt.x} y={pt.y}
+                    x={pt.x}
+                    y={pt.y}
                     radius={5 / scale}
                     fill="#c9a961"
-                    stroke="#ffffff" strokeWidth={1.5 / scale}
+                    stroke="#ffffff"
+                    strokeWidth={1.5 / scale}
                     listening={false}
                   />
                 );
@@ -1553,67 +2294,107 @@ export function Canvas2D({ onExportRef }: Props) {
               listening={false}
             >
               <Rect
-                x={-32 / scale} y={-9 / scale}
-                width={64 / scale} height={18 / scale}
-                fill="#1a1a1a" cornerRadius={3 / scale}
+                x={-32 / scale}
+                y={-9 / scale}
+                width={64 / scale}
+                height={18 / scale}
+                fill="#1a1a1a"
+                cornerRadius={3 / scale}
               />
               <Text
                 text={`${(wallLength(selectedWall) / 100).toFixed(2)} m`}
-                fontSize={11 / scale} fontFamily="JetBrains Mono"
-                fill="#ffffff" width={64 / scale} align="center"
-                x={-32 / scale} y={-6 / scale}
+                fontSize={11 / scale}
+                fontFamily="JetBrains Mono"
+                fill="#ffffff"
+                width={64 / scale}
+                align="center"
+                x={-32 / scale}
+                y={-6 / scale}
               />
             </Group>
           )}
           {/* Live width badge during opening drag */}
-          {openingDrag && (() => {
-            const op = plan.openings.find((o) => o.id === openingDrag.openingId);
-            const w = plan.walls.find((ww) => ww.id === (op?.wallId ?? ""));
-            if (!op || !w) return null;
-            const len = wallLength(w);
-            const cx = w.a.x + (w.b.x - w.a.x) * op.t;
-            const cy = w.a.y + (w.b.y - w.a.y) * op.t;
-            const label = openingDrag.mode === "move"
-              ? `${Math.round(op.t * len)} / ${Math.round(len)} cm`
-              : `${Math.round(op.width)} cm`;
-            return (
-              <Group x={cx} y={cy - 30 / scale} listening={false}>
-                <Rect x={-42 / scale} y={-9 / scale} width={84 / scale} height={18 / scale} fill="#1a1a1a" cornerRadius={3 / scale} />
-                <Text text={label} fontSize={11 / scale} fontFamily="JetBrains Mono" fill="#ffffff" width={84 / scale} align="center" x={-42 / scale} y={-6 / scale} />
-              </Group>
-            );
-          })()}
+          {openingDrag &&
+            (() => {
+              const op = plan.openings.find((o) => o.id === openingDrag.openingId);
+              const w = plan.walls.find((ww) => ww.id === (op?.wallId ?? ""));
+              if (!op || !w) return null;
+              const len = wallLength(w);
+              const cx = w.a.x + (w.b.x - w.a.x) * op.t;
+              const cy = w.a.y + (w.b.y - w.a.y) * op.t;
+              const label =
+                openingDrag.mode === "move"
+                  ? `${Math.round(op.t * len)} / ${Math.round(len)} cm`
+                  : `${Math.round(op.width)} cm`;
+              return (
+                <Group x={cx} y={cy - 30 / scale} listening={false}>
+                  <Rect
+                    x={-42 / scale}
+                    y={-9 / scale}
+                    width={84 / scale}
+                    height={18 / scale}
+                    fill="#1a1a1a"
+                    cornerRadius={3 / scale}
+                  />
+                  <Text
+                    text={label}
+                    fontSize={11 / scale}
+                    fontFamily="JetBrains Mono"
+                    fill="#ffffff"
+                    width={84 / scale}
+                    align="center"
+                    x={-42 / scale}
+                    y={-6 / scale}
+                  />
+                </Group>
+              );
+            })()}
           {/* Drag preview overlay — shows where the item will land */}
-          {dragPreview && dragPreview.kind === "opening" && dragPreview.wallId && (() => {
-            const w = plan.walls.find((ww) => ww.id === dragPreview.wallId);
-            if (!w) return null;
-            const ang = wallAngle(w);
-            return (
-              <>
-                <Line
-                  points={[w.a.x, w.a.y, w.b.x, w.b.y]}
-                  stroke="#c9a961" strokeWidth={w.thickness + 4 / scale}
-                  opacity={0.28} lineCap="butt" listening={false}
-                />
-                <Rect
-                  x={dragPreview.pos.x - dragPreview.width / 2}
-                  y={dragPreview.pos.y - w.thickness / 2}
-                  width={dragPreview.width} height={w.thickness}
-                  rotation={(ang * 180) / Math.PI}
-                  offsetX={0} offsetY={0}
-                  stroke="#c9a961" strokeWidth={1.5 / scale} dash={[6 / scale, 4 / scale]}
-                  fill="rgba(201,169,97,0.15)" listening={false}
-                />
-              </>
-            );
-          })()}
+          {dragPreview &&
+            dragPreview.kind === "opening" &&
+            dragPreview.wallId &&
+            (() => {
+              const w = plan.walls.find((ww) => ww.id === dragPreview.wallId);
+              if (!w) return null;
+              const ang = wallAngle(w);
+              return (
+                <>
+                  <Line
+                    points={[w.a.x, w.a.y, w.b.x, w.b.y]}
+                    stroke="#c9a961"
+                    strokeWidth={w.thickness + 4 / scale}
+                    opacity={0.28}
+                    lineCap="butt"
+                    listening={false}
+                  />
+                  <Rect
+                    x={dragPreview.pos.x - dragPreview.width / 2}
+                    y={dragPreview.pos.y - w.thickness / 2}
+                    width={dragPreview.width}
+                    height={w.thickness}
+                    rotation={(ang * 180) / Math.PI}
+                    offsetX={0}
+                    offsetY={0}
+                    stroke="#c9a961"
+                    strokeWidth={1.5 / scale}
+                    dash={[6 / scale, 4 / scale]}
+                    fill="rgba(201,169,97,0.15)"
+                    listening={false}
+                  />
+                </>
+              );
+            })()}
           {dragPreview && dragPreview.kind === "furniture" && (
             <Rect
               x={dragPreview.pos.x - dragPreview.width / 2}
               y={dragPreview.pos.y - dragPreview.height / 2}
-              width={dragPreview.width} height={dragPreview.height}
-              stroke="#c9a961" strokeWidth={1.5 / scale} dash={[6 / scale, 4 / scale]}
-              fill="rgba(201,169,97,0.12)" listening={false}
+              width={dragPreview.width}
+              height={dragPreview.height}
+              stroke="#c9a961"
+              strokeWidth={1.5 / scale}
+              dash={[6 / scale, 4 / scale]}
+              fill="rgba(201,169,97,0.12)"
+              listening={false}
             />
           )}
 
@@ -1632,21 +2413,21 @@ export function Canvas2D({ onExportRef }: Props) {
           )}
 
           {/* Wall highlight during opening transfer */}
-          {hoverWallForDrop && (() => {
-            const w = plan.walls.find((ww) => ww.id === hoverWallForDrop);
-            if (!w) return null;
-            return (
-              <Line
-                points={[w.a.x, w.a.y, w.b.x, w.b.y]}
-                stroke="#c9a961"
-                strokeWidth={w.thickness + 4 / scale}
-                opacity={0.35}
-                lineCap="butt"
-                listening={false}
-              />
-            );
-          })()}
-
+          {hoverWallForDrop &&
+            (() => {
+              const w = plan.walls.find((ww) => ww.id === hoverWallForDrop);
+              if (!w) return null;
+              return (
+                <Line
+                  points={[w.a.x, w.a.y, w.b.x, w.b.y]}
+                  stroke="#c9a961"
+                  strokeWidth={w.thickness + 4 / scale}
+                  opacity={0.35}
+                  lineCap="butt"
+                  listening={false}
+                />
+              );
+            })()}
         </Layer>
       </Stage>
 
@@ -1659,56 +2440,137 @@ export function Canvas2D({ onExportRef }: Props) {
 
       {contextMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }} />
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setContextMenu(null);
+            }}
+          />
           <div
             className="absolute z-50 min-w-[200px] rounded-md border border-border bg-card/95 py-1 text-xs shadow-panel backdrop-blur"
             style={{ left: contextMenu.screen.x, top: contextMenu.screen.y }}
             onContextMenu={(e) => e.preventDefault()}
           >
-            {contextMenu.target ? (() => {
-              const t = contextMenu.target;
-              const furn = t.type === "furniture" ? plan.furniture.find((x) => x.id === t.id) : null;
-              const op = t.type === "opening" ? plan.openings.find((x) => x.id === t.id) : null;
-              const close = () => setContextMenu(null);
-              const Item = ({ label, onClick, danger }: { label: string; onClick: () => void; danger?: boolean }) => (
-                <button
-                  onClick={() => { onClick(); close(); }}
-                  className={`flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-brass/10 ${danger ? "text-destructive" : ""}`}
-                >{label}</button>
-              );
-              return (
-                <>
-                  <Item label="Dupliquer" onClick={() => s.duplicateItems([t])} />
-                  <Item label="Copier" onClick={() => { clipboardRef.current = [t]; }} />
-                  {furn && (
-                    <>
-                      <div className="my-1 h-px bg-border" />
-                      <Item label="Pivoter 90°" onClick={() => updateFurniture(furn.id, { rotation: (furn.rotation + 90) % 360 })} />
-                      <Item label="Retourner 180°" onClick={() => updateFurniture(furn.id, { rotation: (furn.rotation + 180) % 360 })} />
-                      <Item label={furn.locked ? "Déverrouiller" : "Verrouiller"} onClick={() => updateFurniture(furn.id, { locked: !furn.locked })} />
-                      <Item label={furn.anchorToWall ? "Détacher du mur" : "Ancrer au mur"} onClick={() => updateFurniture(furn.id, { anchorToWall: !furn.anchorToWall })} />
-                    </>
-                  )}
-                  {op && op.type === "door" && (
-                    <>
-                      <div className="my-1 h-px bg-border" />
-                      <Item label="Inverser charnière" onClick={() => s.flipOpeningHinge(op.id)} />
-                      <Item label="Inverser sens" onClick={() => s.flipOpeningSwing(op.id)} />
-                    </>
-                  )}
-                  <div className="my-1 h-px bg-border" />
-                  <Item label="Supprimer" danger onClick={() => deleteSelected()} />
-                </>
-              );
-            })() : (
+            {contextMenu.target ? (
+              (() => {
+                const t = contextMenu.target;
+                const furn =
+                  t.type === "furniture" ? plan.furniture.find((x) => x.id === t.id) : null;
+                const op = t.type === "opening" ? plan.openings.find((x) => x.id === t.id) : null;
+                const close = () => setContextMenu(null);
+                const Item = ({
+                  label,
+                  onClick,
+                  danger,
+                }: {
+                  label: string;
+                  onClick: () => void;
+                  danger?: boolean;
+                }) => (
+                  <button
+                    onClick={() => {
+                      onClick();
+                      close();
+                    }}
+                    className={`flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-brass/10 ${danger ? "text-destructive" : ""}`}
+                  >
+                    {label}
+                  </button>
+                );
+                return (
+                  <>
+                    <Item label="Dupliquer" onClick={() => s.duplicateItems([t])} />
+                    <Item
+                      label="Copier"
+                      onClick={() => {
+                        clipboardRef.current = [t];
+                      }}
+                    />
+                    {furn && (
+                      <>
+                        <div className="my-1 h-px bg-border" />
+                        <Item
+                          label="Pivoter 90°"
+                          onClick={() =>
+                            updateFurniture(furn.id, { rotation: (furn.rotation + 90) % 360 })
+                          }
+                        />
+                        <Item
+                          label="Retourner 180°"
+                          onClick={() =>
+                            updateFurniture(furn.id, { rotation: (furn.rotation + 180) % 360 })
+                          }
+                        />
+                        <Item
+                          label={furn.locked ? "Déverrouiller" : "Verrouiller"}
+                          onClick={() => updateFurniture(furn.id, { locked: !furn.locked })}
+                        />
+                        <Item
+                          label={furn.anchorToWall ? "Détacher du mur" : "Ancrer au mur"}
+                          onClick={() =>
+                            updateFurniture(furn.id, { anchorToWall: !furn.anchorToWall })
+                          }
+                        />
+                      </>
+                    )}
+                    {op && op.type === "door" && (
+                      <>
+                        <div className="my-1 h-px bg-border" />
+                        <Item
+                          label="Inverser charnière"
+                          onClick={() => s.flipOpeningHinge(op.id)}
+                        />
+                        <Item label="Inverser sens" onClick={() => s.flipOpeningSwing(op.id)} />
+                      </>
+                    )}
+                    <div className="my-1 h-px bg-border" />
+                    <Item label="Supprimer" danger onClick={() => deleteSelected()} />
+                  </>
+                );
+              })()
+            ) : (
               <>
-                <button onClick={() => { setTool("wall"); setContextMenu(null); }} className="flex w-full px-3 py-1.5 text-left hover:bg-brass/10">Tracer un mur</button>
-                <button onClick={() => { setTool("rectangle"); setContextMenu(null); }} className="flex w-full px-3 py-1.5 text-left hover:bg-brass/10">Créer une pièce</button>
-                <button onClick={() => { setTool("section"); setContextMenu(null); }} className="flex w-full px-3 py-1.5 text-left hover:bg-brass/10">Ligne de coupe</button>
+                <button
+                  onClick={() => {
+                    setTool("wall");
+                    setContextMenu(null);
+                  }}
+                  className="flex w-full px-3 py-1.5 text-left hover:bg-brass/10"
+                >
+                  Tracer un mur
+                </button>
+                <button
+                  onClick={() => {
+                    setTool("rectangle");
+                    setContextMenu(null);
+                  }}
+                  className="flex w-full px-3 py-1.5 text-left hover:bg-brass/10"
+                >
+                  Créer une pièce
+                </button>
+                <button
+                  onClick={() => {
+                    setTool("section");
+                    setContextMenu(null);
+                  }}
+                  className="flex w-full px-3 py-1.5 text-left hover:bg-brass/10"
+                >
+                  Ligne de coupe
+                </button>
                 {clipboardRef.current.length > 0 && (
                   <>
                     <div className="my-1 h-px bg-border" />
-                    <button onClick={() => { s.duplicateItems(clipboardRef.current); setContextMenu(null); }} className="flex w-full px-3 py-1.5 text-left hover:bg-brass/10">Coller</button>
+                    <button
+                      onClick={() => {
+                        s.duplicateItems(clipboardRef.current);
+                        setContextMenu(null);
+                      }}
+                      className="flex w-full px-3 py-1.5 text-left hover:bg-brass/10"
+                    >
+                      Coller
+                    </button>
                   </>
                 )}
               </>
