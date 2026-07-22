@@ -110,7 +110,7 @@ export async function getCurrentMember(): Promise<FloorWhisperMember | null> {
     return {
       id: "temp-residale-config-access",
       email: TEMP_ACCESS_EMAIL,
-      display_name: "Accès temporaire Residale Config",
+      display_name: "Accès temporaire CONFIGURATOR",
       role_key: "temp_admin",
       is_admin: true,
     };

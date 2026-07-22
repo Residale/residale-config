@@ -61,7 +61,7 @@ export function renderSectionPNG(
 
     // Background
     layer.add(
-      new Konva.Rect({ x: 0, y: 0, width: opts.width, height: opts.height, fill: "#faf8f2" }),
+      new Konva.Rect({ x: 0, y: 0, width: opts.width, height: opts.height, fill: "#ffffff" }),
     );
 
     // Ground
@@ -182,7 +182,7 @@ export function renderSectionPNG(
           y: toY(c.height),
           width: (c.end - c.start) * s,
           height: openH * s,
-          fill: "#faf8f2",
+          fill: "#ffffff",
           stroke: theme.openingStroke,
           strokeWidth: 1,
         }),
@@ -352,7 +352,7 @@ export async function exportDossierPDF({
     doc.text(projectName, margin + 3, y + 5);
     doc.setFontSize(7);
     doc.setTextColor(120);
-    doc.text(`Residale Config — Residale · ${date}`, margin + 3, y + 9);
+    doc.text(`CONFIGURATOR — Residale · ${date}`, margin + 3, y + 9);
     doc.setFontSize(9);
     doc.setTextColor(60);
     doc.text(pageTitle, margin + contentW * 0.5 + 3, y + 7);

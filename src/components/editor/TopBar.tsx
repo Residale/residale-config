@@ -1,4 +1,5 @@
 import { useEditor } from "@/lib/editor/store";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function TopBar({
   onBackToPlans,
@@ -23,13 +24,13 @@ export function TopBar({
         {onBackToPlans && (
           <button
             onClick={onBackToPlans}
-            className="rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-muted-foreground hover:border-brass hover:text-ink"
+            className="rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-muted-foreground hover:border-ring/40 hover:text-foreground"
             title="Retour à mes plans"
           >
             Mes plans
           </button>
         )}
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-paper">
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -41,9 +42,9 @@ export function TopBar({
           </svg>
         </div>
         <div className="flex flex-col leading-tight">
-          <span className="font-display text-sm">Floor</span>
+          <span className="text-sm font-semibold tracking-wide">CONFIGURATOR</span>
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            Whisper
+            Residale
           </span>
         </div>
         <div className="mx-3 h-6 w-px bg-border" />
@@ -51,7 +52,7 @@ export function TopBar({
           <input
             value={projectName}
             onChange={(e) => setProjectName(e.target.value)}
-            className="w-56 rounded bg-transparent px-2 py-1 text-sm font-medium outline-none hover:bg-brass/5 focus:bg-brass/5"
+            className="w-56 rounded bg-transparent px-2 py-1 text-sm font-medium outline-none hover:bg-muted focus:bg-muted"
           />
           <span className="px-2 text-[9px] uppercase tracking-widest text-muted-foreground">
             Sauvegarde auto
@@ -64,7 +65,7 @@ export function TopBar({
           <button
             key={v}
             onClick={() => setView(v)}
-            className={`rounded px-3 py-1 text-xs font-medium transition-colors ${view === v ? "bg-ink text-paper" : "text-muted-foreground hover:text-ink"}`}
+            className={`rounded px-3 py-1 text-xs font-medium transition-colors ${view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
           >
             {v === "2d" ? "Plan 2D" : v === "3d" ? "Vue 3D" : v === "section" ? "Coupes" : "Split"}
           </button>
@@ -93,7 +94,7 @@ export function TopBar({
         </IconBtn>
         <button
           onClick={onExportPNG}
-          className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-ink transition-colors hover:border-brass hover:bg-brass/5"
+          className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-ring/40 hover:bg-muted"
           title="Exporter la vue courante en PNG"
         >
           <svg
@@ -111,7 +112,7 @@ export function TopBar({
         </button>
         <button
           onClick={onExportArchitectSheet}
-          className="flex items-center gap-1.5 rounded-md border border-brass/50 bg-brass/10 px-2.5 py-1.5 text-xs font-medium text-ink transition-colors hover:border-brass hover:bg-brass/20"
+          className="flex items-center gap-1.5 rounded-md border border-accent/50 bg-accent/10 px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-accent hover:bg-accent/20"
           title="Exporter une feuille architecte AURA avec plan, façades, cotes et cartouche"
         >
           <svg
@@ -130,7 +131,7 @@ export function TopBar({
         </button>
         <button
           onClick={onExportDossier}
-          className="ml-1 flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-paper transition-colors hover:bg-ink/85"
+          className="ml-1 flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           title="Télécharger le dossier PDF complet (plan 2D, coupes, 3D, tableau des surfaces)"
         >
           <svg
@@ -164,6 +165,8 @@ export function TopBar({
             <path d="M6 6l1 14h10l1-14" />
           </svg>
         </button>
+        <div className="mx-1 h-6 w-px bg-border" />
+        <ThemeToggle />
       </div>
     </header>
   );
@@ -182,7 +185,7 @@ function IconBtn({
     <button
       onClick={onClick}
       title={label}
-      className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:border-brass hover:text-ink"
+      className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:border-ring/40 hover:text-foreground"
     >
       <svg
         viewBox="0 0 24 24"

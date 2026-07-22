@@ -14,14 +14,62 @@ type ToolDef = {
 };
 
 const Icon = ({ children }: { children: React.ReactNode }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">{children}</svg>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="h-5 w-5"
+  >
+    {children}
+  </svg>
 );
 
 const TOOLS: ToolDef[] = [
-  { id: "select", label: "Sélection", hint: "V", icon: <Icon><path d="M4 4l7 16 2-7 7-2z"/></Icon> },
-  { id: "wall", label: "Mur", hint: "W · clic-clic · Échap pour terminer", icon: <Icon><path d="M3 20h18"/><path d="M6 20V8h12v12"/></Icon> },
-  { id: "rectangle", label: "Pièce", hint: "R · 2 clics", icon: <Icon><rect x="4" y="5" width="16" height="14" rx="1"/></Icon> },
-  { id: "eraser", label: "Gomme", hint: "E", icon: <Icon><path d="M3 17l6 6h12v-2H10.4L4.4 15z"/><path d="M20 8L14 2 3 13l6 6"/></Icon> },
+  {
+    id: "select",
+    label: "Sélection",
+    hint: "V",
+    icon: (
+      <Icon>
+        <path d="M4 4l7 16 2-7 7-2z" />
+      </Icon>
+    ),
+  },
+  {
+    id: "wall",
+    label: "Mur",
+    hint: "W · clic-clic · Échap pour terminer",
+    icon: (
+      <Icon>
+        <path d="M3 20h18" />
+        <path d="M6 20V8h12v12" />
+      </Icon>
+    ),
+  },
+  {
+    id: "rectangle",
+    label: "Pièce",
+    hint: "R · 2 clics",
+    icon: (
+      <Icon>
+        <rect x="4" y="5" width="16" height="14" rx="1" />
+      </Icon>
+    ),
+  },
+  {
+    id: "eraser",
+    label: "Gomme",
+    hint: "E",
+    icon: (
+      <Icon>
+        <path d="M3 17l6 6h12v-2H10.4L4.4 15z" />
+        <path d="M20 8L14 2 3 13l6 6" />
+      </Icon>
+    ),
+  },
 ];
 
 type OpeningItem = (typeof OPENING_PRESETS)[number];
@@ -30,9 +78,21 @@ const OPENINGS: OpeningItem[] = OPENING_PRESETS;
 
 export function LeftPanel() {
   const {
-    tool, setTool, plan, theme, setTheme, patchTheme,
-    wall3DColor, floor3DColor, setWall3DColor, setFloor3DColor,
-    wallSettings, setWallSettings, currentWallType, setCurrentWallType, applyWallTypeToAll,
+    tool,
+    setTool,
+    plan,
+    theme,
+    setTheme,
+    patchTheme,
+    wall3DColor,
+    floor3DColor,
+    setWall3DColor,
+    setFloor3DColor,
+    wallSettings,
+    setWallSettings,
+    currentWallType,
+    setCurrentWallType,
+    applyWallTypeToAll,
   } = useEditor();
   const [tab, setTab] = useState<"tools" | "furniture" | "theme">("tools");
   const cats = useMemo(() => Array.from(new Set(CATALOG.map((c) => c.category))), []);
@@ -47,7 +107,7 @@ export function LeftPanel() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-1 px-2 py-3 text-[11px] font-medium tracking-wide uppercase transition-colors ${tab === t ? "text-ink border-b-2 border-brass" : "text-muted-foreground hover:text-ink"}`}
+            className={`flex-1 px-2 py-3 text-[11px] font-medium tracking-wide uppercase transition-colors ${tab === t ? "text-foreground border-b-2 border-accent" : "text-muted-foreground hover:text-foreground"}`}
           >
             {t === "tools" ? "Outils" : t === "furniture" ? "Mobilier" : "Thème"}
           </button>
@@ -63,20 +123,32 @@ export function LeftPanel() {
                 onClick={() => setTool(t.id)}
                 title={`${t.label} — ${t.hint}`}
                 className={`group flex flex-col items-center gap-1.5 rounded-md border px-2 py-3 text-xs transition-all ${
-                  tool === t.id ? "border-brass bg-brass/10 text-ink shadow-panel" : "border-border bg-card hover:border-brass/50 hover:bg-brass/5"
+                  tool === t.id
+                    ? "border-accent bg-accent/10 text-foreground"
+                    : "border-border bg-card hover:border-ring/40 hover:bg-muted"
                 }`}
               >
-                <span className={tool === t.id ? "text-brass" : "text-muted-foreground group-hover:text-ink"}>{t.icon}</span>
+                <span
+                  className={
+                    tool === t.id
+                      ? "text-accent"
+                      : "text-muted-foreground group-hover:text-foreground"
+                  }
+                >
+                  {t.icon}
+                </span>
                 <span className="font-medium">{t.label}</span>
               </button>
             ))}
           </div>
 
           <div className="mt-3 rounded-md border border-border bg-background/60 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
-            <span className="font-medium text-ink">Astuce.</span> Portes et fenêtres se placent en glissant depuis l'onglet <span className="font-medium text-ink">Mobilier</span> sur un mur.
+            <span className="font-medium text-foreground">Astuce.</span> Portes et fenêtres se
+            placent en glissant depuis l'onglet{" "}
+            <span className="font-medium text-foreground">Mobilier</span> sur un mur.
           </div>
 
-          <div className="mt-4 rounded-md border border-brass/40 bg-brass/5 p-3">
+          <div className="mt-4 rounded-md border border-accent/40 bg-accent/5 p-3">
             <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
               Type de mur en cours
             </div>
@@ -86,7 +158,9 @@ export function LeftPanel() {
                   key={t}
                   onClick={() => setCurrentWallType(t)}
                   className={`rounded px-2 py-1.5 text-xs font-medium transition-colors ${
-                    currentWallType === t ? "bg-ink text-paper" : "text-muted-foreground hover:text-ink"
+                    currentWallType === t
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {t === "exterior" ? "Extérieur" : "Intérieur"}
@@ -95,21 +169,47 @@ export function LeftPanel() {
             </div>
             <div className="space-y-2 text-[11px]">
               <div className="rounded border border-border bg-card p-2">
-                <div className="mb-1 font-medium text-ink">Mur extérieur</div>
+                <div className="mb-1 font-medium text-foreground">Mur extérieur</div>
                 <div className="grid grid-cols-2 gap-1.5">
-                  <MiniNum label="Épais." value={wallSettings.exterior.thickness} onChange={(v) => setWallSettings({ exterior: { ...wallSettings.exterior, thickness: v } })} />
-                  <MiniNum label="Haut." value={wallSettings.exterior.height} onChange={(v) => setWallSettings({ exterior: { ...wallSettings.exterior, height: v } })} />
+                  <MiniNum
+                    label="Épais."
+                    value={wallSettings.exterior.thickness}
+                    onChange={(v) =>
+                      setWallSettings({ exterior: { ...wallSettings.exterior, thickness: v } })
+                    }
+                  />
+                  <MiniNum
+                    label="Haut."
+                    value={wallSettings.exterior.height}
+                    onChange={(v) =>
+                      setWallSettings({ exterior: { ...wallSettings.exterior, height: v } })
+                    }
+                  />
                 </div>
               </div>
               <div className="rounded border border-border bg-card p-2">
-                <div className="mb-1 font-medium text-ink">Mur intérieur</div>
+                <div className="mb-1 font-medium text-foreground">Mur intérieur</div>
                 <div className="grid grid-cols-2 gap-1.5">
-                  <MiniNum label="Épais." value={wallSettings.interior.thickness} onChange={(v) => setWallSettings({ interior: { ...wallSettings.interior, thickness: v } })} />
-                  <MiniNum label="Haut." value={wallSettings.interior.height} onChange={(v) => setWallSettings({ interior: { ...wallSettings.interior, height: v } })} />
+                  <MiniNum
+                    label="Épais."
+                    value={wallSettings.interior.thickness}
+                    onChange={(v) =>
+                      setWallSettings({ interior: { ...wallSettings.interior, thickness: v } })
+                    }
+                  />
+                  <MiniNum
+                    label="Haut."
+                    value={wallSettings.interior.height}
+                    onChange={(v) =>
+                      setWallSettings({ interior: { ...wallSettings.interior, height: v } })
+                    }
+                  />
                 </div>
               </div>
               <div className="rounded border border-border bg-background/70 p-2">
-                <div className="mb-1 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Favoris murs</div>
+                <div className="mb-1 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                  Favoris murs
+                </div>
                 <div className="grid grid-cols-1 gap-1">
                   {WALL_PRESETS.map((preset) => (
                     <button
@@ -121,17 +221,19 @@ export function LeftPanel() {
                         });
                       }}
                       title={preset.description}
-                      className="flex items-center justify-between rounded border border-border bg-card px-2 py-1 text-left text-[10px] hover:border-brass hover:bg-brass/10"
+                      className="flex items-center justify-between rounded border border-border bg-card px-2 py-1 text-left text-[10px] hover:border-ring/40 hover:bg-muted"
                     >
                       <span className="font-medium">{preset.label}</span>
-                      <span className="font-mono-tab text-muted-foreground">{preset.thickness}/{preset.height}</span>
+                      <span className="font-mono-tab text-muted-foreground">
+                        {preset.thickness}/{preset.height}
+                      </span>
                     </button>
                   ))}
                 </div>
               </div>
               <button
                 onClick={applyWallTypeToAll}
-                className="w-full rounded border border-border bg-background py-1.5 text-[11px] font-medium hover:border-brass hover:bg-brass/10"
+                className="w-full rounded border border-border bg-background py-1.5 text-[11px] font-medium hover:border-ring/40 hover:bg-muted"
               >
                 Appliquer à tous les murs existants
               </button>
@@ -139,12 +241,26 @@ export function LeftPanel() {
           </div>
 
           <div className="mt-4 rounded-md border border-border bg-background/60 p-3">
-            <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Résumé</div>
+            <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+              Résumé
+            </div>
             <div className="space-y-1.5 font-mono-tab text-xs">
-              <div className="flex justify-between"><span className="text-muted-foreground">Murs</span><span>{plan.walls.length}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Longueur</span><span>{totalMeters.toFixed(2)} m</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Ouvertures</span><span>{plan.openings.length}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Mobilier</span><span>{plan.furniture.length}</span></div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Murs</span>
+                <span>{plan.walls.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Longueur</span>
+                <span>{totalMeters.toFixed(2)} m</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Ouvertures</span>
+                <span>{plan.openings.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Mobilier</span>
+                <span>{plan.furniture.length}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -152,16 +268,20 @@ export function LeftPanel() {
 
       {tab === "furniture" && (
         <div className="flex-1 overflow-y-auto p-3">
-          <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Glissez sur le plan</div>
+          <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+            Glissez sur le plan
+          </div>
           <div className="space-y-2">
             {/* Ouvertures — première catégorie */}
             <div className="overflow-hidden rounded-md border border-border bg-card">
               <button
                 onClick={() => setOpenCat(openCat === "Ouvertures" ? "" : "Ouvertures")}
-                className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium hover:bg-brass/5"
+                className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium hover:bg-muted"
               >
                 <span>Ouvertures</span>
-                <span className="text-muted-foreground">{openCat === "Ouvertures" ? "−" : "+"}</span>
+                <span className="text-muted-foreground">
+                  {openCat === "Ouvertures" ? "−" : "+"}
+                </span>
               </button>
               {openCat === "Ouvertures" && (
                 <div className="grid grid-cols-2 gap-1.5 border-t border-border bg-background/40 p-2">
@@ -170,13 +290,24 @@ export function LeftPanel() {
                       key={i}
                       draggable
                       onDragStart={(e) => {
-                        e.dataTransfer.setData("application/x-opening", JSON.stringify({ kind: o.type, subKind: o.kind, label: o.label, width: o.width, height: o.height, sillHeight: o.sillHeight }));
+                        e.dataTransfer.setData(
+                          "application/x-opening",
+                          JSON.stringify({
+                            kind: o.type,
+                            subKind: o.kind,
+                            label: o.label,
+                            width: o.width,
+                            height: o.height,
+                            sillHeight: o.sillHeight,
+                          }),
+                        );
                         e.dataTransfer.effectAllowed = "copy";
                         const img = new Image();
-                        img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+                        img.src =
+                          "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
                         e.dataTransfer.setDragImage(img, 0, 0);
                       }}
-                      className="group cursor-grab select-none rounded border border-border bg-card p-2 text-[11px] transition-all hover:border-brass hover:shadow-panel active:cursor-grabbing"
+                      className="group cursor-grab select-none rounded border border-border bg-card p-2 text-[11px] transition-all hover:border-ring/40 active:cursor-grabbing"
                     >
                       <div className="mb-1 flex h-10 w-full items-center justify-center rounded-sm border border-border bg-background">
                         {o.type === "door" ? <DoorGlyph /> : <WindowGlyph />}
@@ -196,8 +327,12 @@ export function LeftPanel() {
 
             {cats.map((cat) => (
               <div key={cat} className="overflow-hidden rounded-md border border-border bg-card">
-                <button onClick={() => setOpenCat(openCat === cat ? "" : cat)} className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium hover:bg-brass/5">
-                  <span>{cat}</span><span className="text-muted-foreground">{openCat === cat ? "−" : "+"}</span>
+                <button
+                  onClick={() => setOpenCat(openCat === cat ? "" : cat)}
+                  className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium hover:bg-muted"
+                >
+                  <span>{cat}</span>
+                  <span className="text-muted-foreground">{openCat === cat ? "−" : "+"}</span>
                 </button>
                 {openCat === cat && (
                   <div className="grid grid-cols-2 gap-1.5 border-t border-border bg-background/40 p-2">
@@ -210,10 +345,11 @@ export function LeftPanel() {
                           e.dataTransfer.setData("application/x-furniture-label", c.label);
                           e.dataTransfer.effectAllowed = "copy";
                           const img = new Image();
-                          img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+                          img.src =
+                            "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
                           e.dataTransfer.setDragImage(img, 0, 0);
                         }}
-                        className="group cursor-grab select-none rounded border border-border bg-card p-2 text-[11px] transition-all hover:border-brass hover:shadow-panel active:cursor-grabbing"
+                        className="group cursor-grab select-none rounded border border-border bg-card p-2 text-[11px] transition-all hover:border-ring/40 active:cursor-grabbing"
                       >
                         <div className="mb-1 flex h-12 w-full items-center justify-center rounded-sm border border-border bg-background">
                           <FurnitureThumb kind={c.kind} />
@@ -235,20 +371,34 @@ export function LeftPanel() {
       {tab === "theme" && (
         <div className="flex-1 space-y-5 overflow-y-auto p-3">
           <div>
-            <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Thèmes 2D</div>
+            <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+              Thèmes 2D
+            </div>
             <div className="grid grid-cols-2 gap-2">
               {THEME_PRESETS.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => setTheme(p)}
-                  className={`overflow-hidden rounded-md border text-left transition-all ${theme.id === p.id ? "border-brass shadow-panel" : "border-border hover:border-brass/50"}`}
+                  className={`overflow-hidden rounded-md border text-left transition-all ${theme.id === p.id ? "border-accent" : "border-border hover:border-ring/40"}`}
                 >
                   <div className="relative h-14" style={{ background: p.background }}>
                     <div className="absolute inset-2 rounded" style={{ background: p.floor }} />
-                    <div className="absolute inset-x-2 top-2 h-2" style={{ background: p.wallFill }} />
-                    <div className="absolute inset-x-2 bottom-2 h-2" style={{ background: p.wallFill }} />
-                    <div className="absolute left-2 top-2 h-10 w-2" style={{ background: p.wallFill }} />
-                    <div className="absolute right-2 top-2 h-10 w-2" style={{ background: p.wallFill }} />
+                    <div
+                      className="absolute inset-x-2 top-2 h-2"
+                      style={{ background: p.wallFill }}
+                    />
+                    <div
+                      className="absolute inset-x-2 bottom-2 h-2"
+                      style={{ background: p.wallFill }}
+                    />
+                    <div
+                      className="absolute left-2 top-2 h-10 w-2"
+                      style={{ background: p.wallFill }}
+                    />
+                    <div
+                      className="absolute right-2 top-2 h-10 w-2"
+                      style={{ background: p.wallFill }}
+                    />
                   </div>
                   <div className="px-2 py-1.5 text-[11px] font-medium">{p.name}</div>
                 </button>
@@ -257,17 +407,37 @@ export function LeftPanel() {
           </div>
 
           <div>
-            <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Personnaliser 2D</div>
+            <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+              Personnaliser 2D
+            </div>
             <div className="space-y-2">
-              <ColorRow label="Sol" value={theme.floor} onChange={(v) => patchTheme({ floor: v })} />
-              <ColorRow label="Murs (poché)" value={theme.wallFill} onChange={(v) => patchTheme({ wallFill: v, wallStroke: v })} />
-              <ColorRow label="Fond" value={theme.background} onChange={(v) => patchTheme({ background: v })} />
-              <ColorRow label="Cotes" value={theme.dimension} onChange={(v) => patchTheme({ dimension: v, openingStroke: v })} />
+              <ColorRow
+                label="Sol"
+                value={theme.floor}
+                onChange={(v) => patchTheme({ floor: v })}
+              />
+              <ColorRow
+                label="Murs (poché)"
+                value={theme.wallFill}
+                onChange={(v) => patchTheme({ wallFill: v, wallStroke: v })}
+              />
+              <ColorRow
+                label="Fond"
+                value={theme.background}
+                onChange={(v) => patchTheme({ background: v })}
+              />
+              <ColorRow
+                label="Cotes"
+                value={theme.dimension}
+                onChange={(v) => patchTheme({ dimension: v, openingStroke: v })}
+              />
             </div>
           </div>
 
           <div>
-            <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Vue 3D</div>
+            <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+              Vue 3D
+            </div>
             <div className="space-y-2">
               <ColorRow label="Murs 3D" value={wall3DColor} onChange={setWall3DColor} />
               <ColorRow label="Sol 3D" value={floor3DColor} onChange={setFloor3DColor} />
@@ -279,13 +449,22 @@ export function LeftPanel() {
   );
 }
 
-function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function ColorRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
     <label className="flex items-center justify-between gap-2 rounded border border-border bg-card px-2 py-1.5 text-xs">
       <span className="text-muted-foreground">{label}</span>
       <div className="flex items-center gap-1.5">
         <input
-          type="color" value={toHex(value)}
+          type="color"
+          value={toHex(value)}
           onChange={(e) => onChange(e.target.value)}
           className="h-6 w-8 cursor-pointer rounded border border-border bg-transparent"
         />
@@ -300,10 +479,20 @@ function toHex(v: string): string {
   return "#000000";
 }
 
-function MiniNum({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+function MiniNum({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
   return (
     <label className="block">
-      <span className="mb-0.5 block text-[9px] font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className="mb-0.5 block text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
       <div className="flex items-center rounded border border-border bg-background">
         <input
           type="number"
@@ -319,7 +508,14 @@ function MiniNum({ label, value, onChange }: { label: string; value: number; onC
 
 function DoorGlyph() {
   return (
-    <svg viewBox="0 0 40 40" className="h-9 w-9" fill="none" stroke="#3d2f22" strokeWidth="1.5" strokeLinecap="round">
+    <svg
+      viewBox="0 0 40 40"
+      className="h-9 w-9"
+      fill="none"
+      stroke="#3d2f22"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    >
       <path d="M6 32h28" strokeWidth="3" stroke="#111" />
       <path d="M6 32V10" />
       <path d="M6 32a22 22 0 0 1 22-22" strokeDasharray="3 3" />

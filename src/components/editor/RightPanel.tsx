@@ -136,7 +136,7 @@ export function RightPanel() {
                             ridgeAxis: plan.roof?.ridgeAxis ?? lengthAxis,
                           })
                     }
-                    className={`rounded px-1.5 py-1 text-[10px] font-medium ${active ? "bg-ink text-paper" : "text-muted-foreground hover:text-ink"}`}
+                    className={`rounded px-1.5 py-1 text-[10px] font-medium ${active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
                   >
                     {k === "none"
                       ? "Aucun"
@@ -196,8 +196,8 @@ export function RightPanel() {
                           onClick={() => setRoof({ slopeAxis: axis })}
                           className={`rounded px-2 py-1 text-[10px] font-medium ${
                             (plan.roof?.slopeAxis ?? planLengthAxis(plan)) === axis
-                              ? "bg-ink text-paper"
-                              : "text-muted-foreground hover:text-ink"
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:text-foreground"
                           }`}
                         >
                           {label}
@@ -211,8 +211,8 @@ export function RightPanel() {
                           onClick={() => setRoof({ slopeDirection: direction })}
                           className={`rounded px-2 py-1 text-[10px] font-medium ${
                             (plan.roof?.slopeDirection ?? 1) === direction
-                              ? "bg-ink text-paper"
-                              : "text-muted-foreground hover:text-ink"
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:text-foreground"
                           }`}
                         >
                           Bas{" "}
@@ -314,19 +314,20 @@ export function RightPanel() {
         {!selection && (
           <div className="rounded-md border border-dashed border-border bg-background/40 p-4 text-center text-xs text-muted-foreground">
             Sélectionnez un élément avec l'outil{" "}
-            <span className="font-medium text-ink">Sélection</span> pour éditer ses propriétés.
+            <span className="font-medium text-foreground">Sélection</span> pour éditer ses
+            propriétés.
           </div>
         )}
 
         {multi && (
           <div className="space-y-3">
-            <div className="rounded-md border border-brass/40 bg-brass/5 p-3 text-xs">
-              <div className="font-medium text-ink">Sélection multiple</div>
+            <div className="rounded-md border border-accent/40 bg-accent/5 p-3 text-xs">
+              <div className="font-medium text-foreground">Sélection multiple</div>
               <div className="mt-1 text-muted-foreground">{multi.length} éléments sélectionnés</div>
             </div>
             <button
               onClick={() => useEditor.getState().duplicateSelected()}
-              className="w-full rounded-md border border-border bg-background py-2 text-xs font-medium hover:border-brass hover:bg-brass/10"
+              className="w-full rounded-md border border-border bg-background py-2 text-xs font-medium hover:border-ring/40 hover:bg-muted"
             >
               Copier / dupliquer
             </button>
@@ -368,8 +369,8 @@ export function RightPanel() {
                         }}
                         className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
                           (wall.wallType ?? "exterior") === t
-                            ? "bg-ink text-paper"
-                            : "text-muted-foreground hover:text-ink"
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:text-foreground"
                         }`}
                       >
                         {t === "exterior" ? "Extérieur" : "Intérieur"}
@@ -421,7 +422,7 @@ export function RightPanel() {
                 </button>
                 <button
                   onClick={() => useEditor.getState().duplicateSelected()}
-                  className="w-full rounded-md border border-border bg-background py-2 text-xs font-medium hover:border-brass hover:bg-brass/10"
+                  className="w-full rounded-md border border-border bg-background py-2 text-xs font-medium hover:border-ring/40 hover:bg-muted"
                 >
                   Copier le mur
                 </button>
@@ -436,7 +437,7 @@ export function RightPanel() {
               <input
                 value={furn.label ?? ""}
                 onChange={(e) => updateFurniture(furn.id, { label: e.target.value })}
-                className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-brass"
+                className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-ring"
               />
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -485,14 +486,14 @@ export function RightPanel() {
                 max={359}
                 value={furn.rotation}
                 onChange={(e) => updateFurniture(furn.id, { rotation: Number(e.target.value) })}
-                className="w-full accent-[color:var(--brass)]"
+                className="w-full accent-[color:var(--accent)]"
               />
               <div className="mt-1 flex gap-1">
                 {[0, 90, 180, 270].map((deg) => (
                   <button
                     key={deg}
                     onClick={() => updateFurniture(furn.id, { rotation: deg })}
-                    className="flex-1 rounded border border-border bg-background py-1 text-[11px] hover:border-brass"
+                    className="flex-1 rounded border border-border bg-background py-1 text-[11px] hover:border-ring/40"
                   >
                     {deg}°
                   </button>
@@ -507,7 +508,7 @@ export function RightPanel() {
             </button>
             <button
               onClick={() => useEditor.getState().duplicateSelected()}
-              className="w-full rounded-md border border-border bg-background py-2 text-xs font-medium hover:border-brass hover:bg-brass/10"
+              className="w-full rounded-md border border-border bg-background py-2 text-xs font-medium hover:border-ring/40 hover:bg-muted"
             >
               Copier le mobilier
             </button>
@@ -543,8 +544,8 @@ export function RightPanel() {
                     onClick={() => updateOpening(opening.id, { kind: k })}
                     className={`rounded px-2 py-1 text-[10.5px] font-medium transition-colors ${
                       (opening.kind ?? (opening.type === "door" ? "door_simple" : "window_1")) === k
-                        ? "bg-ink text-paper"
-                        : "text-muted-foreground hover:text-ink"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     {KIND_LABELS[k]}
@@ -557,13 +558,13 @@ export function RightPanel() {
               <div className="grid grid-cols-2 gap-2 rounded-md border border-border bg-background/50 p-2">
                 <button
                   onClick={() => useEditor.getState().flipOpeningHinge(opening.id)}
-                  className="rounded border border-border bg-card py-1.5 text-[11px] font-medium hover:border-brass hover:bg-brass/10"
+                  className="rounded border border-border bg-card py-1.5 text-[11px] font-medium hover:border-ring/40 hover:bg-muted"
                 >
                   ⇄ Charnière {opening.hingeSide === "b" ? "→ droite" : "← gauche"}
                 </button>
                 <button
                   onClick={() => useEditor.getState().flipOpeningSwing(opening.id)}
-                  className="rounded border border-border bg-card py-1.5 text-[11px] font-medium hover:border-brass hover:bg-brass/10"
+                  className="rounded border border-border bg-card py-1.5 text-[11px] font-medium hover:border-ring/40 hover:bg-muted"
                 >
                   ⇅ Sens {opening.swingSide === "n" ? "intérieur" : "extérieur"}
                 </button>
@@ -603,9 +604,9 @@ export function RightPanel() {
                   <button
                     key={`${sz.w}x${sz.h}`}
                     onClick={() => updateOpening(opening.id, { width: sz.w, height: sz.h })}
-                    className={`rounded border px-1.5 py-1 font-mono-tab text-[10px] hover:border-brass ${
+                    className={`rounded border px-1.5 py-1 font-mono-tab text-[10px] hover:border-ring/40 ${
                       opening.width === sz.w && (opening.height ?? 0) === sz.h
-                        ? "border-brass bg-brass/10"
+                        ? "border-accent bg-accent/10"
                         : "border-border bg-card"
                     }`}
                   >
@@ -647,7 +648,7 @@ export function RightPanel() {
             </button>
             <button
               onClick={() => useEditor.getState().duplicateSelected()}
-              className="w-full rounded-md border border-border bg-background py-2 text-xs font-medium hover:border-brass hover:bg-brass/10"
+              className="w-full rounded-md border border-border bg-background py-2 text-xs font-medium hover:border-ring/40 hover:bg-muted"
             >
               Copier l'ouverture
             </button>
@@ -663,7 +664,7 @@ export function RightPanel() {
                 onChange={(e) =>
                   updateSection(sec.id, { name: e.target.value.toUpperCase().slice(0, 2) })
                 }
-                className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-brass"
+                className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-ring"
               />
             </label>
             <button
@@ -702,7 +703,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return (
     <div className="flex items-center justify-between text-xs">
       <span className="font-medium text-muted-foreground">{label}</span>
-      <span className="text-ink">{children}</span>
+      <span className="text-foreground">{children}</span>
     </div>
   );
 }
@@ -754,7 +755,7 @@ function NumberField({
             (e.target as HTMLInputElement).blur();
           }
         }}
-        className="w-full rounded border border-border bg-background px-2 py-1.5 font-mono-tab text-sm outline-none focus:border-brass"
+        className="w-full rounded border border-border bg-background px-2 py-1.5 font-mono-tab text-sm outline-none focus:border-ring"
       />
     </label>
   );
@@ -772,11 +773,11 @@ function ToggleRow({
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center justify-between rounded px-2 py-1.5 text-xs hover:bg-brass/5"
+      className="flex w-full items-center justify-between rounded px-2 py-1.5 text-xs hover:bg-muted"
     >
       <span>{label}</span>
       <span
-        className={`inline-flex h-4 w-7 items-center rounded-full transition-colors ${active ? "bg-brass" : "bg-border"}`}
+        className={`inline-flex h-4 w-7 items-center rounded-full transition-colors ${active ? "bg-accent" : "bg-border"}`}
       >
         <span
           className={`h-3 w-3 rounded-full bg-card shadow transition-transform ${active ? "translate-x-3.5" : "translate-x-0.5"}`}

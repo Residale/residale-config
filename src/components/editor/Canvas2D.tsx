@@ -20,6 +20,7 @@ import {
   wallLength,
 } from "@/lib/editor/geometry";
 import { collectJunctions } from "@/lib/editor/wall-geometry";
+import { ACCENT, accentAlpha } from "@/lib/editor/canvas-colors";
 import { FurnitureShape2D } from "./FurnitureShape2D";
 
 type Props = { onExportRef?: (fn: () => string | null) => void };
@@ -1187,7 +1188,7 @@ export function Canvas2D({ onExportRef }: Props) {
       <Line
         key={w.id}
         points={[w.a.x, w.a.y, w.b.x, w.b.y]}
-        stroke={isSel ? "#c9a961" : theme.wallFill}
+        stroke={isSel ? ACCENT : theme.wallFill}
         strokeWidth={w.thickness}
         lineCap="butt"
         listening={false}
@@ -1255,7 +1256,7 @@ export function Canvas2D({ onExportRef }: Props) {
     const tipX = hx + nxP * o.width;
     const tipY = hy + nyP * o.width;
 
-    const stroke = isSel ? "#c9a961" : theme.openingStroke;
+    const stroke = isSel ? ACCENT : theme.openingStroke;
     const sw = 1.5 / scale;
     const kind = o.kind ?? (o.type === "door" ? "door_simple" : "window_1");
 
@@ -1569,7 +1570,7 @@ export function Canvas2D({ onExportRef }: Props) {
               <Circle
                 radius={11 / scale}
                 fill="#ffffff"
-                stroke="#c9a961"
+                stroke={ACCENT}
                 strokeWidth={2 / scale}
                 shadowColor="rgba(0,0,0,0.25)"
                 shadowBlur={4 / scale}
@@ -1577,7 +1578,7 @@ export function Canvas2D({ onExportRef }: Props) {
               <Text
                 text="⇄"
                 fontSize={13 / scale}
-                fill="#3d2f22"
+                fill={"#334155"}
                 offsetX={4 / scale}
                 offsetY={7 / scale}
                 listening={false}
@@ -1599,7 +1600,7 @@ export function Canvas2D({ onExportRef }: Props) {
               <Circle
                 radius={11 / scale}
                 fill="#ffffff"
-                stroke="#c9a961"
+                stroke={ACCENT}
                 strokeWidth={2 / scale}
                 shadowColor="rgba(0,0,0,0.25)"
                 shadowBlur={4 / scale}
@@ -1607,7 +1608,7 @@ export function Canvas2D({ onExportRef }: Props) {
               <Text
                 text="⇅"
                 fontSize={13 / scale}
-                fill="#3d2f22"
+                fill={"#334155"}
                 offsetX={4 / scale}
                 offsetY={7 / scale}
                 listening={false}
@@ -1623,7 +1624,7 @@ export function Canvas2D({ onExportRef }: Props) {
               width={o.width + 4 / scale}
               height={w.thickness + 4 / scale}
               rotation={(ang * 180) / Math.PI}
-              stroke="#c9a961"
+              stroke={ACCENT}
               strokeWidth={1 / scale}
               dash={[4 / scale, 3 / scale]}
               fill="transparent"
@@ -1638,7 +1639,7 @@ export function Canvas2D({ onExportRef }: Props) {
                   <Circle
                     radius={9 / scale}
                     fill="#ffffff"
-                    stroke="#c9a961"
+                    stroke={ACCENT}
                     strokeWidth={1.5 / scale}
                     shadowColor="rgba(0,0,0,0.25)"
                     shadowBlur={4 / scale}
@@ -1647,7 +1648,7 @@ export function Canvas2D({ onExportRef }: Props) {
                     text="↔"
                     fontSize={12 / scale}
                     fontStyle="bold"
-                    fill="#3d2f22"
+                    fill={"#334155"}
                     offsetX={5 / scale}
                     offsetY={6 / scale}
                     rotation={(ang * 180) / Math.PI}
@@ -1949,7 +1950,7 @@ export function Canvas2D({ onExportRef }: Props) {
 
   const renderFurniture = (f: Furniture) => {
     const isSel = isSelected("furniture", f.id);
-    const strokeColor = isSel ? "#c9a961" : theme.furnitureStroke;
+    const strokeColor = isSel ? ACCENT : theme.furnitureStroke;
     return (
       <Group key={f.id} x={f.x} y={f.y} rotation={f.rotation} listening={false}>
         <FurnitureShape2D f={f} strokeColor={strokeColor} />
@@ -1960,7 +1961,7 @@ export function Canvas2D({ onExportRef }: Props) {
               y={-f.height / 2 - 2 / scale}
               width={f.width + 4 / scale}
               height={f.height + 4 / scale}
-              stroke="#c9a961"
+              stroke={ACCENT}
               strokeWidth={1.5 / scale}
               dash={[6 / scale, 4 / scale]}
               listening={false}
@@ -1980,7 +1981,7 @@ export function Canvas2D({ onExportRef }: Props) {
                 width={10 / scale}
                 height={10 / scale}
                 fill="#ffffff"
-                stroke="#c9a961"
+                stroke={ACCENT}
                 strokeWidth={1.5 / scale}
                 cornerRadius={1 / scale}
                 listening={false}
@@ -1988,7 +1989,7 @@ export function Canvas2D({ onExportRef }: Props) {
             ))}
             <Line
               points={[0, -f.height / 2, 0, -f.height / 2 - 22 / scale]}
-              stroke="#c9a961"
+              stroke={ACCENT}
               strokeWidth={1 / scale}
               listening={false}
             />
@@ -1997,7 +1998,7 @@ export function Canvas2D({ onExportRef }: Props) {
               y={-f.height / 2 - 28 / scale}
               radius={6 / scale}
               fill="#ffffff"
-              stroke="#c9a961"
+              stroke={ACCENT}
               strokeWidth={1.5 / scale}
               listening={false}
             />
@@ -2017,7 +2018,7 @@ export function Canvas2D({ onExportRef }: Props) {
       <Group key={sec.id}>
         <Line
           points={[sec.a.x, sec.a.y, sec.b.x, sec.b.y]}
-          stroke={isSel ? "#c9a961" : "#d94747"}
+          stroke={isSel ? ACCENT : "#d94747"}
           strokeWidth={2 / scale}
           dash={[18 / scale, 6 / scale, 2 / scale, 6 / scale]}
           onClick={(e) =>
@@ -2052,7 +2053,7 @@ export function Canvas2D({ onExportRef }: Props) {
     tool === "wall" && drawing?.length && cursor ? (
       <Line
         points={[drawing[drawing.length - 1].x, drawing[drawing.length - 1].y, cursor.x, cursor.y]}
-        stroke="#c9a961"
+        stroke={ACCENT}
         strokeWidth={s.wallSettings[s.currentWallType].thickness}
         opacity={0.4}
         dash={[8, 6]}
@@ -2066,10 +2067,10 @@ export function Canvas2D({ onExportRef }: Props) {
         y={Math.min(rectStart.y, cursor.y)}
         width={Math.abs(cursor.x - rectStart.x)}
         height={Math.abs(cursor.y - rectStart.y)}
-        stroke="#c9a961"
+        stroke={ACCENT}
         strokeWidth={2 / scale}
         dash={[6 / scale, 4 / scale]}
-        fill="rgba(201,169,97,0.06)"
+        fill={accentAlpha(0.06)}
         listening={false}
       />
     ) : null;
@@ -2258,13 +2259,13 @@ export function Canvas2D({ onExportRef }: Props) {
               y={l.y}
               text={l.text}
               fontSize={16}
-              fontFamily="Fraunces"
+              fontFamily="Inter"
               fill={theme.dimension}
               listening={false}
             />
           ))}
           {drawing?.map((p, i) => (
-            <Circle key={i} x={p.x} y={p.y} radius={4 / scale} fill="#c9a961" listening={false} />
+            <Circle key={i} x={p.x} y={p.y} radius={4 / scale} fill={ACCENT} listening={false} />
           ))}
           {/* Wall endpoint indicators (visual only, not interactive — drag is direct on the wall body). */}
           {selectedWall && tool === "select" && !dragHandle && (
@@ -2277,7 +2278,7 @@ export function Canvas2D({ onExportRef }: Props) {
                     x={pt.x}
                     y={pt.y}
                     radius={5 / scale}
-                    fill="#c9a961"
+                    fill={ACCENT}
                     stroke="#ffffff"
                     strokeWidth={1.5 / scale}
                     listening={false}
@@ -2361,7 +2362,7 @@ export function Canvas2D({ onExportRef }: Props) {
                 <>
                   <Line
                     points={[w.a.x, w.a.y, w.b.x, w.b.y]}
-                    stroke="#c9a961"
+                    stroke={ACCENT}
                     strokeWidth={w.thickness + 4 / scale}
                     opacity={0.28}
                     lineCap="butt"
@@ -2375,10 +2376,10 @@ export function Canvas2D({ onExportRef }: Props) {
                     rotation={(ang * 180) / Math.PI}
                     offsetX={0}
                     offsetY={0}
-                    stroke="#c9a961"
+                    stroke={ACCENT}
                     strokeWidth={1.5 / scale}
                     dash={[6 / scale, 4 / scale]}
-                    fill="rgba(201,169,97,0.15)"
+                    fill={accentAlpha(0.15)}
                     listening={false}
                   />
                 </>
@@ -2390,10 +2391,10 @@ export function Canvas2D({ onExportRef }: Props) {
               y={dragPreview.pos.y - dragPreview.height / 2}
               width={dragPreview.width}
               height={dragPreview.height}
-              stroke="#c9a961"
+              stroke={ACCENT}
               strokeWidth={1.5 / scale}
               dash={[6 / scale, 4 / scale]}
-              fill="rgba(201,169,97,0.12)"
+              fill={accentAlpha(0.12)}
               listening={false}
             />
           )}
@@ -2404,8 +2405,8 @@ export function Canvas2D({ onExportRef }: Props) {
               y={Math.min(selectionRect.start.y, selectionRect.current.y)}
               width={Math.abs(selectionRect.current.x - selectionRect.start.x)}
               height={Math.abs(selectionRect.current.y - selectionRect.start.y)}
-              fill="rgba(201,169,97,0.10)"
-              stroke="#c9a961"
+              fill={accentAlpha(0.1)}
+              stroke={ACCENT}
               strokeWidth={1.2 / scale}
               dash={[6 / scale, 4 / scale]}
               listening={false}
@@ -2420,7 +2421,7 @@ export function Canvas2D({ onExportRef }: Props) {
               return (
                 <Line
                   points={[w.a.x, w.a.y, w.b.x, w.b.y]}
-                  stroke="#c9a961"
+                  stroke={ACCENT}
                   strokeWidth={w.thickness + 4 / scale}
                   opacity={0.35}
                   lineCap="butt"
@@ -2474,7 +2475,7 @@ export function Canvas2D({ onExportRef }: Props) {
                       onClick();
                       close();
                     }}
-                    className={`flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-brass/10 ${danger ? "text-destructive" : ""}`}
+                    className={`flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-muted ${danger ? "text-destructive" : ""}`}
                   >
                     {label}
                   </button>
@@ -2537,7 +2538,7 @@ export function Canvas2D({ onExportRef }: Props) {
                     setTool("wall");
                     setContextMenu(null);
                   }}
-                  className="flex w-full px-3 py-1.5 text-left hover:bg-brass/10"
+                  className="flex w-full px-3 py-1.5 text-left hover:bg-muted"
                 >
                   Tracer un mur
                 </button>
@@ -2546,7 +2547,7 @@ export function Canvas2D({ onExportRef }: Props) {
                     setTool("rectangle");
                     setContextMenu(null);
                   }}
-                  className="flex w-full px-3 py-1.5 text-left hover:bg-brass/10"
+                  className="flex w-full px-3 py-1.5 text-left hover:bg-muted"
                 >
                   Créer une pièce
                 </button>
@@ -2555,7 +2556,7 @@ export function Canvas2D({ onExportRef }: Props) {
                     setTool("section");
                     setContextMenu(null);
                   }}
-                  className="flex w-full px-3 py-1.5 text-left hover:bg-brass/10"
+                  className="flex w-full px-3 py-1.5 text-left hover:bg-muted"
                 >
                   Ligne de coupe
                 </button>
@@ -2567,7 +2568,7 @@ export function Canvas2D({ onExportRef }: Props) {
                         s.duplicateItems(clipboardRef.current);
                         setContextMenu(null);
                       }}
-                      className="flex w-full px-3 py-1.5 text-left hover:bg-brass/10"
+                      className="flex w-full px-3 py-1.5 text-left hover:bg-muted"
                     >
                       Coller
                     </button>
