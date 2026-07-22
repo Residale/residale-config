@@ -2,7 +2,7 @@
 
 ## Summary
 
-Implemented a client-side member/admin flow for Floor Whisper and corrected roof placement/orientation behavior in 3D and section views.
+Implemented a client-side member/admin flow for Residale Config and corrected roof placement/orientation behavior in 3D and section views.
 
 ## Member/admin flow
 

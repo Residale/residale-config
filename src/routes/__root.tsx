@@ -73,15 +73,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Floor Whisper — Residale" },
-      { name: "description", content: "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant." },
+      { title: "Residale Config — Residale" },
+      {
+        name: "description",
+        content:
+          "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant.",
+      },
       { name: "author", content: "Residale" },
-      { property: "og:title", content: "Floor Whisper — Residale" },
-      { property: "og:description", content: "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant." },
+      { property: "og:title", content: "Residale Config — Residale" },
+      {
+        property: "og:description",
+        content:
+          "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:title", content: "Floor Whisper — Residale" },
-      { name: "twitter:description", content: "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant." },
+      { name: "twitter:title", content: "Residale Config — Residale" },
+      {
+        name: "twitter:description",
+        content:
+          "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant.",
+      },
     ],
     links: [
       {

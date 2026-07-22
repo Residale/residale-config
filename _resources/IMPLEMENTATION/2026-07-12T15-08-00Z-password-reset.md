@@ -1,8 +1,8 @@
-# Floor Whisper password reset
+# Residale Config password reset
 
 ## Summary
 
-Added a real Supabase password-reset flow to the Floor Whisper login screen.
+Added a real Supabase password-reset flow to the Residale Config login screen.
 
 ## Changes
 

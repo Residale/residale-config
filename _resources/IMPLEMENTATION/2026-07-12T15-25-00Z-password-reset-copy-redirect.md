@@ -1,21 +1,21 @@
-# Floor Whisper password reset copy + redirect correction
+# Residale Config password reset copy + redirect correction
 
 ## Issue
 
 User reported the password-reset experience was confusing and wrong:
 
-- UI said `Email CRM` / `Mot de passe CRM` even though this is Floor Whisper.
-- Reset email redirected to the CRM instead of Floor Whisper.
+- UI said `Email CRM` / `Mot de passe CRM` even though this is Residale Config.
+- Reset email redirected to the CRM instead of Residale Config.
 - Logging in with CRM credentials showed an incorrect-password error.
 
 ## Changes
 
-- Removed CRM wording from the Floor Whisper login/reset UI:
+- Removed CRM wording from the Residale Config login/reset UI:
   - `Email CRM` → `Email`
   - `Mot de passe CRM` → `Mot de passe`
-  - `Connexion avec votre compte CRM Residale` → `Connexion à Floor Whisper`
+  - `Connexion avec votre compte CRM Residale` → `Connexion à Residale Config`
   - reset text no longer mentions CRM.
-- Changed the reset redirect target to the explicit Floor Whisper origin root:
+- Changed the reset redirect target to the explicit Residale Config origin root:
   - `new URL("/", window.location.origin).toString()`
   - This emits `https://config.residale.com/` in production rather than relying on the current path/query.
 - Recovery URL detection now accepts access tokens in either hash or query parameters.

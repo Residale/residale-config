@@ -1,6 +1,6 @@
-# Floor Whisper Modernization — Architecture Plan
+# Residale Config Modernization — Architecture Plan
 
-Date: 2026-07-09 08:14 · Author: Claude Fable (orchestrator) · Repo: `Residale/floor-whisper` @ `2d4fd97`
+Date: 2026-07-09 08:14 · Author: Claude Fable (orchestrator) · Repo: `Residale/residale-config` @ `2d4fd97`
 
 ## 1. Decision: modify in place, do not rewrite
 
@@ -20,7 +20,7 @@ A rewrite would re-earn all of this at high risk for zero user-visible gain.
 - The product is a **client-heavy canvas editor** (Konva + three.js, zustand, everything client-side; state persisted in localStorage). SSR/RSC — Next.js's differentiators — are irrelevant to this workload; the editor components are inherently client-only.
 - TanStack Start on nitro `node-server` already produces a small Node server that Coolify runs happily. Migrating to Next.js means redoing routing, config, Dockerfile, and deploy verification to end up in the same place.
 - Team ownership concern ("Lovable config magic") is solved by de-Lovable-ing the config (below), not by changing framework.
-- Revisit trigger: if Floor Whisper later needs auth, DB-backed projects, or multi-page marketing/SEO surface, reassess — TanStack Start server routes can carry that too, so Next.js still wouldn't be automatic.
+- Revisit trigger: if Residale Config later needs auth, DB-backed projects, or multi-page marketing/SEO surface, reassess — TanStack Start server routes can carry that too, so Next.js still wouldn't be automatic.
 
 ## 3. Lovable removal strategy (make it ours)
 
@@ -35,7 +35,7 @@ Footprint audited via grep; it is small and fully removable:
 | `AGENTS.md` Lovable block | Replace with a short real project note. |
 | `bun.lock`, `bunfig.toml` | Delete — Docker/Coolify build uses `npm ci` + `package-lock.json`; two lockfiles is a trap. |
 | Lovable "componentTagger" and sandbox detection (came from the wrapper) | Disappear automatically with the wrapper. |
-| `package.json` name `tanstack_start_ts` | Rename to `floor-whisper`. |
+| `package.json` name `tanstack_start_ts` | Rename to `residale-config`. |
 | Prettier/style debt from generated code | **Not** mass-reformatted this phase (per instruction); lint config untouched. |
 
 Gate: `npm run build` must pass and the built server must serve the editor before this lands.
@@ -43,7 +43,7 @@ Gate: `npm run build` must pass and the built server must serve the editor befor
 ## 4. Archival
 
 Before any modernization commit:
-- Branch `floor-whisper-backup` created at `2d4fd97` and pushed to origin (safe, non-destructive).
+- Branch `residale-config-backup` created at `2d4fd97` and pushed to origin (safe, non-destructive).
 - Tag `v0-lovable-baseline` at the same commit, pushed.
 No force-pushes, no history rewrites (also required while Lovable sync may still be connected).
 

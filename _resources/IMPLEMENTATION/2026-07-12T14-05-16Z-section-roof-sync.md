@@ -2,7 +2,7 @@
 
 ## Summary
 
-Implemented the section/coupe and flat-roof synchronization fixes requested for Floor Whisper.
+Implemented the section/coupe and flat-roof synchronization fixes requested for Residale Config.
 
 ## Changes
 

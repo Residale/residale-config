@@ -6,7 +6,12 @@ import { summarizeRooms } from "./rooms";
 import { DEFAULT_THEME, type Theme2D } from "./theme";
 
 /** Render a single section to a PNG dataURL using an offscreen Konva stage. */
-export function renderSectionPNG(plan: Plan, sec: SectionLine, theme: Theme2D, opts: { width: number; height: number; pixelRatio?: number }): string {
+export function renderSectionPNG(
+  plan: Plan,
+  sec: SectionLine,
+  theme: Theme2D,
+  opts: { width: number; height: number; pixelRatio?: number },
+): string {
   const container = document.createElement("div");
   container.style.position = "absolute";
   container.style.left = "-10000px";
@@ -27,11 +32,21 @@ export function renderSectionPNG(plan: Plan, sec: SectionLine, theme: Theme2D, o
       const xL = spanStart - plan.roof.overhang;
       const xR = spanEnd + plan.roof.overhang;
       if (plan.roof.kind === "flat") return Math.max(data.ceilingH, plan.roof.eaveHeight + 20);
-      if (plan.roof.kind === "mono") return Math.max(data.ceilingH, plan.roof.eaveHeight + Math.tan((plan.roof.pitch * Math.PI) / 180) * (xR - xL));
-      return Math.max(data.ceilingH, plan.roof.eaveHeight + Math.tan((plan.roof.pitch * Math.PI) / 180) * ((spanEnd - spanStart) / 2 + plan.roof.overhang));
+      if (plan.roof.kind === "mono")
+        return Math.max(
+          data.ceilingH,
+          plan.roof.eaveHeight + Math.tan((plan.roof.pitch * Math.PI) / 180) * (xR - xL),
+        );
+      return Math.max(
+        data.ceilingH,
+        plan.roof.eaveHeight +
+          Math.tan((plan.roof.pitch * Math.PI) / 180) *
+            ((spanEnd - spanStart) / 2 + plan.roof.overhang),
+      );
     })();
     const totalH = roofMaxH + 60;
-    const marginX = 70, marginY = 50;
+    const marginX = 70,
+      marginY = 50;
     const availW = opts.width - marginX * 2;
     const availH = opts.height - marginY * 2;
     const s = Math.min(availW / Math.max(1, totalLen), availH / Math.max(1, totalH));
@@ -45,17 +60,38 @@ export function renderSectionPNG(plan: Plan, sec: SectionLine, theme: Theme2D, o
     stage.add(layer);
 
     // Background
-    layer.add(new Konva.Rect({ x: 0, y: 0, width: opts.width, height: opts.height, fill: "#faf8f2" }));
+    layer.add(
+      new Konva.Rect({ x: 0, y: 0, width: opts.width, height: opts.height, fill: "#faf8f2" }),
+    );
 
     // Ground
-    layer.add(new Konva.Rect({ x: toX(-50) - 20, y: originY, width: (totalLen + 100) * s + 40, height: 30, fill: theme.floor, opacity: 0.4 }));
-    layer.add(new Konva.Line({ points: [toX(-50) - 20, originY, toX(totalLen + 50) + 20, originY], stroke: theme.wallStroke, strokeWidth: 1.5 }));
+    layer.add(
+      new Konva.Rect({
+        x: toX(-50) - 20,
+        y: originY,
+        width: (totalLen + 100) * s + 40,
+        height: 30,
+        fill: theme.floor,
+        opacity: 0.4,
+      }),
+    );
+    layer.add(
+      new Konva.Line({
+        points: [toX(-50) - 20, originY, toX(totalLen + 50) + 20, originY],
+        stroke: theme.wallStroke,
+        strokeWidth: 1.5,
+      }),
+    );
 
     // Ceiling
-    layer.add(new Konva.Line({
-      points: [toX(-50), toY(data.ceilingH), toX(totalLen + 50), toY(data.ceilingH)],
-      stroke: theme.wallStroke, strokeWidth: 1, dash: [8, 4],
-    }));
+    layer.add(
+      new Konva.Line({
+        points: [toX(-50), toY(data.ceilingH), toX(totalLen + 50), toY(data.ceilingH)],
+        stroke: theme.wallStroke,
+        strokeWidth: 1,
+        dash: [8, 4],
+      }),
+    );
 
     // Roof
     if (plan.roof && wallCuts.length > 0) {
@@ -66,67 +102,163 @@ export function renderSectionPNG(plan: Plan, sec: SectionLine, theme: Theme2D, o
       const pitchRad = (plan.roof.pitch * Math.PI) / 180;
       const half = (spanEnd - spanStart) / 2 + ov;
       const ridgeH = plan.roof.kind === "flat" ? eave + 20 : eave + Math.tan(pitchRad) * half;
-      const xL = spanStart - ov, xR = spanEnd + ov;
+      const xL = spanStart - ov,
+        xR = spanEnd + ov;
       let poly: number[] = [];
       if (plan.roof.kind === "flat") {
-        poly = [toX(xL), toY(eave + 20), toX(xR), toY(eave + 20), toX(xR), toY(eave), toX(xL), toY(eave)];
+        poly = [
+          toX(xL),
+          toY(eave + 20),
+          toX(xR),
+          toY(eave + 20),
+          toX(xR),
+          toY(eave),
+          toX(xL),
+          toY(eave),
+        ];
       } else if (plan.roof.kind === "mono") {
         const hi = eave + Math.tan(pitchRad) * (xR - xL);
-        poly = [toX(xL), toY(eave), toX(xR), toY(hi), toX(xR), toY(hi - 15), toX(xL), toY(eave - 15)];
+        poly = [
+          toX(xL),
+          toY(eave),
+          toX(xR),
+          toY(hi),
+          toX(xR),
+          toY(hi - 15),
+          toX(xL),
+          toY(eave - 15),
+        ];
       } else {
         const midX = (xL + xR) / 2;
         poly = [
-          toX(xL), toY(eave), toX(midX), toY(ridgeH), toX(xR), toY(eave),
-          toX(xR), toY(eave - 15), toX(midX), toY(ridgeH - 15), toX(xL), toY(eave - 15),
+          toX(xL),
+          toY(eave),
+          toX(midX),
+          toY(ridgeH),
+          toX(xR),
+          toY(eave),
+          toX(xR),
+          toY(eave - 15),
+          toX(midX),
+          toY(ridgeH - 15),
+          toX(xL),
+          toY(eave - 15),
         ];
       }
-      layer.add(new Konva.Line({ points: poly, closed: true, fill: theme.wallFill, stroke: theme.wallStroke, strokeWidth: 1, opacity: 0.9 }));
+      layer.add(
+        new Konva.Line({
+          points: poly,
+          closed: true,
+          fill: theme.wallFill,
+          stroke: theme.wallStroke,
+          strokeWidth: 1,
+          opacity: 0.9,
+        }),
+      );
     }
 
     // Walls
     for (const c of cuts.filter((c) => c.type === "wall")) {
-      layer.add(new Konva.Rect({
-        x: toX(c.start), y: toY(c.height),
-        width: (c.end - c.start) * s, height: c.height * s,
-        fill: theme.wallFill, stroke: theme.wallStroke, strokeWidth: 1,
-      }));
+      layer.add(
+        new Konva.Rect({
+          x: toX(c.start),
+          y: toY(c.height),
+          width: (c.end - c.start) * s,
+          height: c.height * s,
+          fill: theme.wallFill,
+          stroke: theme.wallStroke,
+          strokeWidth: 1,
+        }),
+      );
     }
 
     // Openings
     for (const c of cuts.filter((c) => c.type !== "wall")) {
       const openH = c.height - c.sillHeight;
-      const openW = c.opening?.width ?? (c.end - c.start);
-      layer.add(new Konva.Rect({
-        x: toX(c.start), y: toY(c.height),
-        width: (c.end - c.start) * s, height: openH * s,
-        fill: "#faf8f2", stroke: theme.openingStroke, strokeWidth: 1,
-      }));
+      const openW = c.opening?.width ?? c.end - c.start;
+      layer.add(
+        new Konva.Rect({
+          x: toX(c.start),
+          y: toY(c.height),
+          width: (c.end - c.start) * s,
+          height: openH * s,
+          fill: "#faf8f2",
+          stroke: theme.openingStroke,
+          strokeWidth: 1,
+        }),
+      );
       if (c.type === "window") {
-        layer.add(new Konva.Line({
-          points: [toX(c.start), toY((c.height + c.sillHeight) / 2), toX(c.end), toY((c.height + c.sillHeight) / 2)],
-          stroke: theme.openingStroke, strokeWidth: 0.6,
-        }));
-        layer.add(new Konva.Rect({
-          x: toX(c.start), y: toY(c.sillHeight),
-          width: (c.end - c.start) * s, height: c.sillHeight * s,
-          fill: theme.wallFill, stroke: theme.wallStroke, strokeWidth: 1,
-        }));
+        layer.add(
+          new Konva.Line({
+            points: [
+              toX(c.start),
+              toY((c.height + c.sillHeight) / 2),
+              toX(c.end),
+              toY((c.height + c.sillHeight) / 2),
+            ],
+            stroke: theme.openingStroke,
+            strokeWidth: 0.6,
+          }),
+        );
+        layer.add(
+          new Konva.Rect({
+            x: toX(c.start),
+            y: toY(c.sillHeight),
+            width: (c.end - c.start) * s,
+            height: c.sillHeight * s,
+            fill: theme.wallFill,
+            stroke: theme.wallStroke,
+            strokeWidth: 1,
+          }),
+        );
       }
       const kind = c.type === "door" ? "Porte" : "Fenêtre";
-      layer.add(new Konva.Text({
-        x: toX((c.start + c.end) / 2) - 80, y: toY(c.height) - 18,
-        width: 160, align: "center",
-        text: `${kind} ${Math.round(openW)}×${Math.round(openH)}`,
-        fontSize: 10, fontFamily: "Inter", fill: theme.dimension,
-      }));
+      layer.add(
+        new Konva.Text({
+          x: toX((c.start + c.end) / 2) - 80,
+          y: toY(c.height) - 18,
+          width: 160,
+          align: "center",
+          text: `${kind} ${Math.round(openW)}×${Math.round(openH)}`,
+          fontSize: 10,
+          fontFamily: "Inter",
+          fill: theme.dimension,
+        }),
+      );
     }
 
     // Slab
-    layer.add(new Konva.Rect({ x: toX(-50), y: toY(0), width: (totalLen + 100) * s, height: 16, fill: theme.wallFill }));
+    layer.add(
+      new Konva.Rect({
+        x: toX(-50),
+        y: toY(0),
+        width: (totalLen + 100) * s,
+        height: 16,
+        fill: theme.wallFill,
+      }),
+    );
 
     // Levels
-    layer.add(new Konva.Text({ x: toX(-50) - 60, y: toY(0) - 6, text: "± 0.00", fontSize: 10, fontFamily: "JetBrains Mono", fill: theme.dimension }));
-    layer.add(new Konva.Text({ x: toX(-50) - 60, y: toY(data.ceilingH) - 6, text: `+ ${(data.ceilingH / 100).toFixed(2)}`, fontSize: 10, fontFamily: "JetBrains Mono", fill: theme.dimension }));
+    layer.add(
+      new Konva.Text({
+        x: toX(-50) - 60,
+        y: toY(0) - 6,
+        text: "± 0.00",
+        fontSize: 10,
+        fontFamily: "JetBrains Mono",
+        fill: theme.dimension,
+      }),
+    );
+    layer.add(
+      new Konva.Text({
+        x: toX(-50) - 60,
+        y: toY(data.ceilingH) - 6,
+        text: `+ ${(data.ceilingH / 100).toFixed(2)}`,
+        fontSize: 10,
+        fontFamily: "JetBrains Mono",
+        fill: theme.dimension,
+      }),
+    );
 
     // Top dim
     if (wallCuts.length > 0) {
@@ -134,11 +266,25 @@ export function renderSectionPNG(plan: Plan, sec: SectionLine, theme: Theme2D, o
       const spanEnd = Math.max(...wallCuts.map((c) => c.end));
       const spanLen = spanEnd - spanStart;
       const dimY = marginY - 20;
-      layer.add(new Konva.Line({ points: [toX(spanStart), dimY, toX(spanEnd), dimY], stroke: theme.dimension, strokeWidth: 1 }));
-      layer.add(new Konva.Text({
-        x: toX((spanStart + spanEnd) / 2) - 40, y: dimY - 15, width: 80, align: "center",
-        text: `${(spanLen / 100).toFixed(2)} m`, fontSize: 11, fontFamily: "JetBrains Mono", fill: theme.dimension,
-      }));
+      layer.add(
+        new Konva.Line({
+          points: [toX(spanStart), dimY, toX(spanEnd), dimY],
+          stroke: theme.dimension,
+          strokeWidth: 1,
+        }),
+      );
+      layer.add(
+        new Konva.Text({
+          x: toX((spanStart + spanEnd) / 2) - 40,
+          y: dimY - 15,
+          width: 80,
+          align: "center",
+          text: `${(spanLen / 100).toFixed(2)} m`,
+          fontSize: 11,
+          fontFamily: "JetBrains Mono",
+          fill: theme.dimension,
+        }),
+      );
     }
 
     layer.draw();
@@ -161,7 +307,10 @@ export function findStageDataURL(): string | null {
     const rect = c.getBoundingClientRect();
     if (rect.width < 50) continue;
     const area = rect.width * rect.height;
-    if (area > bestArea) { bestArea = area; best = c; }
+    if (area > bestArea) {
+      bestArea = area;
+      best = c;
+    }
   }
   return best?.toDataURL("image/png") ?? null;
 }
@@ -174,7 +323,13 @@ type DossierData = {
   view3DImage?: string | null;
 };
 
-export async function exportDossierPDF({ plan, projectName, theme = DEFAULT_THEME, plan2DImage, view3DImage }: DossierData) {
+export async function exportDossierPDF({
+  plan,
+  projectName,
+  theme = DEFAULT_THEME,
+  plan2DImage,
+  view3DImage,
+}: DossierData) {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a3" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -197,7 +352,7 @@ export async function exportDossierPDF({ plan, projectName, theme = DEFAULT_THEM
     doc.text(projectName, margin + 3, y + 5);
     doc.setFontSize(7);
     doc.setTextColor(120);
-    doc.text(`Floor Whisper — Residale · ${date}`, margin + 3, y + 9);
+    doc.text(`Residale Config — Residale · ${date}`, margin + 3, y + 9);
     doc.setFontSize(9);
     doc.setTextColor(60);
     doc.text(pageTitle, margin + contentW * 0.5 + 3, y + 7);
@@ -232,7 +387,7 @@ export async function exportDossierPDF({ plan, projectName, theme = DEFAULT_THEM
   const sections = plan.sections.length ? plan.sections : autoSectionsFromPlan(plan);
   const gridTop = margin + 14;
   const gridH = pageH - gridTop - 30;
-  const cellW = contentW * 0.66 / 2;
+  const cellW = (contentW * 0.66) / 2;
   const cellH = gridH / 2;
   const gap = 4;
 
@@ -251,7 +406,12 @@ export async function exportDossierPDF({ plan, projectName, theme = DEFAULT_THEM
     } catch {
       // ignore render failures
     }
-    const nameMap: Record<string, string> = { N: "Coupe Nord", S: "Coupe Sud", E: "Coupe Est", O: "Coupe Ouest" };
+    const nameMap: Record<string, string> = {
+      N: "Coupe Nord",
+      S: "Coupe Sud",
+      E: "Coupe Est",
+      O: "Coupe Ouest",
+    };
     doc.setFontSize(9);
     doc.setTextColor(50);
     doc.text(nameMap[sec.name] ?? `Coupe ${sec.name}-${sec.name}'`, x + 2, y + 5);
@@ -312,7 +472,10 @@ export async function exportDossierPDF({ plan, projectName, theme = DEFAULT_THEM
 
   rooms.forEach((r, i) => {
     const y = tableTop + rowH + i * rowH;
-    if (i % 2 === 0) { doc.setFillColor(250, 250, 250); doc.rect(margin, y, contentW, rowH, "F"); }
+    if (i % 2 === 0) {
+      doc.setFillColor(250, 250, 250);
+      doc.rect(margin, y, contentW, rowH, "F");
+    }
     doc.setDrawColor(200);
     doc.rect(margin, y, contentW, rowH);
     doc.setTextColor(30);
@@ -344,7 +507,9 @@ export async function exportDossierPDF({ plan, projectName, theme = DEFAULT_THEM
     `Hauteur sous plafond : ${((plan.ceilingHeight ?? 250) / 100).toFixed(2)} m`,
     `Nombre de pièces : ${rooms.length}`,
     `Murs : ${plan.walls.length} · Ouvertures : ${plan.openings.length}`,
-    plan.roof ? `Toiture : ${plan.roof.kind === "flat" ? "plate" : plan.roof.kind === "mono" ? "1 pan" : plan.roof.kind === "gable" ? "2 pans" : plan.roof.kind}` : "Toiture : non définie",
+    plan.roof
+      ? `Toiture : ${plan.roof.kind === "flat" ? "plate" : plan.roof.kind === "mono" ? "1 pan" : plan.roof.kind === "gable" ? "2 pans" : plan.roof.kind}`
+      : "Toiture : non définie",
   ];
   metaLines.forEach((line, i) => doc.text(line, margin, metaY + i * 5));
 

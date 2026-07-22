@@ -6,9 +6,9 @@ import {
   type FloorWhisperMember,
 } from "@/lib/supabase-client";
 
-const PLANS_KEY = "residale-floor-whisper-plans-v1";
-const ACTIVE_PLAN_KEY = "residale-floor-whisper-active-plan-v1";
-const TEMP_ACCESS_SESSION_KEY = "residale-floor-whisper-temp-access-v1";
+const PLANS_KEY = "residale-config-plans-v1";
+const ACTIVE_PLAN_KEY = "residale-config-active-plan-v1";
+const TEMP_ACCESS_SESSION_KEY = "residale-config-temp-access-v1";
 const TEMP_ACCESS_EMAIL = "iznaour@residale.com";
 const TEMP_ACCESS_PASSWORD_SHA256 =
   "871d91668c68f99d92e9593fecaa8f01ed2e95940d8a780d0a4b4cd6f07fae34";
@@ -108,9 +108,9 @@ export function getTempAccessEmail() {
 export async function getCurrentMember(): Promise<FloorWhisperMember | null> {
   if (isTempAccessSession()) {
     return {
-      id: "temp-floor-whisper-access",
+      id: "temp-residale-config-access",
       email: TEMP_ACCESS_EMAIL,
-      display_name: "Accès temporaire Floor Whisper",
+      display_name: "Accès temporaire Residale Config",
       role_key: "temp_admin",
       is_admin: true,
     };
@@ -119,7 +119,7 @@ export async function getCurrentMember(): Promise<FloorWhisperMember | null> {
   const sb = requireSupabase();
   const { data: sessionData } = await sb.auth.getSession();
   if (!sessionData.session) return null;
-  const { data, error } = await sb.rpc("floor_whisper_current_member");
+  const { data, error } = await sb.rpc("residale_config_current_member");
   if (error) throw error;
   const first = Array.isArray(data) ? data[0] : data;
   return (first as FloorWhisperMember | null) ?? null;
@@ -172,7 +172,7 @@ export async function logout() {
 export async function listSavedPlans(): Promise<SavedPlan[]> {
   if (isTempAccessSession() || !isSupabaseConfigured) return localPlans();
   const { data, error } = await requireSupabase()
-    .from("floor_whisper_plans")
+    .from("residale_config_plans")
     .select("id, owner_id, name, plan, theme, scope, created_at, updated_at")
     .order("updated_at", { ascending: false });
   if (error) throw error;
@@ -183,7 +183,7 @@ export async function getSavedPlan(id: string) {
   if (isTempAccessSession() || !isSupabaseConfigured)
     return localPlans().find((p) => p.id === id) ?? null;
   const { data, error } = await requireSupabase()
-    .from("floor_whisper_plans")
+    .from("residale_config_plans")
     .select("id, owner_id, name, plan, theme, scope, created_at, updated_at")
     .eq("id", id)
     .single();
@@ -211,7 +211,7 @@ export async function savePlan(record: SavedPlan) {
     updated_at: new Date().toISOString(),
   };
   const { data, error } = await requireSupabase()
-    .from("floor_whisper_plans")
+    .from("residale_config_plans")
     .upsert(payload)
     .select("id, owner_id, name, plan, theme, scope, created_at, updated_at")
     .single();
@@ -243,7 +243,7 @@ export async function deleteSavedPlan(id: string) {
   if (isTempAccessSession() || !isSupabaseConfigured) {
     writeLocalPlans(localPlans().filter((p) => p.id !== id));
   } else {
-    const { error } = await requireSupabase().from("floor_whisper_plans").delete().eq("id", id);
+    const { error } = await requireSupabase().from("residale_config_plans").delete().eq("id", id);
     if (error) throw error;
   }
   if (getActivePlanId() === id) setActivePlanId(null);
@@ -267,7 +267,7 @@ async function migrateLocalPlansToCloud() {
     return;
   for (const local of locals) {
     const { error } = await requireSupabase()
-      .from("floor_whisper_plans")
+      .from("residale_config_plans")
       .upsert({
         id: local.id,
         name: local.name,

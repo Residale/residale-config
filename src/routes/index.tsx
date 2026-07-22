@@ -27,13 +27,13 @@ import { isSupabaseConfigured } from "@/lib/supabase-client";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Floor Whisper — Residale" },
+      { title: "Residale Config — Residale" },
       {
         name: "description",
         content:
           "Configurez des plans d'habitat Residale, avec murs, ouvertures, façades et export PDF architecte.",
       },
-      { property: "og:title", content: "Floor Whisper — Residale" },
+      { property: "og:title", content: "Residale Config — Residale" },
       {
         property: "og:description",
         content:
@@ -100,7 +100,7 @@ function Index() {
         if (!authenticated) return;
         const member = await getCurrentMember();
         if (!cancelled) {
-          setMemberLabel(member?.display_name || member?.email || "Compte Floor Whisper");
+          setMemberLabel(member?.display_name || member?.email || "Compte Residale Config");
         }
         const existing = await listSavedPlans();
         if (existing.length === 0) {
@@ -160,7 +160,7 @@ function Index() {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="text-center">
-          <div className="font-display text-2xl">Floor Whisper</div>
+          <div className="font-display text-2xl">Residale Config</div>
           <div className="mt-2 text-xs text-muted-foreground">Chargement…</div>
         </div>
       </div>
@@ -174,7 +174,7 @@ function Index() {
         onLogin={async () => {
           setAuthed(true);
           const member = await getCurrentMember();
-          setMemberLabel(member?.display_name || member?.email || "Compte Floor Whisper");
+          setMemberLabel(member?.display_name || member?.email || "Compte Residale Config");
           await refreshPlans();
         }}
       />
@@ -248,7 +248,7 @@ function LoginScreen({
       setError(
         isSupabaseConfigured
           ? "Identifiants incorrects, mot de passe invalide ou compte désactivé. Cliquez sur « Mot de passe oublié » pour réinitialiser."
-          : "Backend Supabase non configuré pour Floor Whisper.",
+          : "Backend Supabase non configuré pour Residale Config.",
       );
     } finally {
       setLoading(false);
@@ -272,7 +272,7 @@ function LoginScreen({
       setError(
         isSupabaseConfigured
           ? "Impossible d’envoyer l’email de réinitialisation. Vérifiez l’email saisi."
-          : "Backend Supabase non configuré pour Floor Whisper.",
+          : "Backend Supabase non configuré pour Residale Config.",
       );
     } finally {
       setLoading(false);
@@ -315,13 +315,13 @@ function LoginScreen({
         }}
         className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-panel"
       >
-        <div className="font-display text-2xl">Floor Whisper</div>
+        <div className="font-display text-2xl">Residale Config</div>
         <div className="mt-1 text-sm text-muted-foreground">
           {mode === "forgot"
             ? "Réinitialisation du mot de passe"
             : mode === "reset"
               ? "Choisir un nouveau mot de passe"
-              : "Connexion à Floor Whisper"}
+              : "Connexion à Residale Config"}
         </div>
 
         {mode !== "reset" ? (

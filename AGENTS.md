@@ -1,4 +1,4 @@
-# Floor Whisper (Residale)
+# Residale Config (Residale)
 
 TanStack Start + Vite app. Deployed via Coolify (Docker, Node server) from
 `main`.

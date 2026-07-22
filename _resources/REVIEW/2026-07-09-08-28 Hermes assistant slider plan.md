@@ -1,7 +1,8 @@
 # Hermes Assistant Slider Plan
 
 ## Goal
-Add a right-side in-app helper for Floor Whisper after the editor/export foundation is stable.
+
+Add a right-side in-app helper for Residale Config after the editor/export foundation is stable.
 
 ## Safe architecture
 
@@ -11,7 +12,7 @@ Use this boundary:
 
 ```text
 Browser assistant drawer
-  -> Floor Whisper app API route authenticates/validates request
+  -> Residale Config app API route authenticates/validates request
   -> app builds scoped JSON context from the current plan/project only
   -> private project shim on Residale VPS
   -> project-specific Hermes profile API-only on loopback
@@ -21,7 +22,7 @@ Browser assistant drawer
 ## Profile shape on Residale VPS
 
 - Runtime user: `hermes` if available/owned; otherwise explicitly document why root is used.
-- Profile name: `floor-whisper`.
+- Profile name: `residale-config`.
 - Disable messaging tokens and broad toolsets for the user-facing profile.
 - Keep only completion capability unless explicit action endpoints are later designed.
 - Bind Hermes API to `127.0.0.1:<unique-port>`.
@@ -37,10 +38,11 @@ Browser assistant drawer
 
 ## Verification before calling it live
 
-- `hermes -p floor-whisper chat -q "Reply exactly PROFILE_OK" -Q` succeeds as the intended runtime user.
+- `hermes -p residale-config chat -q "Reply exactly PROFILE_OK" -Q` succeeds as the intended runtime user.
 - Shim `/health` works from host and from the app container.
 - Public app shows assistant connected, not fallback.
 - A live assistant request includes only scoped plan JSON and no VPS/filesystem/secrets.
 
 ## Deferred
+
 This phase did not create the Hermes profile because the user requested it as a follow-up thought after the editor/PDF foundation. Creating profile services and secrets is an infrastructure side effect that should be done as a separate, verified deploy slice.

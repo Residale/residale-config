@@ -1,12 +1,12 @@
-# Floor Whisper Implementation Report
+# Residale Config Implementation Report
 
 ## Summary
 
-Fable was launched as the normal `hermes` user from `/home/hermes/workspace/residale/floor-whisper` using Fable as orchestrator with Agent Teams allowed up to 2 helpers. It completed the architecture plan and began implementation, then hit the Fable 5 usage limit. Hermes/controller completed the safe remaining implementation and verification.
+Fable was launched as the normal `hermes` user from `/home/hermes/workspace/residale/residale-config` using Fable as orchestrator with Agent Teams allowed up to 2 helpers. It completed the architecture plan and began implementation, then hit the Fable 5 usage limit. Hermes/controller completed the safe remaining implementation and verification.
 
 ## Architecture decision
 
-Decision artifact: `_resources/PLANNING/2026-07-09-08-14 Floor Whisper modernization plan.md`.
+Decision artifact: `_resources/PLANNING/2026-07-09-08-14 Residale Config modernization plan.md`.
 
 Decision: keep and refactor the current app. Do not rewrite and do not migrate to Next.js now.
 
@@ -16,7 +16,7 @@ Reason: the existing app already has useful floor-plan domain code, geometry, se
 
 Created before modernization work:
 
-- Git branch: `floor-whisper-backup`
+- Git branch: `residale-config-backup`
 - Git tag: `v0-lovable-baseline`
 
 Both point at the pre-modernization baseline commit after the input artifacts were added.
@@ -30,8 +30,8 @@ Both point at the pre-modernization baseline commit after the input artifacts we
 - Replaced the wrapper config with an explicit owned `vite.config.ts` using TanStack Start, React, Tailwind, tsconfig paths, and Nitro `node-server` for Coolify.
 - Removed Lovable error reporting file and usage.
 - Removed Bun lock/config; this project now uses `npm ci` with `package-lock.json` in Docker/Coolify.
-- Renamed package to `floor-whisper`.
-- Rebranded visible metadata and top bar from Plana Studio to Floor Whisper.
+- Renamed package to `residale-config`.
+- Rebranded visible metadata and top bar from Plana Studio to Residale Config.
 
 ### AURA-style architectural sheet export
 
@@ -79,7 +79,7 @@ It recommends the safe scoped pattern: browser -> app API -> private shim -> API
 - `npm run build` passed after changes.
 - Local production server started from `.output/server/index.mjs` on port `4312`.
 - Browser smoke loaded `http://127.0.0.1:4312/` successfully.
-- Browser title verified: `Floor Whisper — Residale`.
+- Browser title verified: `Residale Config — Residale`.
 - UI verified visible:
   - `Plan architecte` export button
   - wall favorite buttons

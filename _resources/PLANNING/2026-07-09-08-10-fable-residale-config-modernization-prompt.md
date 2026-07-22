@@ -1,22 +1,22 @@
-# Fable Launch Prompt — Floor Whisper Modernization
+# Fable Launch Prompt — Residale Config Modernization
 
 Launch identity: normal `hermes` Linux user, not root.
-Workspace: `/home/hermes/workspace/residale/floor-whisper`.
+Workspace: `/home/hermes/workspace/residale/residale-config`.
 SOP: `/home/hermes/prompts/_CLAUDE-PROMPT.md`.
 
 Use exactly one Fable orchestrator/captain. You may use Agent Teams, maximum 2 helper agents. Keep context carefully managed: focused agents, concise artifact handoffs, no giant context dumps. Use latest Sonnet for routine implementation/QA; use Opus only if genuinely needed for architecture/review.
 
 ## User request
 
-This is Floor Whisper under Residale. A teammate made a first version in Lovable; we need to make it ours.
+This is Residale Config under Residale. A teammate made a first version in Lovable; we need to make it ours.
 
-Current live deployment is already on Coolify at `https://config.residale.com`, repo `Residale/floor-whisper`, branch `main`. Coolify auto-deploy is enabled on merge to main. The app currently uses Vite/TanStack/Lovable config, with a Dockerfile added for Coolify.
+Current live deployment is already on Coolify at `https://config.residale.com`, repo `Residale/residale-config`, branch `main`. Coolify auto-deploy is enabled on merge to main. The app currently uses Vite/TanStack/Lovable config, with a Dockerfile added for Coolify.
 
 The user asks:
 
 1. Decide whether it is better to modify the current app or redo it by copying working parts.
 2. Remove Lovable-specific stuff if sensible; evaluate whether to keep Vite/TanStack or move to Next.js.
-3. You may archive the current version locally/GitHub under `floor-whisper-backup` depending on your decision. Do not do destructive cleanup or force-push. If archiving is needed, prefer a safe branch/tag or copied backup with clear artifact notes.
+3. You may archive the current version locally/GitHub under `residale-config-backup` depending on your decision. Do not do destructive cleanup or force-push. If archiving is needed, prefer a safe branch/tag or copied backup with clear artifact notes.
 4. Make the app able to produce an attached architectural PDF output similar to the provided reference PDF, with project name setup and configurable layout.
 5. Add favorite/spec presets for walls, windows, and doors:
    - Favorite wall specs.
@@ -50,7 +50,7 @@ Visual summary of reference PDF:
 
 ## Current repo facts to verify yourself
 
-- Path: `/home/hermes/workspace/residale/floor-whisper`
+- Path: `/home/hermes/workspace/residale/residale-config`
 - Current branch should start from `main` at merged deploy config commit.
 - Existing app can build with `npm run build`.
 - Existing Dockerfile runs Node server on port 3000.
