@@ -85,7 +85,7 @@ export function CanvasSection() {
           <div className="relative h-full w-full" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setExpanded(null)}
-              className="absolute right-2 top-2 z-[60] rounded border border-border bg-card px-3 py-1 text-xs font-medium hover:border-brass"
+              className="absolute right-2 top-2 z-[60] rounded border border-border bg-card px-3 py-1 text-xs font-medium hover:border-ring/40"
             >
               Fermer (Échap)
             </button>
@@ -300,11 +300,11 @@ function SectionPanel({
     <div
       ref={containerRef}
       className="relative overflow-hidden rounded-md border border-border"
-      style={{ background: "#faf8f2" }}
+      style={{ background: "#ffffff" }}
     >
       <div
         onDoubleClick={onExpand}
-        className="absolute left-2 top-2 z-10 cursor-pointer rounded bg-card/90 px-2 py-1 text-[11px] font-medium tracking-wide shadow-panel hover:border hover:border-brass"
+        className="absolute left-2 top-2 z-10 cursor-pointer rounded bg-card/90 px-2 py-1 text-[11px] font-medium tracking-wide hover:border hover:border-ring/40"
         title="Double-cliquez pour agrandir"
       >
         {NAME_MAP[section.name] ?? `Coupe ${section.name}-${section.name}'`}
@@ -313,7 +313,7 @@ function SectionPanel({
         {onExpand && !fullscreen && (
           <button
             onClick={onExpand}
-            className="rounded border border-border bg-card/90 px-2 py-1 text-[10px] font-medium hover:border-brass"
+            className="rounded border border-border bg-card/90 px-2 py-1 text-[10px] font-medium hover:border-ring/40"
             title="Plein écran"
           >
             ⛶
@@ -321,7 +321,7 @@ function SectionPanel({
         )}
         <button
           onClick={resetView}
-          className="rounded border border-border bg-card/90 px-2 py-1 text-[10px] font-medium hover:border-brass"
+          className="rounded border border-border bg-card/90 px-2 py-1 text-[10px] font-medium hover:border-ring/40"
           title="Recentrer la vue"
         >
           Recentrer
@@ -457,7 +457,7 @@ function SectionPanel({
                     y={toY(c.height)}
                     width={(c.end - c.start) * s}
                     height={openH * s}
-                    fill={"#faf8f2"}
+                    fill={"#ffffff"}
                     stroke={theme.openingStroke}
                     strokeWidth={1}
                   />

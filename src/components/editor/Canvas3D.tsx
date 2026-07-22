@@ -70,13 +70,13 @@ class SceneErrorBoundary extends Component<{ children: ReactNode }, { err: Error
   render() {
     if (this.state.err) {
       return (
-        <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-[#e8e4dc] to-[#c9c2b3]">
+        <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-muted to-secondary">
           <div className="max-w-sm rounded-md border border-border bg-card/95 px-4 py-3 text-center text-sm text-muted-foreground shadow-panel">
-            <div className="mb-1 font-medium text-ink">Vue 3D indisponible</div>
+            <div className="mb-1 font-medium text-foreground">Vue 3D indisponible</div>
             <div className="text-[11px]">Une erreur est survenue lors du rendu 3D.</div>
             <button
               onClick={() => this.setState({ err: null })}
-              className="mt-2 rounded border border-border bg-background px-3 py-1 text-[11px] hover:border-brass"
+              className="mt-2 rounded border border-border bg-background px-3 py-1 text-[11px] hover:border-ring/40"
             >
               Réessayer
             </button>
@@ -211,10 +211,10 @@ function Scene() {
         args={[200, 200]}
         cellSize={0.2}
         cellThickness={0.5}
-        cellColor="#c9b98a"
+        cellColor="#94a3b8"
         sectionSize={1}
         sectionThickness={1}
-        sectionColor="#8b7355"
+        sectionColor="#475569"
         fadeDistance={60}
         fadeStrength={1.5}
         position={[0, 0.001, 0]}
@@ -228,7 +228,7 @@ function Scene() {
         const cx = ((w.a.x + w.b.x) / 2) * SCALE;
         const cz = ((w.a.y + w.b.y) / 2) * SCALE;
         const wallH = (w.height ?? ceilingH) * SCALE;
-        const wallColor = w.wallType === "interior" ? "#e8e0cc" : wall3DColor;
+        const wallColor = w.wallType === "interior" ? "#e2e8f0" : wall3DColor;
         const openings = plan.openings.filter((o) => o.wallId === w.id);
 
         const sorted = [...openings].sort((a, b) => a.t - b.t);
@@ -561,14 +561,14 @@ export function Canvas3D() {
     return { hsp, totalArea, horsTout };
   }, [plan]);
   return (
-    <div className="relative h-full w-full bg-gradient-to-b from-[#e8e4dc] to-[#c9c2b3]">
+    <div className="relative h-full w-full bg-gradient-to-b from-muted to-secondary">
       <SceneErrorBoundary>
         <Scene />
       </SceneErrorBoundary>
       {plan.roof && (
         <button
           onClick={toggle3DRoof}
-          className="absolute right-3 top-3 rounded-md border border-border bg-card/95 px-2.5 py-1 text-[11px] font-medium shadow-panel backdrop-blur hover:border-brass"
+          className="absolute right-3 top-3 rounded-md border border-border bg-card/95 px-2.5 py-1 text-[11px] font-medium shadow-panel backdrop-blur hover:border-ring/40"
         >
           {show3DRoof ? "Masquer la toiture" : "Afficher la toiture"}
         </button>

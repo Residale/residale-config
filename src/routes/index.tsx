@@ -23,17 +23,18 @@ import {
   type SavedPlanScope,
 } from "@/lib/editor/plan-library";
 import { isSupabaseConfigured } from "@/lib/supabase-client";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Residale Config — Residale" },
+      { title: "CONFIGURATOR — Residale" },
       {
         name: "description",
         content:
           "Configurez des plans d'habitat Residale, avec murs, ouvertures, façades et export PDF architecte.",
       },
-      { property: "og:title", content: "Residale Config — Residale" },
+      { property: "og:title", content: "CONFIGURATOR — Residale" },
       {
         property: "og:description",
         content:
@@ -100,7 +101,7 @@ function Index() {
         if (!authenticated) return;
         const member = await getCurrentMember();
         if (!cancelled) {
-          setMemberLabel(member?.display_name || member?.email || "Compte Residale Config");
+          setMemberLabel(member?.display_name || member?.email || "Compte CONFIGURATOR");
         }
         const existing = await listSavedPlans();
         if (existing.length === 0) {
@@ -160,7 +161,7 @@ function Index() {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="text-center">
-          <div className="font-display text-2xl">Residale Config</div>
+          <div className="font-display text-2xl">CONFIGURATOR</div>
           <div className="mt-2 text-xs text-muted-foreground">Chargement…</div>
         </div>
       </div>
@@ -174,7 +175,7 @@ function Index() {
         onLogin={async () => {
           setAuthed(true);
           const member = await getCurrentMember();
-          setMemberLabel(member?.display_name || member?.email || "Compte Residale Config");
+          setMemberLabel(member?.display_name || member?.email || "Compte CONFIGURATOR");
           await refreshPlans();
         }}
       />
@@ -248,7 +249,7 @@ function LoginScreen({
       setError(
         isSupabaseConfigured
           ? "Identifiants incorrects, mot de passe invalide ou compte désactivé. Cliquez sur « Mot de passe oublié » pour réinitialiser."
-          : "Backend Supabase non configuré pour Residale Config.",
+          : "Backend Supabase non configuré pour CONFIGURATOR.",
       );
     } finally {
       setLoading(false);
@@ -272,7 +273,7 @@ function LoginScreen({
       setError(
         isSupabaseConfigured
           ? "Impossible d’envoyer l’email de réinitialisation. Vérifiez l’email saisi."
-          : "Backend Supabase non configuré pour Residale Config.",
+          : "Backend Supabase non configuré pour CONFIGURATOR.",
       );
     } finally {
       setLoading(false);
@@ -305,7 +306,7 @@ function LoginScreen({
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f5f0e6] p-6">
+    <div className="flex min-h-screen items-center justify-center bg-background p-6">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -313,15 +314,15 @@ function LoginScreen({
           else if (mode === "reset") void submitReset();
           else void submitLogin();
         }}
-        className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-panel"
+        className="w-full max-w-sm rounded-2xl border border-border bg-card p-6"
       >
-        <div className="font-display text-2xl">Residale Config</div>
+        <div className="font-display text-2xl">CONFIGURATOR</div>
         <div className="mt-1 text-sm text-muted-foreground">
           {mode === "forgot"
             ? "Réinitialisation du mot de passe"
             : mode === "reset"
               ? "Choisir un nouveau mot de passe"
-              : "Connexion à Residale Config"}
+              : "Connexion à CONFIGURATOR"}
         </div>
 
         {mode !== "reset" ? (
@@ -332,7 +333,7 @@ function LoginScreen({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-ink outline-none focus:border-brass"
+                className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
               />
             </label>
             {mode === "login" && (
@@ -343,7 +344,7 @@ function LoginScreen({
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
-                  className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-ink outline-none focus:border-brass"
+                  className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
                 />
               </label>
             )}
@@ -357,7 +358,7 @@ function LoginScreen({
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 autoComplete="new-password"
-                className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-ink outline-none focus:border-brass"
+                className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
               />
             </label>
             <label className="mt-3 block text-xs font-medium text-muted-foreground">
@@ -367,7 +368,7 @@ function LoginScreen({
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 autoComplete="new-password"
-                className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-ink outline-none focus:border-brass"
+                className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
               />
             </label>
           </>
@@ -386,7 +387,7 @@ function LoginScreen({
 
         <button
           disabled={loading}
-          className="mt-5 w-full rounded bg-ink px-4 py-2 text-sm font-medium text-paper hover:bg-ink/85 disabled:opacity-60"
+          className="mt-5 w-full rounded bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
         >
           {loading
             ? "Veuillez patienter…"
@@ -405,7 +406,7 @@ function LoginScreen({
                 clearFeedback();
                 setMode("login");
               }}
-              className="text-muted-foreground underline-offset-2 hover:text-ink hover:underline"
+              className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
             >
               Retour connexion
             </button>
@@ -416,7 +417,7 @@ function LoginScreen({
                 clearFeedback();
                 setMode("forgot");
               }}
-              className="text-muted-foreground underline-offset-2 hover:text-ink hover:underline"
+              className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
             >
               Mot de passe oublié ?
             </button>
@@ -450,7 +451,7 @@ function PlansHome({
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f0e6] p-6 text-ink">
+    <div className="min-h-screen bg-background p-6 text-foreground">
       <div className="mx-auto max-w-6xl">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -466,22 +467,23 @@ function PlansHome({
               <p className="mt-2 text-xs text-muted-foreground">Compte : {memberLabel}</p>
             )}
           </div>
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <ThemeToggle />
             <button
               onClick={() => void createPlan("private")}
-              className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper hover:bg-ink/85"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             >
               + Nouveau plan privé
             </button>
             <button
               onClick={() => void createPlan("shared")}
-              className="rounded-md bg-brass px-4 py-2 text-sm font-medium text-ink hover:bg-brass/85"
+              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent/85"
             >
               + Plan commun
             </button>
             <button
               onClick={() => void onLogout()}
-              className="rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground hover:border-brass hover:text-ink"
+              className="rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground hover:border-ring/40 hover:text-foreground"
             >
               Déconnexion
             </button>
@@ -540,7 +542,7 @@ function PlanGrid({
   return (
     <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {plans.map((plan) => (
-        <article key={plan.id} className="rounded-xl border border-border bg-card p-4 shadow-panel">
+        <article key={plan.id} className="rounded-xl border border-border bg-card p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="font-display text-xl">{plan.name}</h3>
@@ -560,7 +562,7 @@ function PlanGrid({
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               onClick={() => onOpen(plan.id)}
-              className="flex-1 rounded bg-ink px-3 py-2 text-xs font-medium text-paper hover:bg-ink/85"
+              className="flex-1 rounded bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
             >
               Ouvrir
             </button>
@@ -571,7 +573,7 @@ function PlanGrid({
                 await updateSavedPlan(plan.id, { name: nextName.trim() });
                 await onRefresh();
               }}
-              className="rounded border border-border bg-background px-3 py-2 text-xs font-medium hover:border-brass"
+              className="rounded border border-border bg-background px-3 py-2 text-xs font-medium hover:border-ring/40"
             >
               Renommer
             </button>
@@ -586,7 +588,7 @@ function PlanGrid({
                 await onRefresh();
                 onOpen(copy.id);
               }}
-              className="rounded border border-border bg-background px-3 py-2 text-xs font-medium hover:border-brass"
+              className="rounded border border-border bg-background px-3 py-2 text-xs font-medium hover:border-ring/40"
             >
               Dupliquer
             </button>
@@ -596,7 +598,7 @@ function PlanGrid({
                 await updateSavedPlan(plan.id, { scope: nextScope });
                 await onRefresh();
               }}
-              className="rounded border border-border bg-background px-3 py-2 text-xs font-medium hover:border-brass"
+              className="rounded border border-border bg-background px-3 py-2 text-xs font-medium hover:border-ring/40"
             >
               {plan.scope === "shared" ? "Rendre privé" : "Partager"}
             </button>
