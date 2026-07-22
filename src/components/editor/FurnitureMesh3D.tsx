@@ -26,53 +26,97 @@ export function FurnitureMesh3D({ f }: Props) {
 function Piece({ kind, w, d, h }: { kind: FurnitureKind; w: number; d: number; h: number }) {
   switch (kind) {
     case "bed":
-    case "bed_single": return <Bed w={w} d={d} h={h} />;
-    case "nightstand": return <BoxUnit w={w} d={d} h={h} color="#8b7355" drawers={2} />;
-    case "wardrobe": return <Wardrobe w={w} d={d} h={h} />;
-    case "dresser": return <BoxUnit w={w} d={d} h={h} color="#7a5d3a" drawers={3} />;
-    case "sofa": return <Sofa w={w} d={d} h={h} />;
-    case "sofa_l": return <SofaL w={w} d={d} h={h} />;
-    case "armchair": return <Armchair w={w} d={d} h={h} />;
-    case "chair": return <Chair w={w} d={d} h={h} />;
-    case "table": case "coffee_table": return <Table w={w} d={d} h={h} legR={0.02} color="#8b6f47" />;
-    case "dining": return <Table w={w} d={d} h={h} legR={0.025} color="#7a5d3a" />;
-    case "desk": return <Desk w={w} d={d} h={h} />;
-    case "bookshelf": return <Bookshelf w={w} d={d} h={h} />;
-    case "tv_console": return <BoxUnit w={w} d={d} h={h} color="#4a3a2a" drawers={0} shelves />;
-    case "tv": return <TV w={w} d={d} h={h} />;
-    case "toilet": return <Toilet w={w} d={d} h={h} />;
-    case "bidet": return <Bidet w={w} d={d} h={h} />;
-    case "sink": return <Sink w={w} d={d} h={h} />;
-    case "vanity": return <Vanity w={w} d={d} h={h} />;
-    case "bath": return <Bath w={w} d={d} h={h} />;
-    case "shower": return <Shower w={w} d={d} h={h} />;
-    case "radiator": case "towel_rack": return <Radiator w={w} d={d} h={h} />;
-    case "washer": return <Washer w={w} d={d} h={h} />;
-    case "fridge": return <Fridge w={w} d={d} h={h} />;
-    case "stove": return <Stove w={w} d={d} h={h} />;
-    case "oven": return <Oven w={w} d={d} h={h} />;
-    case "microwave": return <Microwave w={w} d={d} h={h} />;
-    case "hood": return <Hood w={w} d={d} h={h} />;
-    case "dishwasher": return <Dishwasher w={w} d={d} h={h} />;
-    case "kitchen_island": return <KitchenIsland w={w} d={d} h={h} />;
-    case "kitchen_base": return <KitchenBase w={w} d={d} h={h} />;
-    case "kitchen_upper": return <KitchenUpper w={w} d={d} h={h} />;
-    case "plant": return <Plant w={w} d={d} h={h} />;
-    case "rug": return <Rug w={w} d={d} />;
-    case "staircase": return <Staircase w={w} d={d} h={h} />;
-    case "fireplace": return <Fireplace w={w} d={d} h={h} />;
-    case "wood_stove": return <WoodStove w={w} d={d} h={h} />;
-    case "bbq": return <BBQ w={w} d={d} h={h} />;
-    case "garden_table": return <Table w={w} d={d} h={h} legR={0.022} color="#8a7350" />;
-    case "garden_chair": return <Chair w={w} d={d} h={h} />;
-    case "parasol": return <Parasol w={w} d={d} h={h} />;
-    case "pool": return <Pool w={w} d={d} h={h} />;
-    default: return (
-      <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[w, h, d]} />
-        <meshStandardMaterial color="#c9b89a" />
-      </mesh>
-    );
+    case "bed_single":
+      return <Bed w={w} d={d} h={h} />;
+    case "nightstand":
+      return <BoxUnit w={w} d={d} h={h} color="#8b7355" drawers={2} />;
+    case "wardrobe":
+      return <Wardrobe w={w} d={d} h={h} />;
+    case "dresser":
+      return <BoxUnit w={w} d={d} h={h} color="#7a5d3a" drawers={3} />;
+    case "sofa":
+      return <Sofa w={w} d={d} h={h} />;
+    case "sofa_l":
+      return <SofaL w={w} d={d} h={h} />;
+    case "armchair":
+      return <Armchair w={w} d={d} h={h} />;
+    case "chair":
+      return <Chair w={w} d={d} h={h} />;
+    case "table":
+    case "coffee_table":
+      return <Table w={w} d={d} h={h} legR={0.02} color="#8b6f47" />;
+    case "dining":
+      return <Table w={w} d={d} h={h} legR={0.025} color="#7a5d3a" />;
+    case "desk":
+      return <Desk w={w} d={d} h={h} />;
+    case "bookshelf":
+      return <Bookshelf w={w} d={d} h={h} />;
+    case "tv_console":
+      return <BoxUnit w={w} d={d} h={h} color="#4a3a2a" drawers={0} shelves />;
+    case "tv":
+      return <TV w={w} d={d} h={h} />;
+    case "toilet":
+      return <Toilet w={w} d={d} h={h} />;
+    case "bidet":
+      return <Bidet w={w} d={d} h={h} />;
+    case "sink":
+      return <Sink w={w} d={d} h={h} />;
+    case "vanity":
+      return <Vanity w={w} d={d} h={h} />;
+    case "bath":
+      return <Bath w={w} d={d} h={h} />;
+    case "shower":
+      return <Shower w={w} d={d} h={h} />;
+    case "radiator":
+    case "towel_rack":
+      return <Radiator w={w} d={d} h={h} />;
+    case "washer":
+      return <Washer w={w} d={d} h={h} />;
+    case "fridge":
+      return <Fridge w={w} d={d} h={h} />;
+    case "stove":
+      return <Stove w={w} d={d} h={h} />;
+    case "oven":
+      return <Oven w={w} d={d} h={h} />;
+    case "microwave":
+      return <Microwave w={w} d={d} h={h} />;
+    case "hood":
+      return <Hood w={w} d={d} h={h} />;
+    case "dishwasher":
+      return <Dishwasher w={w} d={d} h={h} />;
+    case "kitchen_island":
+      return <KitchenIsland w={w} d={d} h={h} />;
+    case "kitchen_base":
+      return <KitchenBase w={w} d={d} h={h} />;
+    case "kitchen_upper":
+      return <KitchenUpper w={w} d={d} h={h} />;
+    case "plant":
+      return <Plant w={w} d={d} h={h} />;
+    case "rug":
+      return <Rug w={w} d={d} />;
+    case "staircase":
+      return <Staircase w={w} d={d} h={h} />;
+    case "fireplace":
+      return <Fireplace w={w} d={d} h={h} />;
+    case "wood_stove":
+      return <WoodStove w={w} d={d} h={h} />;
+    case "bbq":
+      return <BBQ w={w} d={d} h={h} />;
+    case "garden_table":
+      return <Table w={w} d={d} h={h} legR={0.022} color="#8a7350" />;
+    case "garden_chair":
+      return <Chair w={w} d={d} h={h} />;
+    case "parasol":
+      return <Parasol w={w} d={d} h={h} />;
+    case "pool":
+      return <Pool w={w} d={d} h={h} />;
+    default:
+      return (
+        <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
+          <boxGeometry args={[w, h, d]} />
+          <meshStandardMaterial color="#c9b89a" />
+        </mesh>
+      );
   }
 }
 
@@ -121,7 +165,21 @@ function Bed({ w, d, h }: { w: number; d: number; h: number }) {
   );
 }
 
-function BoxUnit({ w, d, h, color, drawers, shelves }: { w: number; d: number; h: number; color: string; drawers: number; shelves?: boolean }) {
+function BoxUnit({
+  w,
+  d,
+  h,
+  color,
+  drawers,
+  shelves,
+}: {
+  w: number;
+  d: number;
+  h: number;
+  color: string;
+  drawers: number;
+  shelves?: boolean;
+}) {
   return (
     <group>
       <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
@@ -136,7 +194,10 @@ function BoxUnit({ w, d, h, color, drawers, shelves }: { w: number; d: number; h
       ))}
       {shelves && (
         <>
-          <mesh position={[0, h * 0.5, 0]}><boxGeometry args={[w * 0.95, 0.01, d * 0.9]} /><meshStandardMaterial color="#3a2a1a" /></mesh>
+          <mesh position={[0, h * 0.5, 0]}>
+            <boxGeometry args={[w * 0.95, 0.01, d * 0.9]} />
+            <meshStandardMaterial color="#3a2a1a" />
+          </mesh>
         </>
       )}
     </group>
@@ -158,7 +219,11 @@ function Wardrobe({ w, d, h }: { w: number; d: number; h: number }) {
         </mesh>
       ))}
       {Array.from({ length: doors }).map((_, i) => (
-        <mesh key={`h${i}`} position={[-w / 2 + (w / doors) * (i + 0.5), h * 0.5, d / 2 + 0.01]} castShadow>
+        <mesh
+          key={`h${i}`}
+          position={[-w / 2 + (w / doors) * (i + 0.5), h * 0.5, d / 2 + 0.01]}
+          castShadow
+        >
           <boxGeometry args={[0.015, 0.08, 0.02]} />
           <meshStandardMaterial color="#c8b89a" metalness={0.6} roughness={0.3} />
         </mesh>
@@ -248,7 +313,12 @@ function Chair({ w, d, h }: { w: number; d: number; h: number }) {
         <boxGeometry args={[w * 0.9, seatH, d * 0.9]} />
         <meshStandardMaterial color="#6b5842" roughness={0.8} />
       </mesh>
-      {[[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sz], i) => (
+      {[
+        [-1, -1],
+        [1, -1],
+        [1, 1],
+        [-1, 1],
+      ].map(([sx, sz], i) => (
         <mesh key={i} position={[sx * w * 0.42, seatY / 2, sz * d * 0.42]} castShadow>
           <cylinderGeometry args={[0.015, 0.015, seatY, 8]} />
           <meshStandardMaterial color="#3d2f22" roughness={0.7} />
@@ -262,7 +332,19 @@ function Chair({ w, d, h }: { w: number; d: number; h: number }) {
   );
 }
 
-function Table({ w, d, h, legR, color }: { w: number; d: number; h: number; legR: number; color: string }) {
+function Table({
+  w,
+  d,
+  h,
+  legR,
+  color,
+}: {
+  w: number;
+  d: number;
+  h: number;
+  legR: number;
+  color: string;
+}) {
   const topH = 0.04;
   const topY = h - topH / 2;
   return (
@@ -271,8 +353,17 @@ function Table({ w, d, h, legR, color }: { w: number; d: number; h: number; legR
         <boxGeometry args={[w, topH, d]} />
         <meshStandardMaterial color={color} roughness={0.7} />
       </mesh>
-      {[[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sz], i) => (
-        <mesh key={i} position={[sx * (w / 2 - legR * 2), (h - topH) / 2, sz * (d / 2 - legR * 2)]} castShadow>
+      {[
+        [-1, -1],
+        [1, -1],
+        [1, 1],
+        [-1, 1],
+      ].map(([sx, sz], i) => (
+        <mesh
+          key={i}
+          position={[sx * (w / 2 - legR * 2), (h - topH) / 2, sz * (d / 2 - legR * 2)]}
+          castShadow
+        >
           <cylinderGeometry args={[legR, legR, h - topH, 10]} />
           <meshStandardMaterial color="#3d2f22" roughness={0.7} />
         </mesh>
@@ -301,8 +392,14 @@ function Bookshelf({ w, d, h }: { w: number; d: number; h: number }) {
         <boxGeometry args={[w, h, 0.01]} />
         <meshStandardMaterial color="#4a3a22" />
       </mesh>
-      <mesh position={[-w / 2 + 0.01, h / 2, 0]} castShadow><boxGeometry args={[0.02, h, d]} /><meshStandardMaterial color="#6b5842" /></mesh>
-      <mesh position={[w / 2 - 0.01, h / 2, 0]} castShadow><boxGeometry args={[0.02, h, d]} /><meshStandardMaterial color="#6b5842" /></mesh>
+      <mesh position={[-w / 2 + 0.01, h / 2, 0]} castShadow>
+        <boxGeometry args={[0.02, h, d]} />
+        <meshStandardMaterial color="#6b5842" />
+      </mesh>
+      <mesh position={[w / 2 - 0.01, h / 2, 0]} castShadow>
+        <boxGeometry args={[0.02, h, d]} />
+        <meshStandardMaterial color="#6b5842" />
+      </mesh>
       {Array.from({ length: shelves + 1 }).map((_, i) => (
         <mesh key={i} position={[0, (h / shelves) * i, 0]} castShadow>
           <boxGeometry args={[w, 0.015, d]} />
@@ -315,12 +412,15 @@ function Bookshelf({ w, d, h }: { w: number; d: number; h: number }) {
           const colors = ["#8b3a3a", "#3a5a8b", "#3a8b5a", "#8b6b3a", "#5a3a8b"];
           const bh = 0.25 + ((r * 7 + c * 13) % 10) * 0.01;
           return (
-            <mesh key={`${r}-${c}`} position={[-w / 2 + 0.04 + c * 0.05, (h / shelves) * r + bh / 2 + 0.01, 0]}>
+            <mesh
+              key={`${r}-${c}`}
+              position={[-w / 2 + 0.04 + c * 0.05, (h / shelves) * r + bh / 2 + 0.01, 0]}
+            >
               <boxGeometry args={[0.035, bh, d * 0.55]} />
               <meshStandardMaterial color={colors[(r + c) % colors.length]} roughness={0.9} />
             </mesh>
           );
-        })
+        }),
       )}
     </group>
   );
@@ -459,11 +559,23 @@ function Shower({ w, d, h }: { w: number; d: number; h: number }) {
       {/* glass panels */}
       <mesh position={[0, h / 2, d / 2 - 0.005]}>
         <boxGeometry args={[w, h, 0.008]} />
-        <meshStandardMaterial color="#a0c8d8" transparent opacity={0.35} roughness={0.1} metalness={0.05} />
+        <meshStandardMaterial
+          color="#a0c8d8"
+          transparent
+          opacity={0.35}
+          roughness={0.1}
+          metalness={0.05}
+        />
       </mesh>
       <mesh position={[w / 2 - 0.005, h / 2, 0]}>
         <boxGeometry args={[0.008, h, d]} />
-        <meshStandardMaterial color="#a0c8d8" transparent opacity={0.35} roughness={0.1} metalness={0.05} />
+        <meshStandardMaterial
+          color="#a0c8d8"
+          transparent
+          opacity={0.35}
+          roughness={0.1}
+          metalness={0.05}
+        />
       </mesh>
       {/* shower head */}
       <mesh position={[-w * 0.35, h * 0.9, -d * 0.4]} castShadow>
@@ -542,7 +654,12 @@ function Stove({ w, d, h }: { w: number; d: number; h: number }) {
         <boxGeometry args={[w, 0.015, d]} />
         <meshStandardMaterial color="#1a1a1a" roughness={0.25} />
       </mesh>
-      {[[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sz], i) => (
+      {[
+        [-1, -1],
+        [1, -1],
+        [1, 1],
+        [-1, 1],
+      ].map(([sx, sz], i) => (
         <mesh key={i} position={[sx * w * 0.28, h + 0.014, sz * d * 0.28]}>
           <cylinderGeometry args={[Math.min(w, d) * 0.11, Math.min(w, d) * 0.11, 0.005, 24]} />
           <meshStandardMaterial color="#3a3a3a" roughness={0.5} />
@@ -699,7 +816,12 @@ function Staircase({ w, d, h }: { w: number; d: number; h: number }) {
   return (
     <group>
       {Array.from({ length: steps }).map((_, i) => (
-        <mesh key={i} position={[0, stepH * (i + 0.5), -d / 2 + stepD * (i + 0.5)]} castShadow receiveShadow>
+        <mesh
+          key={i}
+          position={[0, stepH * (i + 0.5), -d / 2 + stepD * (i + 0.5)]}
+          castShadow
+          receiveShadow
+        >
           <boxGeometry args={[w, stepH, stepD]} />
           <meshStandardMaterial color="#a08a6c" roughness={0.75} />
         </mesh>

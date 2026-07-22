@@ -26,8 +26,14 @@ export function ShortcutsHelp() {
       {open && (
         <div className="pointer-events-auto w-72 rounded-md border border-border bg-background/95 p-3 shadow-lg backdrop-blur">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Raccourcis</span>
-            <button className="rounded p-1 hover:bg-muted" onClick={() => setOpen(false)} aria-label="Fermer">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Raccourcis
+            </span>
+            <button
+              className="rounded p-1 hover:bg-muted"
+              onClick={() => setOpen(false)}
+              aria-label="Fermer"
+            >
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -35,7 +41,9 @@ export function ShortcutsHelp() {
             {SHORTCUTS.map((s) => (
               <li key={s.keys} className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">{s.label}</span>
-                <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">{s.keys}</kbd>
+                <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                  {s.keys}
+                </kbd>
               </li>
             ))}
           </ul>

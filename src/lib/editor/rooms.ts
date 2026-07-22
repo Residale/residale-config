@@ -109,7 +109,10 @@ export function summarizeRooms(plan: Plan): RoomSummary[] {
     let closestD = Infinity;
     for (const l of labels) {
       const d = Math.hypot(l.x - r.center.x, l.y - r.center.y);
-      if (d < closestD) { closestD = d; closestLabel = l.text; }
+      if (d < closestD) {
+        closestD = d;
+        closestLabel = l.text;
+      }
     }
     const fallback = i === 0 ? "Séjour" : i === 1 ? "Chambre" : `Pièce ${i + 1}`;
     return { name: closestLabel ?? fallback, area: r.area / 10000, center: r.center };

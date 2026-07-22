@@ -47,7 +47,10 @@ type Bounds = { minX: number; minY: number; maxX: number; maxY: number };
 /** Emprise extérieure du plan (nu extérieur des murs), en cm. */
 export function planBounds(plan: Plan): Bounds | null {
   if (!plan.walls.length) return null;
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
   for (const w of plan.walls) {
     for (const p of wallPolygon(w)) {
       minX = Math.min(minX, p.x);
@@ -110,10 +113,13 @@ export function computeElevation(plan: Plan, dir: ElevationDir): Elevation | nul
 
   const perp = (w: Wall) => (horizFacade ? (w.a.y + w.b.y) / 2 : (w.a.x + w.b.x) / 2);
   const nearVal =
-    dir === "N" ? Math.min(...aligned.map(perp))
-    : dir === "S" ? Math.max(...aligned.map(perp))
-    : dir === "O" ? Math.min(...aligned.map(perp))
-    : Math.max(...aligned.map(perp));
+    dir === "N"
+      ? Math.min(...aligned.map(perp))
+      : dir === "S"
+        ? Math.max(...aligned.map(perp))
+        : dir === "O"
+          ? Math.min(...aligned.map(perp))
+          : Math.max(...aligned.map(perp));
   const facadeWalls = aligned.filter((w) => Math.abs(perp(w) - nearVal) <= w.thickness + 6);
 
   const axisMin = horizFacade ? b.minX : b.minY;
@@ -155,7 +161,8 @@ export function computeElevation(plan: Plan, dir: ElevationDir): Elevation | nul
 function polygon(doc: jsPDF, pts: Array<{ x: number; y: number }>, style: "S" | "F" | "FD") {
   if (pts.length < 3) return;
   const segs: number[][] = [];
-  for (let i = 1; i < pts.length; i++) segs.push([pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y]);
+  for (let i = 1; i < pts.length; i++)
+    segs.push([pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y]);
   doc.lines(segs, pts[0].x, pts[0].y, [1, 1], style, true);
 }
 
@@ -193,7 +200,10 @@ function fitFontSize(doc: jsPDF, text: string, maxW: number, baseSize: number): 
 /** Ligne de cote avec attaches, ticks obliques et texte en mètres. */
 function dimLine(
   doc: jsPDF,
-  x1: number, y1: number, x2: number, y2: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
   labelCm: number,
   opts: { textAngle?: number; fontSize?: number } = {},
 ) {
@@ -203,8 +213,16 @@ function dimLine(
   const uy = (y2 - y1) / (Math.hypot(x2 - x1, y2 - y1) || 1);
   // ticks obliques à 45°
   const t = 0.9;
-  for (const [px, py] of [[x1, y1], [x2, y2]] as const) {
-    doc.line(px - (ux - uy) * t * 0.5, py - (uy + ux) * t * 0.5, px + (ux - uy) * t * 0.5, py + (uy + ux) * t * 0.5);
+  for (const [px, py] of [
+    [x1, y1],
+    [x2, y2],
+  ] as const) {
+    doc.line(
+      px - (ux - uy) * t * 0.5,
+      py - (uy + ux) * t * 0.5,
+      px + (ux - uy) * t * 0.5,
+      py + (uy + ux) * t * 0.5,
+    );
   }
   doc.setFontSize(opts.fontSize ?? 6.5);
   doc.setTextColor(DIM[0], DIM[1], DIM[2]);
@@ -232,13 +250,19 @@ function drawWalls(doc: jsPDF, plan: Plan, m: Mapper) {
     const extendA = wallsSharingPoint(plan.walls, w.a).length > 1 ? w.thickness / 2 : 0;
     const extendB = wallsSharingPoint(plan.walls, w.b).length > 1 ? w.thickness / 2 : 0;
     const ext = wallExtended(w, 0);
-    const dx = w.b.x - w.a.x, dy = w.b.y - w.a.y;
+    const dx = w.b.x - w.a.x,
+      dy = w.b.y - w.a.y;
     const len = Math.hypot(dx, dy) || 1;
-    const ux = dx / len, uy = dy / len;
+    const ux = dx / len,
+      uy = dy / len;
     const wa = { x: ext.a.x - ux * extendA, y: ext.a.y - uy * extendA };
     const wb = { x: ext.b.x + ux * extendB, y: ext.b.y + uy * extendB };
     const poly = wallPolygon({ ...w, a: wa, b: wb });
-    polygon(doc, poly.map((p) => ({ x: m.px(p.x), y: m.py(p.y) })), "FD");
+    polygon(
+      doc,
+      poly.map((p) => ({ x: m.px(p.x), y: m.py(p.y) })),
+      "FD",
+    );
   }
 }
 
@@ -259,10 +283,13 @@ function drawOpenings(doc: jsPDF, plan: Plan, m: Mapper) {
   for (const o of plan.openings) {
     const w = plan.walls.find((ww) => ww.id === o.wallId);
     if (!w) continue;
-    const dx = w.b.x - w.a.x, dy = w.b.y - w.a.y;
+    const dx = w.b.x - w.a.x,
+      dy = w.b.y - w.a.y;
     const len = Math.hypot(dx, dy) || 1;
-    const ux = dx / len, uy = dy / len;
-    const nx = -uy, ny = ux;
+    const ux = dx / len,
+      uy = dy / len;
+    const nx = -uy,
+      ny = ux;
     const cx = w.a.x + dx * o.t;
     const cy = w.a.y + dy * o.t;
     const half = o.width / 2;
@@ -275,7 +302,11 @@ function drawOpenings(doc: jsPDF, plan: Plan, m: Mapper) {
     // 1. Perce la baie (blanc), légèrement plus grand pour recouvrir le trait du mur.
     doc.setFillColor(255, 255, 255);
     const overshoot = 1.06;
-    polygon(doc, [corner(-1, -overshoot), corner(1, -overshoot), corner(1, overshoot), corner(-1, overshoot)], "F");
+    polygon(
+      doc,
+      [corner(-1, -overshoot), corner(1, -overshoot), corner(1, overshoot), corner(-1, overshoot)],
+      "F",
+    );
 
     // 2. Tableaux (jambages) aux extrémités de la baie.
     setStroke(doc, INK, 0.15);
@@ -326,8 +357,10 @@ function drawSlidingPanes(
 ) {
   setStroke(doc, INK, 0.16);
   // deux vantaux décalés de part et d'autre de l'axe
-  const a1 = corner(-1, -0.25), b1 = corner(0.15, -0.25);
-  const a2 = corner(-0.15, 0.25), b2 = corner(1, 0.25);
+  const a1 = corner(-1, -0.25),
+    b1 = corner(0.15, -0.25);
+  const a2 = corner(-0.15, 0.25),
+    b2 = corner(1, 0.25);
   doc.line(a1.x, a1.y, b1.x, b1.y);
   doc.line(a2.x, a2.y, b2.x, b2.y);
 }
@@ -360,13 +393,18 @@ function drawFurniture(doc: jsPDF, plan: Plan, m: Mapper) {
   setStroke(doc, FURN, 0.12);
   for (const f of plan.furniture) {
     const a = (f.rotation * Math.PI) / 180;
-    const cosA = Math.cos(a), sinA = Math.sin(a);
-    const hw = f.width / 2, hh = f.height / 2;
+    const cosA = Math.cos(a),
+      sinA = Math.sin(a);
+    const hw = f.width / 2,
+      hh = f.height / 2;
     // x/y = centre du meuble, rotation autour du centre (cf. Canvas2D).
     const cx = f.x;
     const cy = f.y;
     const pts = [
-      { x: -hw, y: -hh }, { x: hw, y: -hh }, { x: hw, y: hh }, { x: -hw, y: hh },
+      { x: -hw, y: -hh },
+      { x: hw, y: -hh },
+      { x: hw, y: hh },
+      { x: -hw, y: hh },
     ].map((p) => ({
       x: m.px(cx + p.x * cosA - p.y * sinA),
       y: m.py(cy + p.x * sinA + p.y * cosA),
@@ -389,7 +427,8 @@ function drawPlanLabels(doc: jsPDF, plan: Plan, m: Mapper) {
 /** Appel de façade : libellé + triangle ouvert pointant vers le plan. */
 function elevationCallout(
   doc: jsPDF,
-  x: number, y: number,
+  x: number,
+  y: number,
   label: string,
   pointing: "up" | "down" | "left" | "right",
   textAngle: number,
@@ -401,20 +440,40 @@ function elevationCallout(
   const gap = 3.4; // écart texte/triangle
   setStroke(doc, [110, 110, 110], 0.2);
   const tri = (pts: number[][]) => {
-    polygon(doc, pts.map(([px, py]) => ({ x: px, y: py })), "S");
+    polygon(
+      doc,
+      pts.map(([px, py]) => ({ x: px, y: py })),
+      "S",
+    );
   };
   if (pointing === "down") {
     doc.text(label, x - gap, y + 1, { align: "right", angle: textAngle });
-    tri([[x + t, y - t + 0.8], [x + 3 * t, y - t + 0.8], [x + 2 * t, y + t + 0.8]]);
+    tri([
+      [x + t, y - t + 0.8],
+      [x + 3 * t, y - t + 0.8],
+      [x + 2 * t, y + t + 0.8],
+    ]);
   } else if (pointing === "up") {
     doc.text(label, x - gap, y + 1, { align: "right", angle: textAngle });
-    tri([[x + t, y + t - 0.6], [x + 3 * t, y + t - 0.6], [x + 2 * t, y - t - 0.6]]);
+    tri([
+      [x + t, y + t - 0.6],
+      [x + 3 * t, y + t - 0.6],
+      [x + 2 * t, y - t - 0.6],
+    ]);
   } else if (pointing === "right") {
     doc.text(label, x - 1, y + gap, { align: "left", angle: 90 });
-    tri([[x - t + 0.4, y - 3 * t], [x - t + 0.4, y - t], [x + t + 0.4, y - 2 * t]]);
+    tri([
+      [x - t + 0.4, y - 3 * t],
+      [x - t + 0.4, y - t],
+      [x + t + 0.4, y - 2 * t],
+    ]);
   } else {
     doc.text(label, x + 1, y - gap, { align: "left", angle: -90 });
-    tri([[x + t - 0.4, y + t], [x + t - 0.4, y + 3 * t], [x - t - 0.4, y + 2 * t]]);
+    tri([
+      [x + t - 0.4, y + t],
+      [x + t - 0.4, y + 3 * t],
+      [x - t - 0.4, y + 2 * t],
+    ]);
   }
 }
 
@@ -478,14 +537,20 @@ function drawElevation(
 
 export type SheetResult = { effectiveScale: number; elevationScale: number };
 
-export function buildArchitectSheet(plan: Plan, projectName: string, cfg: SheetConfig): { doc: jsPDF } & SheetResult {
+export function buildArchitectSheet(
+  plan: Plan,
+  projectName: string,
+  cfg: SheetConfig,
+): { doc: jsPDF } & SheetResult {
   const paperSize = cfg.paper === "a3" ? { w: 297, h: 420 } : { w: 210, h: 297 };
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: cfg.paper });
-  const pageW = paperSize.w, pageH = paperSize.h;
+  const pageW = paperSize.w,
+    pageH = paperSize.h;
 
   const margin = 7;
   const titleH = cfg.paper === "a3" ? 28 : 22;
-  const innerX = margin, innerY = margin;
+  const innerX = margin,
+    innerY = margin;
   const innerW = pageW - margin * 2;
   const innerH = pageH - margin * 2;
 
@@ -546,11 +611,14 @@ export function buildArchitectSheet(plan: Plan, projectName: string, cfg: SheetC
   const fits = (den: number) => (bw * 10) / den <= planZone.w && (bh * 10) / den <= planZone.h;
   let effectiveScale = cfg.scale;
   if (!fits(effectiveScale)) {
-    effectiveScale = SCALE_LADDER.find((d) => d >= cfg.scale && fits(d)) ?? Math.ceil((Math.max((bw * 10) / planZone.w, (bh * 10) / planZone.h)) / 25) * 25;
+    effectiveScale =
+      SCALE_LADDER.find((d) => d >= cfg.scale && fits(d)) ??
+      Math.ceil(Math.max((bw * 10) / planZone.w, (bh * 10) / planZone.h) / 25) * 25;
   }
   const s = 10 / effectiveScale; // mm par cm
 
-  const planW = bw * s, planH = bh * s;
+  const planW = bw * s,
+    planH = bh * s;
   const planOx = planZone.x + (planZone.w - planW) / 2;
   const planOy = planZone.y + (planZone.h - planH) / 2;
   const m: Mapper = {
@@ -568,7 +636,9 @@ export function buildArchitectSheet(plan: Plan, projectName: string, cfg: SheetC
   // Cotes générales
   if (cfg.showDimensions) {
     dimLine(doc, m.px(bounds.minX), planOy - 5, m.px(bounds.maxX), planOy - 5, bw);
-    dimLine(doc, planOx - 5, m.py(bounds.maxY), planOx - 5, m.py(bounds.minY), bh, { textAngle: 90 });
+    dimLine(doc, planOx - 5, m.py(bounds.maxY), planOx - 5, m.py(bounds.minY), bh, {
+      textAngle: 90,
+    });
   }
 
   // Appels de façades autour du plan
@@ -594,16 +664,24 @@ export function buildArchitectSheet(plan: Plan, projectName: string, cfg: SheetC
 
     const maxW = Math.max(...elevations.map((e) => e.width), 1);
     const maxH = Math.max(...elevations.map((e) => e.height), 1);
-    const fitsElev = (den: number) => (maxW * 10) / den <= cellW - 14 && (maxH * 10) / den <= cellH - 12;
+    const fitsElev = (den: number) =>
+      (maxW * 10) / den <= cellW - 14 && (maxH * 10) / den <= cellH - 12;
     if (!fitsElev(elevationScale)) {
-      elevationScale = SCALE_LADDER.find((d) => d >= elevationScale && fitsElev(d))
-        ?? Math.ceil(Math.max((maxW * 10) / (cellW - 14), (maxH * 10) / (cellH - 12)) / 25) * 25;
+      elevationScale =
+        SCALE_LADDER.find((d) => d >= elevationScale && fitsElev(d)) ??
+        Math.ceil(Math.max((maxW * 10) / (cellW - 14), (maxH * 10) / (cellH - 12)) / 25) * 25;
     }
     const es = 10 / elevationScale;
 
-    const names: Record<ElevationDir, string> = { N: "Façade Nord", S: "Façade Sud", E: "Façade Est", O: "Façade Ouest" };
+    const names: Record<ElevationDir, string> = {
+      N: "Façade Nord",
+      S: "Façade Sud",
+      E: "Façade Est",
+      O: "Façade Ouest",
+    };
     elevations.slice(0, 4).forEach((elev, i) => {
-      const col = i % 2, row = Math.floor(i / 2);
+      const col = i % 2,
+        row = Math.floor(i / 2);
       const cell = {
         x: innerX + gap + col * (cellW + gap),
         y: zoneY + row * (cellH + gap),
@@ -631,12 +709,18 @@ export function buildArchitectSheet(plan: Plan, projectName: string, cfg: SheetC
   doc.setFont("helvetica", "bold");
   doc.setFontSize(cfg.paper === "a3" ? 13 : 11);
   doc.setTextColor(INK[0], INK[1], INK[2]);
-  doc.text(`1:${effectiveScale}`, (c2 + innerX + innerW) / 2, tbY + titleH * 0.75 + 1.6, { align: "center" });
+  doc.text(`1:${effectiveScale}`, (c2 + innerX + innerW) / 2, tbY + titleH * 0.75 + 1.6, {
+    align: "center",
+  });
 
   return { doc, effectiveScale, elevationScale };
 }
 
-export function exportArchitectSheetPDF(plan: Plan, projectName: string, cfg: SheetConfig): SheetResult {
+export function exportArchitectSheetPDF(
+  plan: Plan,
+  projectName: string,
+  cfg: SheetConfig,
+): SheetResult {
   const { doc, effectiveScale, elevationScale } = buildArchitectSheet(plan, projectName, cfg);
   const safeName =
     (projectName || "plan")

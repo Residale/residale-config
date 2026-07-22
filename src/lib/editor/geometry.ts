@@ -1,7 +1,6 @@
 import type { Point, Wall } from "./types";
 
-export const dist = (a: Point, b: Point) =>
-  Math.hypot(a.x - b.x, a.y - b.y);
+export const dist = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 
 export const snap = (v: number, step: number) => Math.round(v / step) * step;
 
