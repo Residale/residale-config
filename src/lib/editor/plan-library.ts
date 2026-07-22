@@ -9,9 +9,9 @@ import {
 const PLANS_KEY = "residale-config-plans-v1";
 const ACTIVE_PLAN_KEY = "residale-config-active-plan-v1";
 const TEMP_ACCESS_SESSION_KEY = "residale-config-temp-access-v1";
-const TEMP_ACCESS_EMAIL = "iznaour@residale.com";
+const TEMP_ACCESS_EMAIL = "jacques@residale.com";
 const TEMP_ACCESS_PASSWORD_SHA256 =
-  "871d91668c68f99d92e9593fecaa8f01ed2e95940d8a780d0a4b4cd6f07fae34";
+  "30918bf6a17e236ae3090d772e33a55399cf2ff18c27bf7537052d97587008cc";
 
 export type SavedPlanScope = "private" | "shared";
 
