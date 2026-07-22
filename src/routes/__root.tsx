@@ -73,14 +73,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "CONFIGURATOR — Residale" },
+      { title: "CONFIGURATOR" },
       {
         name: "description",
         content:
           "Concevez vos plans d'appartement et de maison en 2D et 3D, avec un éditeur simple, précis et élégant.",
       },
       { name: "author", content: "Residale" },
-      { property: "og:title", content: "CONFIGURATOR — Residale" },
+      { property: "og:title", content: "CONFIGURATOR" },
       {
         property: "og:description",
         content:
@@ -88,7 +88,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:title", content: "CONFIGURATOR — Residale" },
+      { name: "twitter:title", content: "CONFIGURATOR" },
       {
         name: "twitter:description",
         content:

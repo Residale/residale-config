@@ -28,13 +28,13 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "CONFIGURATOR — Residale" },
+      { title: "CONFIGURATOR" },
       {
         name: "description",
         content:
           "Configurez des plans d'habitat Residale, avec murs, ouvertures, façades et export PDF architecte.",
       },
-      { property: "og:title", content: "CONFIGURATOR — Residale" },
+      { property: "og:title", content: "CONFIGURATOR" },
       {
         property: "og:description",
         content:
