@@ -11,7 +11,7 @@ const ACTIVE_PLAN_KEY = "residale-config-active-plan-v1";
 const TEMP_ACCESS_SESSION_KEY = "residale-config-temp-access-v1";
 const TEMP_ACCESS_EMAIL = "jacques@residale.com";
 const TEMP_ACCESS_PASSWORD_SHA256 =
-  "30918bf6a17e236ae3090d772e33a55399cf2ff18c27bf7537052d97587008cc";
+  "d43a7ba5bfa028b850d86766c085ab79b9722e6313ffebd40b452a560d7385a4";
 
 export type SavedPlanScope = "private" | "shared";
 

@@ -24,6 +24,7 @@ import {
 } from "@/lib/editor/plan-library";
 import { isSupabaseConfigured } from "@/lib/supabase-client";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -224,8 +225,11 @@ function LoginScreen({
 }) {
   const [email, setEmail] = useState(getTempAccessEmail());
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -339,13 +343,26 @@ function LoginScreen({
             {mode === "login" && (
               <label className="mt-3 block text-xs font-medium text-muted-foreground">
                 Mot de passe
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                  className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
-                />
+                <div className="relative mt-1">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                    className="w-full rounded border border-border bg-background py-2 pl-3 pr-10 text-sm text-foreground outline-none focus:border-ring"
+                  />
+                  <button
+                    type="button"
+                    aria-label={
+                      showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"
+                    }
+                    title={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                    onClick={() => setShowPassword((value) => !value)}
+                    className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
               </label>
             )}
           </>
@@ -353,23 +370,57 @@ function LoginScreen({
           <>
             <label className="mt-6 block text-xs font-medium text-muted-foreground">
               Nouveau mot de passe
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                autoComplete="new-password"
-                className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
-              />
+              <div className="relative mt-1">
+                <input
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  autoComplete="new-password"
+                  className="w-full rounded border border-border bg-background py-2 pl-3 pr-10 text-sm text-foreground outline-none focus:border-ring"
+                />
+                <button
+                  type="button"
+                  aria-label={
+                    showNewPassword
+                      ? "Masquer le nouveau mot de passe"
+                      : "Afficher le nouveau mot de passe"
+                  }
+                  title={
+                    showNewPassword
+                      ? "Masquer le nouveau mot de passe"
+                      : "Afficher le nouveau mot de passe"
+                  }
+                  onClick={() => setShowNewPassword((value) => !value)}
+                  className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition hover:text-foreground"
+                >
+                  {showNewPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
             </label>
             <label className="mt-3 block text-xs font-medium text-muted-foreground">
               Confirmer le mot de passe
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                autoComplete="new-password"
-                className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
-              />
+              <div className="relative mt-1">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                  className="w-full rounded border border-border bg-background py-2 pl-3 pr-10 text-sm text-foreground outline-none focus:border-ring"
+                />
+                <button
+                  type="button"
+                  aria-label={
+                    showConfirmPassword ? "Masquer la confirmation" : "Afficher la confirmation"
+                  }
+                  title={
+                    showConfirmPassword ? "Masquer la confirmation" : "Afficher la confirmation"
+                  }
+                  onClick={() => setShowConfirmPassword((value) => !value)}
+                  className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition hover:text-foreground"
+                >
+                  {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
             </label>
           </>
         )}
