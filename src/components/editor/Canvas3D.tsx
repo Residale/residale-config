@@ -11,6 +11,17 @@ import { FurnitureMesh3D } from "./FurnitureMesh3D";
 
 const SCALE = 0.01;
 const EPS = 0.001;
+const MIN_RENDER_SPAN = 0.012; // 1.2 cm: hide numerical slivers that flicker when zoomed in
+const MIN_RENDER_HEIGHT = 0.012;
+
+function addWallRect(
+  rects: Array<{ x0: number; x1: number; y0: number; y1: number }>,
+  rect: { x0: number; x1: number; y0: number; y1: number },
+) {
+  if (rect.x1 - rect.x0 < MIN_RENDER_SPAN) return;
+  if (rect.y1 - rect.y0 < MIN_RENDER_HEIGHT) return;
+  rects.push(rect);
+}
 
 function slopedBoxGeometry(
   x0: number,
@@ -223,7 +234,10 @@ function Scene() {
       {plan.walls.map((w) => {
         const rawLen = wallLength(w);
         const thick = w.thickness * SCALE;
-        const len = (rawLen + w.thickness) * SCALE;
+        const rawHalfLen = (rawLen * SCALE) / 2;
+        const endpointExtend = thick / 2;
+        const xMin = -rawHalfLen - endpointExtend;
+        const xMax = rawHalfLen + endpointExtend;
         const ang = wallAngle(w);
         const cx = ((w.a.x + w.b.x) / 2) * SCALE;
         const cz = ((w.a.y + w.b.y) / 2) * SCALE;
@@ -233,31 +247,38 @@ function Scene() {
 
         const sorted = [...openings].sort((a, b) => a.t - b.t);
         const rects: Array<{ x0: number; x1: number; y0: number; y1: number }> = [
-          { x0: -len / 2, x1: len / 2, y0: 0, y1: wallH },
+          { x0: xMin, x1: xMax, y0: 0, y1: wallH },
         ];
         for (const o of sorted) {
           const oW = o.width * SCALE;
           const oCenter = (o.t - 0.5) * rawLen * SCALE;
-          const oX0 = oCenter - oW / 2;
-          const oX1 = oCenter + oW / 2;
+          let oX0 = oCenter - oW / 2;
+          let oX1 = oCenter + oW / 2;
           const oH = openingHeight(o) * SCALE;
-          const sill = openingSill(o) * SCALE;
+          const sill = Math.max(0, openingSill(o) * SCALE);
 
-          const openTop = sill + oH;
+          // If an opening lands on/near a wall endpoint, also clear the small
+          // artificial endpoint overlap used to close corners. Without this,
+          // the overlap remains visible as a floating wall chunk in doors/windows.
+          if (oX0 <= -rawHalfLen + endpointExtend + MIN_RENDER_SPAN) oX0 = xMin;
+          if (oX1 >= rawHalfLen - endpointExtend - MIN_RENDER_SPAN) oX1 = xMax;
+          oX0 = Math.max(xMin, oX0);
+          oX1 = Math.min(xMax, oX1);
+          if (oX1 - oX0 < MIN_RENDER_SPAN) continue;
+
+          const openTop = Math.min(wallH, sill + oH);
           const next: typeof rects = [];
           for (const r of rects) {
             if (oX1 <= r.x0 || oX0 >= r.x1) {
-              next.push(r);
+              addWallRect(next, r);
               continue;
             }
-            if (oX0 > r.x0) next.push({ x0: r.x0, x1: oX0, y0: r.y0, y1: r.y1 });
-            if (oX1 < r.x1) next.push({ x0: oX1, x1: r.x1, y0: r.y0, y1: r.y1 });
+            addWallRect(next, { x0: r.x0, x1: oX0, y0: r.y0, y1: r.y1 });
+            addWallRect(next, { x0: oX1, x1: r.x1, y0: r.y0, y1: r.y1 });
             const midX0 = Math.max(oX0, r.x0);
             const midX1 = Math.min(oX1, r.x1);
-            if (sill > r.y0)
-              next.push({ x0: midX0, x1: midX1, y0: r.y0, y1: Math.min(sill, r.y1) });
-            if (openTop < r.y1)
-              next.push({ x0: midX0, x1: midX1, y0: Math.max(openTop, r.y0), y1: r.y1 });
+            addWallRect(next, { x0: midX0, x1: midX1, y0: r.y0, y1: Math.min(sill, r.y1) });
+            addWallRect(next, { x0: midX0, x1: midX1, y0: Math.max(openTop, r.y0), y1: r.y1 });
           }
           rects.length = 0;
           rects.push(...next);
