@@ -105,16 +105,16 @@ export function getTempAccessEmail() {
   return TEMP_ACCESS_EMAIL;
 }
 
+// D15 (DESIGN.md, T13): getCurrentMember/isAuthenticated no longer consult
+// isTempAccessSession(). A client-settable localStorage boolean must never
+// be allowed to signal "signed in" once SSO ships — anyone could set
+// residale-config-temp-access-v1=true in devtools and previously would have
+// appeared authenticated here (no Supabase session was ever minted, so RLS
+// still held, but the *signal* was forgeable). The temporary-access login
+// path (loginWithTempAccess, below) is unchanged and still gates local-only
+// plan storage in listSavedPlans/savePlan/etc. — it just can no longer make
+// these two functions report "authenticated".
 export async function getCurrentMember(): Promise<FloorWhisperMember | null> {
-  if (isTempAccessSession()) {
-    return {
-      id: "temp-residale-config-access",
-      email: TEMP_ACCESS_EMAIL,
-      display_name: "Accès temporaire CONFIGURATOR",
-      role_key: "temp_admin",
-      is_admin: true,
-    };
-  }
   if (!isSupabaseConfigured) return null;
   const sb = requireSupabase();
   const { data: sessionData } = await sb.auth.getSession();
@@ -126,7 +126,6 @@ export async function getCurrentMember(): Promise<FloorWhisperMember | null> {
 }
 
 export async function isAuthenticated() {
-  if (isTempAccessSession()) return true;
   if (!isSupabaseConfigured) return false;
   const { data } = await requireSupabase().auth.getSession();
   return Boolean(data.session);
