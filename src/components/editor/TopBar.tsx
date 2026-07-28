@@ -1,5 +1,7 @@
 import { useEditor } from "@/lib/editor/store";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ResidaleAppSwitcher } from "@/components/residale/ResidaleAppSwitcher";
+import { signOutEverywhere } from "@/lib/residale-global-sign-out";
 
 export function TopBar({
   onBackToPlans,
@@ -166,6 +168,7 @@ export function TopBar({
           </svg>
         </button>
         <div className="mx-1 h-6 w-px bg-border" />
+        <ResidaleAppSwitcher currentApp="config" onSignOutEverywhere={signOutEverywhere} />
         <ThemeToggle />
       </div>
     </header>
