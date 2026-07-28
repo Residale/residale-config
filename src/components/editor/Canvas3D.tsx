@@ -6,11 +6,13 @@ import { useEditor } from "@/lib/editor/store";
 import { wallAngle, wallLength } from "@/lib/editor/geometry";
 import { openingHeight, openingSill } from "@/lib/editor/opening-defaults";
 import { summarizeRooms } from "@/lib/editor/rooms";
+import { collectJunctions } from "@/lib/editor/wall-geometry";
 
 import { FurnitureMesh3D } from "./FurnitureMesh3D";
 
 const SCALE = 0.01;
 const EPS = 0.001;
+const ROOF_CONTACT_EPS = 0.004;
 const MIN_RENDER_SPAN = 0.012; // 1.2 cm: hide numerical slivers that flicker when zoomed in
 const MIN_RENDER_HEIGHT = 0.012;
 
@@ -201,6 +203,8 @@ function Scene() {
     [roofBox],
   );
 
+  const junctions = useMemo(() => collectJunctions(plan), [plan]);
+
   return (
     <Canvas camera={{ position: camera.position, fov: 45 }} shadows>
       <ambientLight intensity={0.55} />
@@ -299,8 +303,8 @@ function Scene() {
                 (w.wallType ?? "exterior") === "exterior" && Math.abs(r.y1 - wallH) < EPS;
               const roof0 = followsRoof ? roofUndersideAt(p0.x, p0.z) : null;
               const roof1 = followsRoof ? roofUndersideAt(p1.x, p1.z) : null;
-              const top0 = Math.max(r.y1, roof0 ?? r.y1);
-              const top1 = Math.max(r.y1, roof1 ?? r.y1);
+              const top0 = Math.max(r.y1, (roof0 ?? r.y1) - ROOF_CONTACT_EPS);
+              const top1 = Math.max(r.y1, (roof1 ?? r.y1) - ROOF_CONTACT_EPS);
               const geom = slopedBoxGeometry(r.x0, r.x1, r.y0, top0, top1, thick);
               return (
                 <mesh key={i} geometry={geom} castShadow receiveShadow>
@@ -382,6 +386,20 @@ function Scene() {
                 );
               })}
           </group>
+        );
+      })}
+
+      {junctions.map((j, i) => {
+        const x = j.p.x * SCALE;
+        const z = j.p.y * SCALE;
+        const radius = Math.max(j.radius * SCALE, 0.01);
+        const roofTop = roofUndersideAt(x, z);
+        const top = Math.max(0.02, (roofTop ?? ceilingH * SCALE) - ROOF_CONTACT_EPS);
+        return (
+          <mesh key={`junction-${i}`} position={[x, top / 2, z]} castShadow receiveShadow>
+            <boxGeometry args={[radius * 2, top, radius * 2]} />
+            <meshStandardMaterial color={wall3DColor} roughness={0.9} />
+          </mesh>
         );
       })}
 
