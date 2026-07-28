@@ -9,7 +9,8 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test": "node --experimental-strip-types tests/residale-shared-session-contract.test.mjs && node tests/config-auth-contract.test.mjs"
   },
   "dependencies": {
     "@fontsource/fraunces": "^5.2.9",
