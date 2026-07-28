@@ -6,7 +6,6 @@ import { useEditor } from "@/lib/editor/store";
 import { wallAngle, wallLength } from "@/lib/editor/geometry";
 import { openingHeight, openingSill } from "@/lib/editor/opening-defaults";
 import { summarizeRooms } from "@/lib/editor/rooms";
-import { collectJunctions } from "@/lib/editor/wall-geometry";
 
 import { FurnitureMesh3D } from "./FurnitureMesh3D";
 
@@ -203,8 +202,6 @@ function Scene() {
     [roofBox],
   );
 
-  const junctions = useMemo(() => collectJunctions(plan), [plan]);
-
   return (
     <Canvas camera={{ position: camera.position, fov: 45 }} shadows>
       <ambientLight intensity={0.55} />
@@ -272,7 +269,10 @@ function Scene() {
           oX1 = Math.min(xMax, oX1);
           if (oX1 - oX0 < MIN_RENDER_SPAN) continue;
 
-          const openTop = Math.min(wallH, sill + oH);
+          // Doors are rendered as clear pass-through openings in 3D. Keeping a
+          // thin lintel above the swinging leaf created visible floating/chopped
+          // wall fragments near junctions; windows still keep their sill/head.
+          const openTop = o.type === "door" ? wallH : Math.min(wallH, sill + oH);
           const next: typeof rects = [];
           for (const r of rects) {
             if (oX1 <= r.x0 || oX0 >= r.x1) {
@@ -386,20 +386,6 @@ function Scene() {
                 );
               })}
           </group>
-        );
-      })}
-
-      {junctions.map((j, i) => {
-        const x = j.p.x * SCALE;
-        const z = j.p.y * SCALE;
-        const radius = Math.max(j.radius * SCALE, 0.01);
-        const roofTop = roofUndersideAt(x, z);
-        const top = Math.max(0.02, (roofTop ?? ceilingH * SCALE) - ROOF_CONTACT_EPS);
-        return (
-          <mesh key={`junction-${i}`} position={[x, top / 2, z]} castShadow receiveShadow>
-            <boxGeometry args={[radius * 2, top, radius * 2]} />
-            <meshStandardMaterial color={wall3DColor} roughness={0.9} />
-          </mesh>
         );
       })}
 
