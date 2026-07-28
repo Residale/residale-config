@@ -21,7 +21,11 @@ export type ResidaleCookieOptions = {
 
 const DEFAULT_MAX_AGE_SECONDS = 34_560_000; // 400 days
 const CHUNK_SIZE = 3400; // bytes per cookie chunk (T15)
-export const MAX_CHUNKS = 6; // hard cap (T15)
+export const MAX_CHUNKS = 4; // hard cap (T15): 4 chunks ≈ 13.8KB Cookie header, under Node's 16KB default
+// Parent-domain marker written on sign-out so a legacy localStorage key left in ANOTHER
+// app's origin cannot resurrect the shared session after a global logout (T12 residual).
+export const RESIDALE_SIGNED_OUT_COOKIE = "residale-sso-signedout";
+const SIGNED_OUT_TTL_SECONDS = 172_800; // 48h — outlives any still-valid legacy access token
 const WATCHER_RELOAD_GUARD_KEY = "residale-sso-watcher-last-reload";
 
 function hasDocument(): boolean {
@@ -126,6 +130,9 @@ export function createResidaleCookieStorage(opts: ResidaleCookieOptions): {
     }
   };
 
+  const hasSignedOutTombstone = (): boolean =>
+    hasDocument() && rawCookieValue(document.cookie, RESIDALE_SIGNED_OUT_COOKIE) !== null;
+
   const readLegacy = (): string | null => {
     if (!hasLocalStorage()) return null;
     for (const legacyKey of opts.legacyKeys) {
@@ -155,6 +162,8 @@ export function createResidaleCookieStorage(opts: ResidaleCookieOptions): {
     }
     chunks.forEach((chunk, i) => writeCookie(`${fullName}.${i}`, chunk, maxAge));
     for (let i = chunks.length; i < MAX_CHUNKS; i += 1) writeCookie(`${fullName}.${i}`, "", 0);
+    // Any successful session write invalidates a prior sign-out marker.
+    writeCookie(RESIDALE_SIGNED_OUT_COOKIE, "", 0);
   };
 
   const getItem = (key: string): string | null => {
@@ -162,6 +171,9 @@ export function createResidaleCookieStorage(opts: ResidaleCookieOptions): {
       const fromCookie = readJoinedCookie(document.cookie, residaleCookieName(key, opts.secure));
       if (fromCookie !== null) return fromCookie;
     }
+    // After a global sign-out, a legacy key surviving in another app's origin must NOT
+    // resurrect the ecosystem session (T12); the tombstone blocks the legacy branch.
+    if (hasSignedOutTombstone()) return null;
     // Legacy migration (D4): copy-forward once, NEVER delete the legacy entry (D14 rollback stays lossless).
     const legacy = readLegacy();
     if (legacy !== null) setItem(key, legacy);
@@ -180,6 +192,9 @@ export function createResidaleCookieStorage(opts: ResidaleCookieOptions): {
         }
       }
     }
+    // Cross-origin legacy keys are unreachable from here — the parent-domain tombstone
+    // makes every app's getItem skip its legacy branch until the next real sign-in.
+    writeCookie(RESIDALE_SIGNED_OUT_COOKIE, "1", SIGNED_OUT_TTL_SECONDS);
   };
 
   return { getItem, setItem, removeItem };
@@ -203,7 +218,8 @@ export function seedLegacyFromCookie(legacyKey: string, baseName: string = RESID
 /**
  * Cross-app propagation watcher (D7): on tab focus/visibility, reloads when the cookie's
  * presence disagrees with the app's belief. Reload-guarded (>=10s between reloads, persisted
- * in sessionStorage) so a persistent mismatch can never cause a reload loop.
+ * in sessionStorage) so a persistent mismatch degrades to at most one throttled reload per
+ * refocus interval — never a rapid loop.
  */
 export function startResidaleSessionWatcher(args: {
   hasSession: () => boolean;

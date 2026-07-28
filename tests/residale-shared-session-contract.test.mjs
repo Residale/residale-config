@@ -85,3 +85,18 @@ assert.equal(
 assert.doesNotThrow(() => stop());
 
 console.log("residale-shared-session contract test passed");
+
+// --- signed-out tombstone (T12) + chunk-cap source contract ---
+import { readFileSync as __rf } from "node:fs";
+import { strict as __assert } from "node:assert";
+{
+  const src = __rf(new URL("../src/lib/residale-shared-session.ts", import.meta.url), "utf8");
+  __assert.match(src, /RESIDALE_SIGNED_OUT_COOKIE = "residale-sso-signedout"/);
+  const getItemBody = src.slice(src.indexOf("const getItem"), src.indexOf("const removeItem"));
+  __assert.ok(
+    getItemBody.includes("hasSignedOutTombstone()"),
+    "getItem must consult the tombstone before the legacy branch",
+  );
+  __assert.match(src, /MAX_CHUNKS = 4/);
+  console.log("tombstone + chunk-cap source contract ok");
+}
