@@ -119,7 +119,7 @@ export async function getCurrentMember(): Promise<FloorWhisperMember | null> {
   const sb = requireSupabase();
   const { data: sessionData } = await sb.auth.getSession();
   if (!sessionData.session) return null;
-  const { data, error } = await sb.rpc("residale_config_current_member");
+  const { data, error } = await sb.rpc("floor_whisper_current_member");
   if (error) throw error;
   const first = Array.isArray(data) ? data[0] : data;
   return (first as FloorWhisperMember | null) ?? null;
@@ -175,7 +175,7 @@ export async function logout() {
 export async function listSavedPlans(): Promise<SavedPlan[]> {
   if (isTempAccessSession() || !isSupabaseConfigured) return localPlans();
   const { data, error } = await requireSupabase()
-    .from("residale_config_plans")
+    .from("floor_whisper_plans")
     .select("id, owner_id, name, plan, theme, scope, created_at, updated_at")
     .order("updated_at", { ascending: false });
   if (error) throw error;
@@ -186,7 +186,7 @@ export async function getSavedPlan(id: string) {
   if (isTempAccessSession() || !isSupabaseConfigured)
     return localPlans().find((p) => p.id === id) ?? null;
   const { data, error } = await requireSupabase()
-    .from("residale_config_plans")
+    .from("floor_whisper_plans")
     .select("id, owner_id, name, plan, theme, scope, created_at, updated_at")
     .eq("id", id)
     .single();
@@ -214,7 +214,7 @@ export async function savePlan(record: SavedPlan) {
     updated_at: new Date().toISOString(),
   };
   const { data, error } = await requireSupabase()
-    .from("residale_config_plans")
+    .from("floor_whisper_plans")
     .upsert(payload)
     .select("id, owner_id, name, plan, theme, scope, created_at, updated_at")
     .single();
@@ -246,7 +246,7 @@ export async function deleteSavedPlan(id: string) {
   if (isTempAccessSession() || !isSupabaseConfigured) {
     writeLocalPlans(localPlans().filter((p) => p.id !== id));
   } else {
-    const { error } = await requireSupabase().from("residale_config_plans").delete().eq("id", id);
+    const { error } = await requireSupabase().from("floor_whisper_plans").delete().eq("id", id);
     if (error) throw error;
   }
   if (getActivePlanId() === id) setActivePlanId(null);
@@ -270,7 +270,7 @@ async function migrateLocalPlansToCloud() {
     return;
   for (const local of locals) {
     const { error } = await requireSupabase()
-      .from("residale_config_plans")
+      .from("floor_whisper_plans")
       .upsert({
         id: local.id,
         name: local.name,
