@@ -144,12 +144,15 @@ export async function login(email: string, password: string) {
   return true;
 }
 
+const RESIDALE_CONFIG_PASSWORD_RESET_URL = "https://config.residale.com/";
+
 export async function requestPasswordReset(email: string) {
   const sb = requireSupabase();
-  const redirectTo =
-    typeof window !== "undefined" ? new URL("/", window.location.origin).toString() : undefined;
   const { error } = await sb.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-    redirectTo,
+    // Keep this hard-pinned to Residale Config. Supabase Auth is shared with the
+    // CRM, so falling back to the Auth Site URL can send users to the CRM reset
+    // screen instead of this configurator.
+    redirectTo: RESIDALE_CONFIG_PASSWORD_RESET_URL,
   });
   if (error) throw error;
 }
