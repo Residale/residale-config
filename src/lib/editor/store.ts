@@ -242,7 +242,7 @@ export const useEditor = create<State & Actions>()(
   persist(
     (set, get) => ({
       plan: emptyPlan,
-      tool: "wall",
+      tool: "select",
       selection: null,
       view: "2d",
       grid: 20,

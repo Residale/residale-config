@@ -158,15 +158,15 @@ function SectionPanel({
     })();
     const belowGround = 60;
     const totalH = roofMaxH + belowGround;
-    const marginX = 60,
-      marginY = 40;
+    const marginX = fullscreen ? 150 : 130,
+      marginY = fullscreen ? 70 : 62;
     const availW = Math.max(100, size.w - marginX * 2);
     const availH = Math.max(100, size.h - marginY * 2);
     const fitScale = Math.min(availW / Math.max(1, totalLen), availH / Math.max(1, totalH));
-    const originX = marginX;
+    const originX = Math.max(marginX, (size.w - totalLen * fitScale) / 2);
     const originY = marginY + roofMaxH * fitScale;
     return { totalLen, cuts, wallCuts, roofMaxH, fitScale, originX, originY };
-  }, [data, plan.roof, section, size.w, size.h]);
+  }, [data, fullscreen, plan.roof, section, size.w, size.h]);
 
   const s = scale * layout.fitScale;
   const originX = layout.originX + pos.x;

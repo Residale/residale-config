@@ -63,6 +63,10 @@ export function Canvas2D({ onExportRef }: Props) {
     sections: SectionLine[];
   }>(null);
   const [selectionRect, setSelectionRect] = useState<null | { start: Point; current: Point }>(null);
+  const [panDrag, setPanDrag] = useState<null | {
+    startScreen: Point;
+    startPos: Point;
+  }>(null);
   const [hoverWallForDrop, setHoverWallForDrop] = useState<string | null>(null);
   const [dragPreview, setDragPreview] = useState<null | {
     kind: "opening" | "furniture";
@@ -875,6 +879,10 @@ export function Canvas2D({ onExportRef }: Props) {
         }
       }
       if (e.evt.shiftKey) setSelectionRect({ start: wp, current: wp });
+      else {
+        const sp = stageRef.current?.getPointerPosition();
+        if (sp) setPanDrag({ startScreen: sp, startPos: pos });
+      }
       // Keep the active selection stable by default: hovering/clicking around the
       // plan should not silently replace/clear it. Escape remains the explicit
       // way to clear the current selection.
@@ -884,6 +892,17 @@ export function Canvas2D({ onExportRef }: Props) {
   const onMouseMove = () => {
     const wp = getWorldPointer();
     if (!wp) return;
+    if (panDrag) {
+      const sp = stageRef.current?.getPointerPosition();
+      if (sp) {
+        setPos({
+          x: panDrag.startPos.x + (sp.x - panDrag.startScreen.x),
+          y: panDrag.startPos.y + (sp.y - panDrag.startScreen.y),
+        });
+      }
+      setCursor(wp);
+      return;
+    }
     if (selectionRect) {
       setSelectionRect({ ...selectionRect, current: wp });
       setCursor(wp);
@@ -1026,6 +1045,7 @@ export function Canvas2D({ onExportRef }: Props) {
       setSelectionRect(null);
     }
     if (moveDrag) setMoveDrag(null);
+    if (panDrag) setPanDrag(null);
     if (furnitureTransform) setFurnitureTransform(null);
     if (dragHandle) setDragHandle(null);
     if (openingDrag) setOpeningDrag(null);
@@ -1116,14 +1136,17 @@ export function Canvas2D({ onExportRef }: Props) {
       ) || CATALOG.find((c) => c.kind === kind);
     if (!item) return;
     const base = snapEnabled ? snapPoint(world, grid / 2) : world;
+    const snapped = snapFurnitureToWalls(base, item.width, item.height, 0);
+    const anchored = Math.hypot(snapped.x - base.x, snapped.y - base.y) > 0.5;
     addFurniture({
       kind: item.kind,
-      x: Math.round(base.x),
-      y: Math.round(base.y),
+      x: Math.round(snapped.x),
+      y: Math.round(snapped.y),
       width: item.width,
       height: item.height,
-      rotation: 0,
+      rotation: snapped.rotation,
       label: item.label,
+      anchorToWall: anchored,
     });
   };
 
@@ -1264,7 +1287,7 @@ export function Canvas2D({ onExportRef }: Props) {
     // Arc from (hx,hy) → sweep by 90° toward perp side, radius = o.width
     // Konva Path arc: A rx ry x-axis-rot large-arc sweep x y
     const sweep = (hinge === "a" ? 1 : 0) ^ (swing === "p" ? 0 : 1); // choose correct arc side
-    const arcOnly = `M ${hx} ${hy} A ${o.width} ${o.width} 0 0 ${sweep} ${tipX} ${tipY}`;
+    const arcOnly = `M ${lx} ${ly} A ${o.width} ${o.width} 0 0 ${sweep} ${tipX} ${tipY}`;
 
     const wallCut = (
       <Line
@@ -2099,11 +2122,11 @@ export function Canvas2D({ onExportRef }: Props) {
 
   // Cursor hint based on what's under the pointer (select mode only).
   const cursorStyle = (() => {
-    if (spaceDown) return "grab";
+    if (spaceDown || panDrag) return panDrag ? "grabbing" : "grab";
     if (tool !== "select") return "crosshair";
     if (dragHandle || openingDrag || moveDrag || furnitureTransform) return "grabbing";
     if (selectionRect) return "crosshair";
-    if (!cursor) return "default";
+    if (!cursor) return "grab";
     // Hover checks
     const fh = findFurnitureHandleAt(cursor);
     if (fh) {
@@ -2128,7 +2151,7 @@ export function Canvas2D({ onExportRef }: Props) {
       }
       return "move";
     }
-    return "default";
+    return "grab";
   })();
 
   const stageDraggable =

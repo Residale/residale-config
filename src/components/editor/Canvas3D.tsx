@@ -235,7 +235,9 @@ function Scene() {
         const rawLen = wallLength(w);
         const thick = w.thickness * SCALE;
         const rawHalfLen = (rawLen * SCALE) / 2;
-        const endpointExtend = thick / 2;
+        // Keep 3D wall boxes butt-ended: extending through shared centreline
+        // endpoints creates the visible wall-intersection/opening sliver glitch.
+        const endpointExtend = 0;
         const xMin = -rawHalfLen - endpointExtend;
         const xMax = rawHalfLen + endpointExtend;
         const ang = wallAngle(w);
