@@ -72,6 +72,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
+      // Content-Security-Policy (DESIGN.md BRIEF-CRM-CONFIG §6), modeled on
+      // residale-files/apps/web/index.html but derived from a static audit
+      // of what this app actually calls: only Supabase (auth + postgrest +
+      // realtime) — no Google Maps/Backblaze/Sentry/third-party CDN of any
+      // kind found anywhere in src/ (unlike CRM). script-src/style-src keep
+      // 'unsafe-inline' for the theme-bootstrap <script> below and Vite's
+      // dev/hydration inline bits — there is no nonce plumbing here since
+      // this is a static <meta> tag, not a per-request response header.
+      {
+        httpEquiv: "Content-Security-Policy",
+        content:
+          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https://*.supabase.co; media-src 'self' blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+      },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "CONFIGURATOR" },
       {

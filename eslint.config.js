@@ -37,4 +37,34 @@ export default tseslint.config(
     },
   },
   eslintPluginPrettier,
+  {
+    // residale-shared-session.ts is a byte-identical canonical copy shared
+    // across residale-crm/residale-files/residale-config (DESIGN.md D13;
+    // README-CANONICAL.md: "Keep LOGIC byte-identical"). It pre-emptively
+    // disables no-console around its two console.warn/console.error calls
+    // (T15 chunk-count warnings) and keeps two lines over this repo's
+    // 100-char printWidth to stay identical to the other two copies.
+    // Neither issue is a real problem here — this repo doesn't enable
+    // no-console either — so both checks are scoped off for this one file
+    // rather than reformatting the shared source (which the static drift-
+    // detector tests compare byte-for-byte against the canonical original).
+    files: ["src/lib/residale-shared-session.ts"],
+    rules: {
+      "prettier/prettier": "off",
+    },
+    linterOptions: {
+      reportUnusedDisableDirectives: false,
+    },
+  },
+  {
+    // ResidaleAppSwitcher.tsx: same byte-identical-copy rationale as above —
+    // two lines exceed printWidth (kept identical to the CRM/Files copies)
+    // and it exports RESIDALE_APPS (an array, not a primitive) alongside the
+    // component, which allowConstantExport does not exempt.
+    files: ["src/components/residale/**/*.{ts,tsx}"],
+    rules: {
+      "prettier/prettier": "off",
+      "react-refresh/only-export-components": "off",
+    },
+  },
 );

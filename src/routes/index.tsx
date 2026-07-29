@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { EditorShell } from "@/components/editor/EditorShell";
 import { DEFAULT_THEME } from "@/lib/editor/theme";
 import { useEditor } from "@/lib/editor/store";
@@ -22,7 +22,14 @@ import {
   type SavedPlan,
   type SavedPlanScope,
 } from "@/lib/editor/plan-library";
-import { isSupabaseConfigured } from "@/lib/supabase-client";
+import { isSupabaseConfigured, ssoEnabled, supabase } from "@/lib/supabase-client";
+import {
+  RESIDALE_SESSION_KEY,
+  residaleCookieName,
+  startResidaleSessionWatcher,
+} from "@/lib/residale-shared-session";
+import { signOutEverywhere } from "@/lib/residale-global-sign-out";
+import { ResidaleAppSwitcher } from "@/components/residale/ResidaleAppSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -130,6 +137,36 @@ function Index() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // Residale SSO (D7/F3 — cross-app logout observed). `authedRef` mirrors
+  // `authed` synchronously so the watcher's `hasSession` callback (invoked
+  // from a plain DOM event listener, outside React's render cycle) never
+  // reads a stale closure.
+  const authedRef = useRef(authed);
+  useEffect(() => {
+    authedRef.current = authed;
+  }, [authed]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      // Preserve the password-recovery screen: PASSWORD_RECOVERY fires with
+      // a (recovery-scoped) session attached, but `authed` must stay false
+      // here so `boot()`'s reset-password branch keeps rendering — mirrors
+      // the isPasswordRecoveryUrl() guard above.
+      if (event === "PASSWORD_RECOVERY") return;
+      setAuthed(session !== null);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !ssoEnabled) return;
+    return startResidaleSessionWatcher({
+      hasSession: () => authedRef.current,
+      cookieName: residaleCookieName(RESIDALE_SESSION_KEY, window.location.protocol === "https:"),
+    });
   }, []);
 
   const activePlan = useMemo(
@@ -519,6 +556,7 @@ function PlansHome({
             )}
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <ResidaleAppSwitcher currentApp="config" onSignOutEverywhere={signOutEverywhere} />
             <ThemeToggle />
             <button
               onClick={() => void createPlan("private")}
