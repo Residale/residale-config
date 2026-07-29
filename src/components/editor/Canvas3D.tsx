@@ -11,6 +11,7 @@ import { FurnitureMesh3D } from "./FurnitureMesh3D";
 
 const SCALE = 0.01;
 const EPS = 0.001;
+const ROOF_CONTACT_EPS = 0.004;
 const MIN_RENDER_SPAN = 0.012; // 1.2 cm: hide numerical slivers that flicker when zoomed in
 const MIN_RENDER_HEIGHT = 0.012;
 
@@ -235,7 +236,9 @@ function Scene() {
         const rawLen = wallLength(w);
         const thick = w.thickness * SCALE;
         const rawHalfLen = (rawLen * SCALE) / 2;
-        const endpointExtend = thick / 2;
+        // Keep 3D wall boxes butt-ended: extending through shared centreline
+        // endpoints creates the visible wall-intersection/opening sliver glitch.
+        const endpointExtend = 0;
         const xMin = -rawHalfLen - endpointExtend;
         const xMax = rawHalfLen + endpointExtend;
         const ang = wallAngle(w);
@@ -266,7 +269,10 @@ function Scene() {
           oX1 = Math.min(xMax, oX1);
           if (oX1 - oX0 < MIN_RENDER_SPAN) continue;
 
-          const openTop = Math.min(wallH, sill + oH);
+          // Doors are rendered as clear pass-through openings in 3D. Keeping a
+          // thin lintel above the swinging leaf created visible floating/chopped
+          // wall fragments near junctions; windows still keep their sill/head.
+          const openTop = o.type === "door" ? wallH : Math.min(wallH, sill + oH);
           const next: typeof rects = [];
           for (const r of rects) {
             if (oX1 <= r.x0 || oX0 >= r.x1) {
@@ -297,8 +303,8 @@ function Scene() {
                 (w.wallType ?? "exterior") === "exterior" && Math.abs(r.y1 - wallH) < EPS;
               const roof0 = followsRoof ? roofUndersideAt(p0.x, p0.z) : null;
               const roof1 = followsRoof ? roofUndersideAt(p1.x, p1.z) : null;
-              const top0 = Math.max(r.y1, roof0 ?? r.y1);
-              const top1 = Math.max(r.y1, roof1 ?? r.y1);
+              const top0 = Math.max(r.y1, (roof0 ?? r.y1) - ROOF_CONTACT_EPS);
+              const top1 = Math.max(r.y1, (roof1 ?? r.y1) - ROOF_CONTACT_EPS);
               const geom = slopedBoxGeometry(r.x0, r.x1, r.y0, top0, top1, thick);
               return (
                 <mesh key={i} geometry={geom} castShadow receiveShadow>
