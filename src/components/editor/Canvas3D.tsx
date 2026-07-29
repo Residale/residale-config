@@ -1,19 +1,15 @@
-import { Component, Suspense, useCallback, useMemo, type ReactNode } from "react";
-import * as THREE from "three";
+import { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Environment, Grid, ContactShadows } from "@react-three/drei";
+import { OrbitControls, Grid } from "@react-three/drei";
 import { useEditor } from "@/lib/editor/store";
 import { wallAngle, wallLength } from "@/lib/editor/geometry";
-import { openingHeight, openingSill } from "@/lib/editor/opening-defaults";
+import { openingHeight } from "@/lib/editor/opening-defaults";
 import { summarizeRooms } from "@/lib/editor/rooms";
 
 import { FurnitureMesh3D } from "./FurnitureMesh3D";
 
 const SCALE = 0.01;
-const EPS = 0.001;
-const ROOF_CONTACT_EPS = 0.004;
-const MIN_RENDER_SPAN = 0.012; // 1.2 cm: hide numerical slivers that flicker when zoomed in
-const MIN_RENDER_HEIGHT = 0.012;
+const DEFAULT_CEILING_HEIGHT = 250;
 
 function finiteNumber(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
@@ -28,226 +24,62 @@ function finitePoint(p: unknown): p is { x: number; y: number } {
   );
 }
 
-function finiteArgs(values: number[]) {
-  return values.every(Number.isFinite);
-}
-
-function addWallRect(
-  rects: Array<{ x0: number; x1: number; y0: number; y1: number }>,
-  rect: { x0: number; x1: number; y0: number; y1: number },
-) {
-  if (rect.x1 - rect.x0 < MIN_RENDER_SPAN) return;
-  if (rect.y1 - rect.y0 < MIN_RENDER_HEIGHT) return;
-  rects.push(rect);
-}
-
-function slopedBoxGeometry(
-  x0: number,
-  x1: number,
-  y0: number,
-  top0: number,
-  top1: number,
-  thick: number,
-) {
-  if (!finiteArgs([x0, x1, y0, top0, top1, thick])) return null;
-  if (x1 <= x0 || top0 <= y0 || top1 <= y0 || thick <= 0) return null;
-  const z0 = -thick / 2;
-  const z1 = thick / 2;
-  const positions = [
-    x0,
-    y0,
-    z0,
-    x1,
-    y0,
-    z0,
-    x1,
-    top1,
-    z0,
-    x0,
-    top0,
-    z0,
-    x0,
-    y0,
-    z1,
-    x1,
-    y0,
-    z1,
-    x1,
-    top1,
-    z1,
-    x0,
-    top0,
-    z1,
-  ];
-  const indices = [
-    0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6, 0, 4, 5, 0, 5, 1, 3, 2, 6, 3, 6, 7, 1, 5, 6, 1, 6, 2, 0, 3,
-    7, 0, 7, 4,
-  ];
-  const g = new THREE.BufferGeometry();
-  g.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  g.setIndex(indices);
-  g.computeVertexNormals();
-  return g;
-}
-
-class SceneErrorBoundary extends Component<{ children: ReactNode }, { err: Error | null }> {
-  state = { err: null as Error | null };
-  static getDerivedStateFromError(err: Error) {
-    return { err };
-  }
-  componentDidCatch(err: Error) {
-    console.error("[Canvas3D]", err);
-  }
-  render() {
-    if (this.state.err) {
-      return (
-        <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-muted to-secondary">
-          <div className="max-w-sm rounded-md border border-border bg-card/95 px-4 py-3 text-center text-sm text-muted-foreground shadow-panel">
-            <div className="mb-1 font-medium text-foreground">Vue 3D indisponible</div>
-            <div className="text-[11px]">Une erreur est survenue lors du rendu 3D.</div>
-            <button
-              onClick={() => this.setState({ err: null })}
-              className="mt-2 rounded border border-border bg-background px-3 py-1 text-[11px] hover:border-ring/40"
-            >
-              Réessayer
-            </button>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
+function safeCm(v: unknown, fallback: number) {
+  return finiteNumber(v) && v > 0 ? v : fallback;
 }
 
 function Scene() {
-  const { plan, wall3DColor, floor3DColor, show3DRoof } = useEditor();
-  const ceilingH = plan.ceilingHeight ?? 250;
+  const { plan, wall3DColor, floor3DColor } = useEditor();
+  const ceilingH = safeCm(plan.ceilingHeight, DEFAULT_CEILING_HEIGHT);
 
-  const camera = useMemo(() => {
-    if (plan.walls.length === 0) {
-      return {
-        position: [8, 8, 8] as [number, number, number],
-        target: [0, 1, 0] as [number, number, number],
-      };
-    }
-    let minX = Infinity,
-      maxX = -Infinity,
-      minZ = Infinity,
-      maxZ = -Infinity;
-    for (const w of plan.walls) {
-      if (!finitePoint(w.a) || !finitePoint(w.b)) continue;
-      minX = Math.min(minX, w.a.x, w.b.x);
-      maxX = Math.max(maxX, w.a.x, w.b.x);
-      minZ = Math.min(minZ, w.a.y, w.b.y);
-      maxZ = Math.max(maxZ, w.a.y, w.b.y);
-    }
-    if (!finiteArgs([minX, maxX, minZ, maxZ])) {
-      return {
-        position: [8, 8, 8] as [number, number, number],
-        target: [0, 1, 0] as [number, number, number],
-      };
-    }
-    const cx = ((minX + maxX) / 2) * SCALE;
-    const cz = ((minZ + maxZ) / 2) * SCALE;
-    const sizeX = (maxX - minX) * SCALE;
-    const sizeZ = (maxZ - minZ) * SCALE;
-    const diag = Math.hypot(sizeX, sizeZ);
-    const d = Math.max(6, diag * 1.15);
-    return {
-      position: [cx + d * 0.75, d * 0.85, cz + d * 0.75] as [number, number, number],
-      target: [cx, ceilingH * SCALE * 0.4, cz] as [number, number, number],
-    };
-  }, [plan.walls, ceilingH]);
-
-  // Bounding box for roof
-  const roofBox = useMemo(() => {
-    if (!plan.roof || !show3DRoof || plan.walls.length === 0) return null;
-    let minX = Infinity,
-      maxX = -Infinity,
-      minZ = Infinity,
-      maxZ = -Infinity,
-      maxT = 0;
-    for (const w of plan.walls) {
-      if (!finitePoint(w.a) || !finitePoint(w.b)) continue;
-      minX = Math.min(minX, w.a.x, w.b.x);
-      maxX = Math.max(maxX, w.a.x, w.b.x);
-      minZ = Math.min(minZ, w.a.y, w.b.y);
-      maxZ = Math.max(maxZ, w.a.y, w.b.y);
-      if (finiteNumber(w.thickness) && w.thickness > maxT) maxT = w.thickness;
-    }
-    if (!finiteArgs([minX, maxX, minZ, maxZ])) return null;
-    const overhang = finiteNumber(plan.roof.overhang) ? plan.roof.overhang : 40;
-    const eave = finiteNumber(plan.roof.eaveHeight) ? plan.roof.eaveHeight : ceilingH;
-    const pitchDeg = finiteNumber(plan.roof.pitch) ? plan.roof.pitch : 0;
-    const pitch = (Math.max(0, Math.min(60, pitchDeg)) * Math.PI) / 180;
-    const thickness =
-      Math.max(1, finiteNumber(plan.roof.thickness) ? plan.roof.thickness : 20) * SCALE;
-    const w = (maxX - minX + maxT + 2 * overhang) * SCALE;
-    const d = (maxZ - minZ + maxT + 2 * overhang) * SCALE;
-    const cx = ((minX + maxX) / 2) * SCALE;
-    const cz = ((minZ + maxZ) / 2) * SCALE;
-    return {
-      cx,
-      cz,
-      w,
-      d,
-      x0: cx - w / 2,
-      x1: cx + w / 2,
-      z0: cz - d / 2,
-      z1: cz + d / 2,
-      eave: eave * SCALE,
-      pitch,
-      thickness,
-      kind: ["flat", "mono", "gable", "hip"].includes(plan.roof.kind) ? plan.roof.kind : "gable",
-      slopeAxis: plan.roof.slopeAxis === "y" ? "y" : "x",
-      slopeDirection: plan.roof.slopeDirection === -1 ? -1 : 1,
-    };
-  }, [plan.roof, plan.walls, show3DRoof, ceilingH]);
-
-  const roofUndersideAt = useCallback(
-    (x: number, z: number) => {
-      if (!roofBox) return null;
-      const pitchRise = Math.tan(roofBox.pitch);
-      if (roofBox.kind === "flat" || roofBox.kind === "mono") {
-        const run = roofBox.slopeAxis === "x" ? roofBox.w : roofBox.d;
-        const rise = run * pitchRise;
-        const t =
-          roofBox.slopeAxis === "x"
-            ? roofBox.slopeDirection === 1
-              ? (x - roofBox.x0) / Math.max(EPS, roofBox.w)
-              : (roofBox.x1 - x) / Math.max(EPS, roofBox.w)
-            : roofBox.slopeDirection === 1
-              ? (z - roofBox.z0) / Math.max(EPS, roofBox.d)
-              : (roofBox.z1 - z) / Math.max(EPS, roofBox.d);
-        return roofBox.eave + rise * Math.max(0, Math.min(1, t));
-      }
-      // Gable/hip envelope: ridge follows the longer side, so gable-end walls grow
-      // triangularly up to the ridge instead of leaving a void under the roof.
-      const ridgeAlongX = roofBox.w >= roofBox.d;
-      const halfSpan = (ridgeAlongX ? roofBox.d : roofBox.w) / 2;
-      const coord = ridgeAlongX ? z - roofBox.cz : x - roofBox.cx;
-      const rise = Math.max(0, halfSpan - Math.abs(coord)) * pitchRise;
-      return roofBox.eave + rise;
-    },
-    [roofBox],
+  const validWalls = useMemo(
+    () =>
+      plan.walls.filter((w) => {
+        if (!finitePoint(w.a) || !finitePoint(w.b)) return false;
+        const len = wallLength(w);
+        return Number.isFinite(len) && len >= 1;
+      }),
+    [plan.walls],
   );
 
+  const camera = useMemo(() => {
+    if (validWalls.length === 0) {
+      return {
+        position: [8, 8, 8] as [number, number, number],
+        target: [0, 1, 0] as [number, number, number],
+      };
+    }
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (const w of validWalls) {
+      minX = Math.min(minX, w.a.x, w.b.x);
+      maxX = Math.max(maxX, w.a.x, w.b.x);
+      minZ = Math.min(minZ, w.a.y, w.b.y);
+      maxZ = Math.max(maxZ, w.a.y, w.b.y);
+    }
+    const cx = ((minX + maxX) / 2) * SCALE;
+    const cz = ((minZ + maxZ) / 2) * SCALE;
+    const diag = Math.max(1, Math.hypot((maxX - minX) * SCALE, (maxZ - minZ) * SCALE));
+    const d = Math.max(6, diag * 1.2);
+    return {
+      position: [cx + d * 0.75, d * 0.85, cz + d * 0.75] as [number, number, number],
+      target: [cx, ceilingH * SCALE * 0.45, cz] as [number, number, number],
+    };
+  }, [validWalls, ceilingH]);
+
   return (
-    <Canvas camera={{ position: camera.position, fov: 45 }} shadows>
-      <ambientLight intensity={0.55} />
+    <Canvas camera={{ position: camera.position, fov: 45 }} shadows={false}>
+      <ambientLight intensity={0.8} />
       <directionalLight
-        position={[camera.position[0] + 4, 15, camera.position[2] + 4]}
-        intensity={1.2}
-        castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        position={[camera.position[0] + 4, 12, camera.position[2] + 4]}
+        intensity={1}
       />
-      <Suspense fallback={null}>
-        <Environment preset="apartment" />
-      </Suspense>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow={false}>
         <planeGeometry args={[200, 200]} />
-        <meshStandardMaterial color={floor3DColor} roughness={0.9} />
+        <meshStandardMaterial color={floor3DColor} roughness={0.95} />
       </mesh>
       <Grid
         args={[200, 200]}
@@ -262,176 +94,53 @@ function Scene() {
         position={[0, 0.001, 0]}
       />
 
-      {plan.walls.map((w) => {
-        if (!finitePoint(w.a) || !finitePoint(w.b)) return null;
-        const rawLen = wallLength(w);
-        if (!Number.isFinite(rawLen) || rawLen < 1) return null;
-        const thick = w.thickness * SCALE;
-        if (!Number.isFinite(thick) || thick <= 0) return null;
-        const rawHalfLen = (rawLen * SCALE) / 2;
-        // Keep 3D wall boxes butt-ended: extending through shared centreline
-        // endpoints creates the visible wall-intersection/opening sliver glitch.
-        const endpointExtend = 0;
-        const xMin = -rawHalfLen - endpointExtend;
-        const xMax = rawHalfLen + endpointExtend;
+      {validWalls.map((w) => {
+        const len = wallLength(w) * SCALE;
+        const thick = safeCm(w.thickness, 20) * SCALE;
+        const wallH = safeCm(w.height, ceilingH) * SCALE;
+        if (![len, thick, wallH].every(Number.isFinite) || len <= 0 || thick <= 0 || wallH <= 0)
+          return null;
+
         const ang = wallAngle(w);
         const cx = ((w.a.x + w.b.x) / 2) * SCALE;
         const cz = ((w.a.y + w.b.y) / 2) * SCALE;
-        const wallH = (w.height ?? ceilingH) * SCALE;
         const wallColor = w.wallType === "interior" ? "#e2e8f0" : wall3DColor;
-        const openings = plan.openings.filter((o) => o.wallId === w.id);
-
-        const sorted = [...openings].sort((a, b) => a.t - b.t);
-        const rects: Array<{ x0: number; x1: number; y0: number; y1: number }> = [
-          { x0: xMin, x1: xMax, y0: 0, y1: wallH },
-        ];
-        for (const o of sorted) {
-          if (!finiteNumber(o.t) || !finiteNumber(o.width)) continue;
-          const oW = o.width * SCALE;
-          const oCenter = (o.t - 0.5) * rawLen * SCALE;
-          let oX0 = oCenter - oW / 2;
-          let oX1 = oCenter + oW / 2;
-          const oH = openingHeight(o) * SCALE;
-          const sill = Math.max(0, openingSill(o) * SCALE);
-          if (!finiteArgs([oW, oCenter, oH, sill])) continue;
-
-          // If an opening lands on/near a wall endpoint, also clear the small
-          // artificial endpoint overlap used to close corners. Without this,
-          // the overlap remains visible as a floating wall chunk in doors/windows.
-          if (oX0 <= -rawHalfLen + endpointExtend + MIN_RENDER_SPAN) oX0 = xMin;
-          if (oX1 >= rawHalfLen - endpointExtend - MIN_RENDER_SPAN) oX1 = xMax;
-          oX0 = Math.max(xMin, oX0);
-          oX1 = Math.min(xMax, oX1);
-          if (oX1 - oX0 < MIN_RENDER_SPAN) continue;
-
-          // Doors are rendered as clear pass-through openings in 3D. Keeping a
-          // thin lintel above the swinging leaf created visible floating/chopped
-          // wall fragments near junctions; windows still keep their sill/head.
-          const openTop = o.type === "door" ? wallH : Math.min(wallH, sill + oH);
-          const next: typeof rects = [];
-          for (const r of rects) {
-            if (oX1 <= r.x0 || oX0 >= r.x1) {
-              addWallRect(next, r);
-              continue;
-            }
-            addWallRect(next, { x0: r.x0, x1: oX0, y0: r.y0, y1: r.y1 });
-            addWallRect(next, { x0: oX1, x1: r.x1, y0: r.y0, y1: r.y1 });
-            const midX0 = Math.max(oX0, r.x0);
-            const midX1 = Math.min(oX1, r.x1);
-            addWallRect(next, { x0: midX0, x1: midX1, y0: r.y0, y1: Math.min(sill, r.y1) });
-            addWallRect(next, { x0: midX0, x1: midX1, y0: Math.max(openTop, r.y0), y1: r.y1 });
-          }
-          rects.length = 0;
-          rects.push(...next);
-        }
+        const openings = plan.openings.filter(
+          (o) => o.wallId === w.id && finiteNumber(o.t) && finiteNumber(o.width),
+        );
 
         return (
           <group key={w.id} position={[cx, 0, cz]} rotation={[0, -ang, 0]}>
-            {rects.map((r, i) => {
-              const worldAtLocalX = (lx: number) => ({
-                x: cx + Math.cos(ang) * lx,
-                z: cz + Math.sin(ang) * lx,
-              });
-              const p0 = worldAtLocalX(r.x0);
-              const p1 = worldAtLocalX(r.x1);
-              const followsRoof =
-                (w.wallType ?? "exterior") === "exterior" && Math.abs(r.y1 - wallH) < EPS;
-              const roof0 = followsRoof ? roofUndersideAt(p0.x, p0.z) : null;
-              const roof1 = followsRoof ? roofUndersideAt(p1.x, p1.z) : null;
-              const top0 = Math.max(r.y1, (roof0 ?? r.y1) - ROOF_CONTACT_EPS);
-              const top1 = Math.max(r.y1, (roof1 ?? r.y1) - ROOF_CONTACT_EPS);
-              const geom = slopedBoxGeometry(r.x0, r.x1, r.y0, top0, top1, thick);
-              if (!geom) return null;
+            <mesh position={[0, wallH / 2, 0]}>
+              <boxGeometry args={[len, wallH, thick]} />
+              <meshStandardMaterial color={wallColor} roughness={0.9} />
+            </mesh>
+            {openings.map((o) => {
+              const oW = safeCm(o.width, o.type === "door" ? 83 : 100) * SCALE;
+              const oH = safeCm(openingHeight(o), o.type === "door" ? 210 : 115) * SCALE;
+              const x = (o.t - 0.5) * len;
+              const y = Math.min(wallH - 0.02, o.type === "door" ? oH / 2 : wallH * 0.55);
+              if (![oW, oH, x, y].every(Number.isFinite) || oW <= 0 || oH <= 0) return null;
               return (
-                <mesh key={i} geometry={geom} castShadow receiveShadow>
-                  <meshStandardMaterial color={wallColor} roughness={0.9} />
+                <mesh key={o.id} position={[x, Math.max(0.05, y), thick / 2 + 0.004]}>
+                  <boxGeometry
+                    args={[Math.min(oW, len * 0.9), Math.min(oH, wallH * 0.85), 0.012]}
+                  />
+                  <meshStandardMaterial
+                    color={o.type === "door" ? "#8a5a2f" : "#a8c8d8"}
+                    roughness={0.55}
+                  />
                 </mesh>
               );
             })}
-            {openings
-              .filter((o) => o.type === "window")
-              .map((o) => {
-                const oW = o.width * SCALE;
-                const oX = (o.t - 0.5) * rawLen * SCALE;
-                const oH = openingHeight(o) * SCALE;
-                const sill = openingSill(o) * SCALE;
-
-                return (
-                  <mesh key={o.id} position={[oX, sill + oH / 2, 0]}>
-                    <boxGeometry args={[oW * 0.95, oH * 0.95, thick * 0.15]} />
-                    <meshStandardMaterial
-                      color="#a8c8d8"
-                      transparent
-                      opacity={0.45}
-                      roughness={0.15}
-                      metalness={0.1}
-                    />
-                  </mesh>
-                );
-              })}
-            {openings
-              .filter(
-                (o) => o.type === "door" && o.kind !== "door_slide" && o.kind !== "door_pocket",
-              )
-              .map((o) => {
-                const oW = o.width * SCALE;
-                const oX = (o.t - 0.5) * rawLen * SCALE;
-                const oH = openingHeight(o) * SCALE;
-                const leafThick = 0.04;
-                const hinge: "a" | "b" = o.hingeSide ?? "a";
-                const swing: "p" | "n" = o.swingSide ?? "p";
-                // Hinge is at one end of the opening along the wall (local X)
-                const hingeX = hinge === "a" ? oX - oW / 2 : oX + oW / 2;
-                // Swing direction on Z: positive normal ↔ +Z here (wall local frame)
-                const swingSign = swing === "p" ? 1 : -1;
-                // Which way the leaf points along X from the hinge when closed
-                const leafSignX = hinge === "a" ? 1 : -1;
-                const angDeg = Math.max(0, Math.min(120, o.openAngle ?? 90));
-                const angRad = (angDeg * Math.PI) / 180;
-                // Rotation around Y at hinge: opens toward swingSign*Z from +leafSignX*X
-                const rotY = leafSignX * swingSign * angRad;
-                return (
-                  <group key={o.id} position={[hingeX, oH / 2, 0]} rotation={[0, rotY, 0]}>
-                    <mesh
-                      position={[(leafSignX * oW) / 2, 0, (swingSign * leafThick) / 2]}
-                      castShadow
-                    >
-                      <boxGeometry args={[oW * 0.98, oH * 0.98, leafThick]} />
-                      <meshStandardMaterial color="#8a5a2f" roughness={0.55} />
-                    </mesh>
-                  </group>
-                );
-              })}
-            {openings
-              .filter(
-                (o) => o.type === "door" && (o.kind === "door_slide" || o.kind === "door_pocket"),
-              )
-              .map((o) => {
-                const oW = o.width * SCALE;
-                const oX = (o.t - 0.5) * rawLen * SCALE;
-                const oH = openingHeight(o) * SCALE;
-                const swing: "p" | "n" = o.swingSide ?? "p";
-                const zOff = (swing === "p" ? 1 : -1) * (thick * 0.35);
-                // Sliding door — leaf offset in wall thickness, slid to one side
-                const slideX = oX + (o.hingeSide === "b" ? -oW * 0.5 : oW * 0.5);
-                return (
-                  <mesh key={o.id} position={[slideX, oH / 2, zOff]} castShadow>
-                    <boxGeometry args={[oW * 0.98, oH * 0.98, 0.03]} />
-                    <meshStandardMaterial color="#8a5a2f" roughness={0.55} />
-                  </mesh>
-                );
-              })}
           </group>
         );
       })}
-
-      {roofBox && <RoofMesh box={roofBox} />}
 
       {plan.furniture.map((f) => (
         <FurnitureMesh3D key={f.id} f={f} />
       ))}
 
-      <ContactShadows position={[0, 0.01, 0]} opacity={0.4} scale={60} blur={2} far={4} />
       <OrbitControls
         makeDefault
         enableDamping
@@ -448,186 +157,36 @@ function Scene() {
   );
 }
 
-function RoofMesh({
-  box,
-}: {
-  box: {
-    cx: number;
-    cz: number;
-    w: number;
-    d: number;
-    x0: number;
-    x1: number;
-    z0: number;
-    z1: number;
-    eave: number;
-    pitch: number;
-    thickness: number;
-    kind: "flat" | "mono" | "gable" | "hip";
-    slopeAxis: "x" | "y";
-    slopeDirection: 1 | -1;
-  };
-}) {
-  const color = "#8b5a3c";
-  const { cx, cz, w, d, eave, pitch, thickness, kind, slopeAxis, slopeDirection } = box;
-  const thick = thickness;
-  if (kind === "flat" || kind === "mono") {
-    const run = slopeAxis === "x" ? w : d;
-    const rise = run * Math.tan(pitch);
-    const geometry = (() => {
-      const x0 = -w / 2;
-      const x1 = w / 2;
-      const z0 = -d / 2;
-      const z1 = d / 2;
-      const bottomY = (x: number, z: number) => {
-        const t =
-          slopeAxis === "x"
-            ? slopeDirection === 1
-              ? (x - x0) / Math.max(0.001, w)
-              : (x1 - x) / Math.max(0.001, w)
-            : slopeDirection === 1
-              ? (z - z0) / Math.max(0.001, d)
-              : (z1 - z) / Math.max(0.001, d);
-        return eave + rise * t;
-      };
-      const corners: Array<[number, number]> = [
-        [x0, z0],
-        [x1, z0],
-        [x1, z1],
-        [x0, z1],
-      ];
-      const positions: number[] = [];
-      for (const [x, z] of corners) positions.push(x, bottomY(x, z), z);
-      for (const [x, z] of corners) positions.push(x, bottomY(x, z) + thick, z);
-      const indices = [
-        0,
-        2,
-        1,
-        0,
-        3,
-        2, // underside
-        4,
-        5,
-        6,
-        4,
-        6,
-        7, // top
-        0,
-        1,
-        5,
-        0,
-        5,
-        4, // side
-        1,
-        2,
-        6,
-        1,
-        6,
-        5,
-        2,
-        3,
-        7,
-        2,
-        7,
-        6,
-        3,
-        0,
-        4,
-        3,
-        4,
-        7,
-      ];
-      const g = new THREE.BufferGeometry();
-      g.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-      g.setIndex(indices);
-      g.computeVertexNormals();
-      return g;
-    })();
-
-    return (
-      <mesh position={[cx, 0, cz]} geometry={geometry} castShadow receiveShadow>
-        <meshStandardMaterial color={color} roughness={0.85} side={THREE.DoubleSide} />
-      </mesh>
-    );
-  }
-  // gable / hip: explicit prism surfaces instead of rotated boxes, so the
-  // underside is the same envelope used by the walls and no daylight gap appears.
-  const ridgeAlongX = w >= d;
-  const halfSpan = (ridgeAlongX ? d : w) / 2;
-  const rise = halfSpan * Math.tan(pitch);
-  const makePlane = (side: -1 | 1) => {
-    const x0 = -w / 2,
-      x1 = w / 2,
-      z0 = -d / 2,
-      z1 = d / 2;
-    const base: Array<[number, number, number]> = ridgeAlongX
-      ? [
-          [x0, eave, side < 0 ? z0 : z1],
-          [x1, eave, side < 0 ? z0 : z1],
-          [x1, eave + rise, 0],
-          [x0, eave + rise, 0],
-        ]
-      : [
-          [side < 0 ? x0 : x1, eave, z0],
-          [side < 0 ? x0 : x1, eave, z1],
-          [0, eave + rise, z1],
-          [0, eave + rise, z0],
-        ];
-    const normalOffset = thick;
-    const top = base.map(([x, y, z]) => [x, y + normalOffset, z] as [number, number, number]);
-    const positions = [...base, ...top].flat();
-    const indices = [
-      0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6, 0, 4, 5, 0, 5, 1, 1, 5, 6, 1, 6, 2, 2, 6, 7, 2, 7, 3, 3,
-      7, 4, 3, 4, 0,
-    ];
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-    g.setIndex(indices);
-    g.computeVertexNormals();
-    return g;
-  };
-  return (
-    <group position={[cx, 0, cz]}>
-      {([-1, 1] as const).map((side) => (
-        <mesh key={side} geometry={makePlane(side)} castShadow receiveShadow>
-          <meshStandardMaterial color={color} roughness={0.85} side={THREE.DoubleSide} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
 export function Canvas3D() {
   const { show3DRoof, toggle3DRoof, plan } = useEditor();
   const stats = useMemo(() => {
-    const fallback = plan.ceilingHeight ?? 250;
-    const exterior = plan.walls.filter((w) => (w.wallType ?? "exterior") === "exterior");
-    const source = exterior.length ? exterior : plan.walls;
+    const fallback = safeCm(plan.ceilingHeight, DEFAULT_CEILING_HEIGHT);
+    const validWalls = plan.walls.filter((w) => finitePoint(w.a) && finitePoint(w.b));
+    const exterior = validWalls.filter((w) => (w.wallType ?? "exterior") === "exterior");
+    const source = exterior.length ? exterior : validWalls;
     const envelopeH = source.length
-      ? Math.max(...source.map((w) => w.height ?? fallback))
+      ? Math.max(...source.map((w) => safeCm(w.height, fallback)))
       : fallback;
     const hsp = Math.max(1, envelopeH);
     const rooms = summarizeRooms(plan);
     const totalArea = rooms.reduce((s, r) => s + r.area, 0);
     let maxWall = 0;
-    for (const w of plan.walls) if ((w.height ?? hsp) > maxWall) maxWall = w.height ?? hsp;
+    for (const w of validWalls) maxWall = Math.max(maxWall, safeCm(w.height, hsp));
     const floor = 20;
-
     const roofRun = plan.roof
       ? Math.max(
           0,
-          Math.tan(((plan.roof.pitch ?? 0) * Math.PI) / 180) *
+          Math.tan(((finiteNumber(plan.roof.pitch) ? plan.roof.pitch : 0) * Math.PI) / 180) *
             ((plan.roof.slopeAxis ?? "x") === "x" ? 800 : 400),
-        ) + Math.max(1, plan.roof.thickness ?? 20)
+        ) + safeCm(plan.roof.thickness, 20)
       : 0;
     const horsTout = maxWall + floor + roofRun;
     return { hsp, totalArea, horsTout };
   }, [plan]);
+
   return (
     <div className="relative h-full w-full bg-gradient-to-b from-muted to-secondary">
-      <SceneErrorBoundary>
-        <Scene />
-      </SceneErrorBoundary>
+      <Scene />
       {plan.roof && (
         <button
           onClick={toggle3DRoof}
