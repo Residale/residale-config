@@ -19,6 +19,7 @@ import { DEFAULT_THEME, type Theme2D } from "./theme";
 import { defaultKind, OPENING_DEFAULTS } from "./opening-defaults";
 
 const POINT_EPS = 1.5;
+const MAGNETIC_ENDPOINT_EPS = 8;
 
 function samePoint(a: { x: number; y: number }, b: { x: number; y: number }) {
   return Math.hypot(a.x - b.x, a.y - b.y) <= POINT_EPS;
@@ -79,6 +80,28 @@ function setEnvelopeFromCeiling(plan: Plan, ceilingHeight: number): Plan {
       ? { ...plan.roof, eaveHeight: outsideH, thickness: roofThickness(plan) }
       : undefined,
   };
+}
+
+function snapPointToExistingEndpoints(p: Wall["a"], walls: Wall[], ignoreWallId?: string) {
+  let best: { d: number; p: Wall["a"] } | null = null;
+  for (const w of walls) {
+    if (w.id === ignoreWallId) continue;
+    for (const end of [w.a, w.b]) {
+      const d = Math.hypot(p.x - end.x, p.y - end.y);
+      if (d <= MAGNETIC_ENDPOINT_EPS && (!best || d < best.d)) best = { d, p: end };
+    }
+  }
+  return best ? { ...best.p } : { x: Math.round(p.x), y: Math.round(p.y) };
+}
+
+function normalizeWallEndpoints(walls: Wall[]) {
+  const normalized: Wall[] = [];
+  for (const w of walls) {
+    const a = snapPointToExistingEndpoints(w.a, normalized);
+    const b = snapPointToExistingEndpoints(w.b, normalized);
+    normalized.push({ ...w, a, b });
+  }
+  return normalized;
 }
 
 function applyEndpointMoves(walls: Wall[], moves: Array<{ from: Wall["a"]; to: Wall["a"] }>) {
@@ -284,20 +307,26 @@ export const useEditor = create<State & Actions>()(
         const st = get();
         const type = w.wallType ?? st.currentWallType;
         const spec = st.wallSettings[type];
-        set((s) => ({
-          plan: {
-            ...s.plan,
-            walls: [
-              ...s.plan.walls,
-              { ...w, thickness: spec.thickness, height: spec.height, wallType: type, id },
-            ],
-          },
-        }));
+        set((s) => {
+          const newWall = {
+            ...w,
+            a: snapPointToExistingEndpoints(w.a, s.plan.walls),
+            b: snapPointToExistingEndpoints(w.b, s.plan.walls),
+            thickness: spec.thickness,
+            height: spec.height,
+            wallType: type,
+            id,
+          };
+          const nextWalls = normalizeWallEndpoints([...s.plan.walls, newWall]);
+          return { plan: withSyncedCeiling({ ...s.plan, walls: nextWalls }) };
+        });
         return id;
       },
       updateWall: (id, patch) =>
         set((s) => {
-          const walls = updateWallWithConnectedEndpoints(s.plan.walls, id, patch);
+          const walls = normalizeWallEndpoints(
+            updateWallWithConnectedEndpoints(s.plan.walls, id, patch),
+          );
           const nextPlan = { ...s.plan, walls };
           const wall = walls.find((w) => w.id === id);
           return {
@@ -724,7 +753,12 @@ export const useEditor = create<State & Actions>()(
 
       loadPlan: (plan) =>
         set({
-          plan: withSyncedCeiling({ ceilingHeight: 250, ...plan, sections: plan.sections ?? [] }),
+          plan: withSyncedCeiling({
+            ceilingHeight: 250,
+            ...plan,
+            walls: normalizeWallEndpoints(plan.walls ?? []),
+            sections: plan.sections ?? [],
+          }),
           selection: null,
           history: [],
           future: [],

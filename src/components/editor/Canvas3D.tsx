@@ -1,8 +1,10 @@
 import { useMemo } from "react";
+import * as THREE from "three";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid } from "@react-three/drei";
 import { useEditor } from "@/lib/editor/store";
 import { wallAngle, wallLength } from "@/lib/editor/geometry";
+import { collectJunctions } from "@/lib/editor/wall-geometry";
 import { openingHeight } from "@/lib/editor/opening-defaults";
 import { summarizeRooms } from "@/lib/editor/rooms";
 
@@ -29,7 +31,7 @@ function safeCm(v: unknown, fallback: number) {
 }
 
 function Scene() {
-  const { plan, wall3DColor, floor3DColor } = useEditor();
+  const { plan, wall3DColor, floor3DColor, show3DRoof } = useEditor();
   const ceilingH = safeCm(plan.ceilingHeight, DEFAULT_CEILING_HEIGHT);
 
   const validWalls = useMemo(
@@ -68,6 +70,46 @@ function Scene() {
       target: [cx, ceilingH * SCALE * 0.45, cz] as [number, number, number],
     };
   }, [validWalls, ceilingH]);
+
+  const roofBox = useMemo(() => {
+    if (!plan.roof || !show3DRoof || validWalls.length === 0) return null;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    let maxT = 0;
+    for (const w of validWalls) {
+      minX = Math.min(minX, w.a.x, w.b.x);
+      maxX = Math.max(maxX, w.a.x, w.b.x);
+      minZ = Math.min(minZ, w.a.y, w.b.y);
+      maxZ = Math.max(maxZ, w.a.y, w.b.y);
+      maxT = Math.max(maxT, safeCm(w.thickness, 20));
+    }
+    const overhang = finiteNumber(plan.roof.overhang) ? plan.roof.overhang : 40;
+    const eave = finiteNumber(plan.roof.eaveHeight) ? plan.roof.eaveHeight : ceilingH;
+    const pitch =
+      ((finiteNumber(plan.roof.pitch) ? Math.max(0, Math.min(60, plan.roof.pitch)) : 0) * Math.PI) /
+      180;
+    const width = (maxX - minX + maxT + overhang * 2) * SCALE;
+    const depth = (maxZ - minZ + maxT + overhang * 2) * SCALE;
+    return {
+      cx: ((minX + maxX) / 2) * SCALE,
+      cz: ((minZ + maxZ) / 2) * SCALE,
+      width,
+      depth,
+      eave: eave * SCALE,
+      pitch,
+      thickness: safeCm(plan.roof.thickness, 20) * SCALE,
+      kind: ["flat", "mono", "gable", "hip"].includes(plan.roof.kind) ? plan.roof.kind : "flat",
+      slopeAxis: (plan.roof.slopeAxis === "y" ? "y" : "x") as "x" | "y",
+      slopeDirection: (plan.roof.slopeDirection === -1 ? -1 : 1) as 1 | -1,
+    };
+  }, [plan.roof, show3DRoof, validWalls, ceilingH]);
+
+  const junctions = useMemo(
+    () => collectJunctions({ ...plan, walls: validWalls }),
+    [plan, validWalls],
+  );
 
   return (
     <Canvas camera={{ position: camera.position, fov: 45 }} shadows={false}>
@@ -137,6 +179,25 @@ function Scene() {
         );
       })}
 
+      {junctions.map((j, i) => {
+        const h = Math.max(
+          0.1,
+          safeCm(
+            validWalls.find((w) => distPoint(w.a, j.p) < 1 || distPoint(w.b, j.p) < 1)?.height,
+            ceilingH,
+          ) * SCALE,
+        );
+        const r = Math.max(0.01, j.radius * SCALE);
+        return (
+          <mesh key={`junction-${i}`} position={[j.p.x * SCALE, h / 2, j.p.y * SCALE]}>
+            <cylinderGeometry args={[r, r, h, 12]} />
+            <meshStandardMaterial color={wall3DColor} roughness={0.9} />
+          </mesh>
+        );
+      })}
+
+      {roofBox && <RoofMesh box={roofBox} />}
+
       {plan.furniture.map((f) => (
         <FurnitureMesh3D key={f.id} f={f} />
       ))}
@@ -154,6 +215,116 @@ function Scene() {
         maxPolarAngle={Math.PI / 2 - 0.02}
       />
     </Canvas>
+  );
+}
+
+function distPoint(a: { x: number; y: number }, b: { x: number; y: number }) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function RoofMesh({
+  box,
+}: {
+  box: {
+    cx: number;
+    cz: number;
+    width: number;
+    depth: number;
+    eave: number;
+    pitch: number;
+    thickness: number;
+    kind: string;
+    slopeAxis: "x" | "y";
+    slopeDirection: 1 | -1;
+  };
+}) {
+  const { cx, cz, width, depth, eave, pitch, thickness, kind, slopeAxis, slopeDirection } = box;
+  const color = "#8b5a3c";
+
+  if (kind === "flat" || kind === "mono") {
+    const run = slopeAxis === "x" ? width : depth;
+    const rise = run * Math.tan(pitch);
+    const x0 = -width / 2;
+    const x1 = width / 2;
+    const z0 = -depth / 2;
+    const z1 = depth / 2;
+    const yAt = (x: number, z: number) => {
+      const t =
+        slopeAxis === "x"
+          ? slopeDirection === 1
+            ? (x - x0) / Math.max(0.001, width)
+            : (x1 - x) / Math.max(0.001, width)
+          : slopeDirection === 1
+            ? (z - z0) / Math.max(0.001, depth)
+            : (z1 - z) / Math.max(0.001, depth);
+      return eave + rise * Math.max(0, Math.min(1, t));
+    };
+    const corners: Array<[number, number]> = [
+      [x0, z0],
+      [x1, z0],
+      [x1, z1],
+      [x0, z1],
+    ];
+    const positions: number[] = [];
+    for (const [x, z] of corners) positions.push(x, yAt(x, z), z);
+    for (const [x, z] of corners) positions.push(x, yAt(x, z) + thickness, z);
+    const indices = [
+      0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7, 6, 3,
+      0, 4, 3, 4, 7,
+    ];
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    return (
+      <mesh position={[cx, 0, cz]} geometry={geometry}>
+        <meshStandardMaterial color={color} roughness={0.85} side={THREE.DoubleSide} />
+      </mesh>
+    );
+  }
+
+  const ridgeAlongX = width >= depth;
+  const halfSpan = (ridgeAlongX ? depth : width) / 2;
+  const rise = halfSpan * Math.tan(pitch);
+  const makePlane = (side: -1 | 1) => {
+    const x0 = -width / 2,
+      x1 = width / 2,
+      z0 = -depth / 2,
+      z1 = depth / 2;
+    const base: Array<[number, number, number]> = ridgeAlongX
+      ? [
+          [x0, eave, side < 0 ? z0 : z1],
+          [x1, eave, side < 0 ? z0 : z1],
+          [x1, eave + rise, 0],
+          [x0, eave + rise, 0],
+        ]
+      : [
+          [side < 0 ? x0 : x1, eave, z0],
+          [side < 0 ? x0 : x1, eave, z1],
+          [0, eave + rise, z1],
+          [0, eave + rise, z0],
+        ];
+    const top = base.map(([x, y, z]) => [x, y + thickness, z] as [number, number, number]);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute([...base, ...top].flat(), 3),
+    );
+    geometry.setIndex([
+      0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6, 0, 4, 5, 0, 5, 1, 1, 5, 6, 1, 6, 2, 2, 6, 7, 2, 7, 3, 3,
+      7, 4, 3, 4, 0,
+    ]);
+    geometry.computeVertexNormals();
+    return geometry;
+  };
+  return (
+    <group position={[cx, 0, cz]}>
+      {([-1, 1] as const).map((side) => (
+        <mesh key={side} geometry={makePlane(side)}>
+          <meshStandardMaterial color={color} roughness={0.85} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
