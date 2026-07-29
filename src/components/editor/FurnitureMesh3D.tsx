@@ -11,13 +11,18 @@ type Props = { f: Furniture };
  * Piece sits on the floor (Y=0) and is centered on X/Z.
  */
 export function FurnitureMesh3D({ f }: Props) {
-  const w = f.width * SCALE;
-  const d = f.height * SCALE;
-  const h = (f.zHeight ?? furnitureDefaultHeight(f.kind)) * SCALE;
-  const yaw = (-f.rotation * Math.PI) / 180;
+  const fallbackH = furnitureDefaultHeight(f.kind);
+  const w = Number.isFinite(f.width) ? f.width * SCALE : 0;
+  const d = Number.isFinite(f.height) ? f.height * SCALE : 0;
+  const h = Number.isFinite(f.zHeight) && f.zHeight != null ? f.zHeight * SCALE : fallbackH * SCALE;
+  const x = Number.isFinite(f.x) ? f.x * SCALE : 0;
+  const z = Number.isFinite(f.y) ? f.y * SCALE : 0;
+  const yaw = Number.isFinite(f.rotation) ? (-f.rotation * Math.PI) / 180 : 0;
+
+  if (![w, d, h, x, z, yaw].every(Number.isFinite) || w <= 0 || d <= 0 || h <= 0) return null;
 
   return (
-    <group position={[f.x * SCALE, 0, f.y * SCALE]} rotation={[0, yaw, 0]}>
+    <group position={[x, 0, z]} rotation={[0, yaw, 0]}>
       <Piece kind={f.kind} w={w} d={d} h={h} />
     </group>
   );

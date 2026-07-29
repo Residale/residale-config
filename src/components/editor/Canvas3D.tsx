@@ -15,6 +15,23 @@ const ROOF_CONTACT_EPS = 0.004;
 const MIN_RENDER_SPAN = 0.012; // 1.2 cm: hide numerical slivers that flicker when zoomed in
 const MIN_RENDER_HEIGHT = 0.012;
 
+function finiteNumber(v: unknown): v is number {
+  return typeof v === "number" && Number.isFinite(v);
+}
+
+function finitePoint(p: unknown): p is { x: number; y: number } {
+  return Boolean(
+    p &&
+    typeof p === "object" &&
+    finiteNumber((p as { x?: unknown }).x) &&
+    finiteNumber((p as { y?: unknown }).y),
+  );
+}
+
+function finiteArgs(values: number[]) {
+  return values.every(Number.isFinite);
+}
+
 function addWallRect(
   rects: Array<{ x0: number; x1: number; y0: number; y1: number }>,
   rect: { x0: number; x1: number; y0: number; y1: number },
@@ -32,6 +49,8 @@ function slopedBoxGeometry(
   top1: number,
   thick: number,
 ) {
+  if (!finiteArgs([x0, x1, y0, top0, top1, thick])) return null;
+  if (x1 <= x0 || top0 <= y0 || top1 <= y0 || thick <= 0) return null;
   const z0 = -thick / 2;
   const z1 = thick / 2;
   const positions = [
@@ -116,10 +135,17 @@ function Scene() {
       minZ = Infinity,
       maxZ = -Infinity;
     for (const w of plan.walls) {
+      if (!finitePoint(w.a) || !finitePoint(w.b)) continue;
       minX = Math.min(minX, w.a.x, w.b.x);
       maxX = Math.max(maxX, w.a.x, w.b.x);
       minZ = Math.min(minZ, w.a.y, w.b.y);
       maxZ = Math.max(maxZ, w.a.y, w.b.y);
+    }
+    if (!finiteArgs([minX, maxX, minZ, maxZ])) {
+      return {
+        position: [8, 8, 8] as [number, number, number],
+        target: [0, 1, 0] as [number, number, number],
+      };
     }
     const cx = ((minX + maxX) / 2) * SCALE;
     const cz = ((minZ + maxZ) / 2) * SCALE;
@@ -142,16 +168,20 @@ function Scene() {
       maxZ = -Infinity,
       maxT = 0;
     for (const w of plan.walls) {
+      if (!finitePoint(w.a) || !finitePoint(w.b)) continue;
       minX = Math.min(minX, w.a.x, w.b.x);
       maxX = Math.max(maxX, w.a.x, w.b.x);
       minZ = Math.min(minZ, w.a.y, w.b.y);
       maxZ = Math.max(maxZ, w.a.y, w.b.y);
-      if (w.thickness > maxT) maxT = w.thickness;
+      if (finiteNumber(w.thickness) && w.thickness > maxT) maxT = w.thickness;
     }
-    const overhang = plan.roof.overhang ?? 40;
-    const eave = plan.roof.eaveHeight ?? ceilingH;
-    const pitch = ((plan.roof.pitch ?? 0) * Math.PI) / 180;
-    const thickness = Math.max(1, plan.roof.thickness ?? 20) * SCALE;
+    if (!finiteArgs([minX, maxX, minZ, maxZ])) return null;
+    const overhang = finiteNumber(plan.roof.overhang) ? plan.roof.overhang : 40;
+    const eave = finiteNumber(plan.roof.eaveHeight) ? plan.roof.eaveHeight : ceilingH;
+    const pitchDeg = finiteNumber(plan.roof.pitch) ? plan.roof.pitch : 0;
+    const pitch = (Math.max(0, Math.min(60, pitchDeg)) * Math.PI) / 180;
+    const thickness =
+      Math.max(1, finiteNumber(plan.roof.thickness) ? plan.roof.thickness : 20) * SCALE;
     const w = (maxX - minX + maxT + 2 * overhang) * SCALE;
     const d = (maxZ - minZ + maxT + 2 * overhang) * SCALE;
     const cx = ((minX + maxX) / 2) * SCALE;
@@ -168,9 +198,9 @@ function Scene() {
       eave: eave * SCALE,
       pitch,
       thickness,
-      kind: plan.roof.kind,
-      slopeAxis: plan.roof.slopeAxis ?? "x",
-      slopeDirection: plan.roof.slopeDirection ?? 1,
+      kind: ["flat", "mono", "gable", "hip"].includes(plan.roof.kind) ? plan.roof.kind : "gable",
+      slopeAxis: plan.roof.slopeAxis === "y" ? "y" : "x",
+      slopeDirection: plan.roof.slopeDirection === -1 ? -1 : 1,
     };
   }, [plan.roof, plan.walls, show3DRoof, ceilingH]);
 
@@ -233,8 +263,11 @@ function Scene() {
       />
 
       {plan.walls.map((w) => {
+        if (!finitePoint(w.a) || !finitePoint(w.b)) return null;
         const rawLen = wallLength(w);
+        if (!Number.isFinite(rawLen) || rawLen < 1) return null;
         const thick = w.thickness * SCALE;
+        if (!Number.isFinite(thick) || thick <= 0) return null;
         const rawHalfLen = (rawLen * SCALE) / 2;
         // Keep 3D wall boxes butt-ended: extending through shared centreline
         // endpoints creates the visible wall-intersection/opening sliver glitch.
@@ -253,12 +286,14 @@ function Scene() {
           { x0: xMin, x1: xMax, y0: 0, y1: wallH },
         ];
         for (const o of sorted) {
+          if (!finiteNumber(o.t) || !finiteNumber(o.width)) continue;
           const oW = o.width * SCALE;
           const oCenter = (o.t - 0.5) * rawLen * SCALE;
           let oX0 = oCenter - oW / 2;
           let oX1 = oCenter + oW / 2;
           const oH = openingHeight(o) * SCALE;
           const sill = Math.max(0, openingSill(o) * SCALE);
+          if (!finiteArgs([oW, oCenter, oH, sill])) continue;
 
           // If an opening lands on/near a wall endpoint, also clear the small
           // artificial endpoint overlap used to close corners. Without this,
@@ -306,6 +341,7 @@ function Scene() {
               const top0 = Math.max(r.y1, (roof0 ?? r.y1) - ROOF_CONTACT_EPS);
               const top1 = Math.max(r.y1, (roof1 ?? r.y1) - ROOF_CONTACT_EPS);
               const geom = slopedBoxGeometry(r.x0, r.x1, r.y0, top0, top1, thick);
+              if (!geom) return null;
               return (
                 <mesh key={i} geometry={geom} castShadow receiveShadow>
                   <meshStandardMaterial color={wallColor} roughness={0.9} />

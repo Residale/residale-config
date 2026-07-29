@@ -22,14 +22,19 @@ export function defaultKind(type: OpeningType): OpeningKind {
   return type === "door" ? "door_simple" : "window_1";
 }
 
+function defaultForOpening(o: { kind?: OpeningKind; type: OpeningType }) {
+  const fallbackKind = defaultKind(o.type);
+  const requestedKind = o.kind ?? fallbackKind;
+  return OPENING_DEFAULTS[requestedKind] ?? OPENING_DEFAULTS[fallbackKind];
+}
+
 export function openingHeight(o: {
   kind?: OpeningKind;
   type: OpeningType;
   height?: number;
 }): number {
-  if (o.height != null) return o.height;
-  const k = o.kind ?? defaultKind(o.type);
-  return OPENING_DEFAULTS[k].height;
+  if (Number.isFinite(o.height) && o.height != null) return o.height;
+  return defaultForOpening(o).height;
 }
 
 export function openingSill(o: {
@@ -37,7 +42,6 @@ export function openingSill(o: {
   type: OpeningType;
   sillHeight?: number;
 }): number {
-  if (o.sillHeight != null) return o.sillHeight;
-  const k = o.kind ?? defaultKind(o.type);
-  return OPENING_DEFAULTS[k].sillHeight;
+  if (Number.isFinite(o.sillHeight) && o.sillHeight != null) return o.sillHeight;
+  return defaultForOpening(o).sillHeight;
 }
