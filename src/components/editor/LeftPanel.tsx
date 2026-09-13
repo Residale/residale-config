@@ -2,6 +2,7 @@ import { useEditor } from "@/lib/editor/store";
 import { CATALOG } from "@/lib/editor/furniture-catalog";
 import { useMemo, useState } from "react";
 import { wallLength } from "@/lib/editor/geometry";
+import { detectInteriorRooms, formatAreaM2 } from "@/lib/editor/room-engine";
 import { THEME_PRESETS } from "@/lib/editor/theme";
 import { FurnitureThumb } from "./FurnitureThumb";
 import { OPENING_PRESETS, WALL_PRESETS } from "@/lib/editor/presets";
@@ -99,6 +100,8 @@ export function LeftPanel() {
   const [openCat, setOpenCat] = useState<string>("Ouvertures");
 
   const totalMeters = plan.walls.reduce((sum, w) => sum + wallLength(w), 0) / 100;
+  const rooms = useMemo(() => detectInteriorRooms(plan), [plan]);
+  const totalArea = rooms.reduce((sum, room) => sum + room.areaM2, 0);
 
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-r border-border bg-card/60 backdrop-blur">
@@ -258,9 +261,23 @@ export function LeftPanel() {
                 <span>{plan.openings.length}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-muted-foreground">Pièces</span>
+                <span>{rooms.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Surface int.</span>
+                <span>{formatAreaM2(totalArea)}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-muted-foreground">Mobilier</span>
                 <span>{plan.furniture.length}</span>
               </div>
+              {rooms.slice(0, 4).map((room) => (
+                <div key={room.id} className="flex justify-between border-t border-border/50 pt-1">
+                  <span className="truncate pr-2 text-muted-foreground">{room.name}</span>
+                  <span>{formatAreaM2(room.areaM2)}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>

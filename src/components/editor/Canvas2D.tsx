@@ -11,15 +11,10 @@ import type {
   SelectionItem,
   Wall,
 } from "@/lib/editor/types";
-import {
-  dist,
-  pointOnWall,
-  snapAngle,
-  snapPoint,
-  wallAngle,
-  wallLength,
-} from "@/lib/editor/geometry";
+import { dist, pointOnWall, snapPoint, wallAngle, wallLength } from "@/lib/editor/geometry";
 import { collectJunctions } from "@/lib/editor/wall-geometry";
+import { detectInteriorRooms, formatAreaM2 } from "@/lib/editor/room-engine";
+import { resolveWallDrawSnap, type SnapResult } from "@/lib/editor/snapping";
 import { ACCENT, accentAlpha } from "@/lib/editor/canvas-colors";
 import { FurnitureShape2D } from "./FurnitureShape2D";
 
@@ -32,6 +27,7 @@ export function Canvas2D({ onExportRef }: Props) {
   const [scale, setScale] = useState(1.1);
   const [pos, setPos] = useState({ x: 400, y: 300 });
   const [cursor, setCursor] = useState<Point | null>(null);
+  const [snapHint, setSnapHint] = useState<SnapResult | null>(null);
   const [drawing, setDrawing] = useState<Point[] | null>(null);
   const [rectStart, setRectStart] = useState<Point | null>(null);
   const [sectionStart, setSectionStart] = useState<Point | null>(null);
@@ -229,6 +225,7 @@ export function Canvas2D({ onExportRef }: Props) {
       if (e.key === "Escape") {
         if (drawing) setTool("select");
         setDrawing(null);
+        setSnapHint(null);
         setRectStart(null);
         setSectionStart(null);
         setSelection(null);
@@ -381,30 +378,31 @@ export function Canvas2D({ onExportRef }: Props) {
     setPos({ x: pointer.x - mp.x * newScale, y: pointer.y - mp.y * newScale });
   };
 
-  const applySnap = (p: Point, refFrom?: Point, ignoreWallId?: string): Point => {
-    const magneticThreshold = 18 / scale;
-    for (const w of plan.walls) {
-      if (w.id === ignoreWallId) continue;
-      for (const end of [w.a, w.b]) {
-        if (dist(end, p) < magneticThreshold) return { ...end };
-      }
-    }
-    let wallSnap: Point | null = null;
-    let wallSnapDist = Infinity;
-    for (const w of plan.walls) {
-      if (w.id === ignoreWallId) continue;
-      const info = pointOnWall(p, w);
-      const limit = w.thickness / 2 + 12 / scale;
-      if (info.dist < limit && info.dist < wallSnapDist) {
-        wallSnap = { x: Math.round(info.closest.x), y: Math.round(info.closest.y) };
-        wallSnapDist = info.dist;
-      }
-    }
-    if (wallSnap) return wallSnap;
-    let sp = snapEnabled ? snapPoint(p, grid) : p;
-    if (refFrom) sp = snapEnabled ? snapPoint(snapAngle(refFrom, sp, 15), grid) : sp;
-    return sp;
-  };
+  const applySnapResult = (
+    p: Point,
+    refFrom?: Point,
+    ignoreWallId?: string,
+    options?: { drawingStart?: Point; freeAngle?: boolean; disableSnap?: boolean },
+  ): SnapResult =>
+    resolveWallDrawSnap({
+      raw: p,
+      previous: refFrom,
+      drawingStart: options?.drawingStart,
+      plan,
+      grid,
+      scale,
+      snapEnabled,
+      freeAngle: options?.freeAngle,
+      disableSnap: options?.disableSnap,
+      ignoreWallId,
+    });
+
+  const applySnap = (
+    p: Point,
+    refFrom?: Point,
+    ignoreWallId?: string,
+    options?: { drawingStart?: Point; freeAngle?: boolean; disableSnap?: boolean },
+  ): Point => applySnapResult(p, refFrom, ignoreWallId, options).point;
 
   const findWallNear = (p: Point) => {
     let best: { wall: Wall; t: number; d: number } | null = null;
@@ -552,30 +550,15 @@ export function Canvas2D({ onExportRef }: Props) {
   const snapWallEndpoint = (fixed: Point, rawTarget: Point, wallId: string): Point => {
     const dx = rawTarget.x - fixed.x;
     const dy = rawTarget.y - fixed.y;
-    const len = Math.hypot(dx, dy);
-    if (len < 1) return fixed;
-    const angDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
-    const nearest90 = Math.round(angDeg / 90) * 90;
-    const nearOrtho = Math.abs(angDeg - nearest90) <= 10;
-    let target: Point;
-    if (nearOrtho) {
-      const isVertical = Math.abs((Math.abs(nearest90) % 180) - 90) < 1;
-      target = isVertical
-        ? { x: Math.round(fixed.x), y: Math.round(rawTarget.y) }
-        : { x: Math.round(rawTarget.x), y: Math.round(fixed.y) };
-    } else {
-      const snapped = snapAngle(fixed, rawTarget, 15);
-      target = { x: Math.round(snapped.x), y: Math.round(snapped.y) };
-    }
+    const target: Point =
+      Math.abs(dx) >= Math.abs(dy)
+        ? { x: Math.round(rawTarget.x), y: Math.round(fixed.y) }
+        : { x: Math.round(fixed.x), y: Math.round(rawTarget.y) };
 
     const node = snapWallEndpointToNode(target, wallId);
-    if (nearOrtho) {
-      const isVertical = Math.abs((Math.abs(nearest90) % 180) - 90) < 1;
-      return isVertical
-        ? { x: Math.round(fixed.x), y: Math.round(node.y) }
-        : { x: Math.round(node.x), y: Math.round(fixed.y) };
-    }
-    return node;
+    return Math.abs(dx) >= Math.abs(dy)
+      ? { x: Math.round(node.x), y: Math.round(fixed.y) }
+      : { x: Math.round(fixed.x), y: Math.round(node.y) };
   };
 
   const moveSelectedBy = (drag: NonNullable<typeof moveDrag>, dx: number, dy: number) => {
@@ -705,13 +688,26 @@ export function Canvas2D({ onExportRef }: Props) {
     if (!wp) return;
 
     if (tool === "wall") {
-      const snapped = applySnap(wp, drawing?.[drawing.length - 1]);
+      const previous = drawing?.[drawing.length - 1];
+      const result = applySnapResult(wp, previous, undefined, {
+        drawingStart: drawing?.[0],
+        freeAngle: e.evt.altKey,
+        disableSnap: e.evt.metaKey || e.evt.ctrlKey,
+      });
+      const snapped = result.point;
+      setSnapHint(result);
       if (!drawing) setDrawing([snapped]);
       else {
         const prev = drawing[drawing.length - 1];
         if (dist(prev, snapped) < 5) return;
         addWall({ a: prev, b: snapped, thickness: s.wallSettings[s.currentWallType].thickness });
-        setDrawing([...drawing, snapped]);
+        if (result.wouldCloseRoom && drawing.length >= 3) {
+          setDrawing(null);
+          setSnapHint(null);
+          setTool("select");
+        } else {
+          setDrawing([...drawing, snapped]);
+        }
       }
       return;
     }
@@ -1030,10 +1026,24 @@ export function Canvas2D({ onExportRef }: Props) {
       setCursor(wp);
       return;
     }
-    if (tool === "wall" && drawing?.length) setCursor(applySnap(wp, drawing[drawing.length - 1]));
-    else if (tool === "rectangle" && rectStart) setCursor(applySnap(wp));
-    else if (tool === "section" && sectionStart) setCursor(applySnap(wp));
-    else setCursor(wp);
+    if (tool === "wall" && drawing?.length) {
+      const result = applySnapResult(wp, drawing[drawing.length - 1], undefined, {
+        drawingStart: drawing[0],
+      });
+      setSnapHint(result);
+      setCursor(result.point);
+    } else if (tool === "rectangle" && rectStart) {
+      const result = applySnapResult(wp);
+      setSnapHint(result);
+      setCursor(result.point);
+    } else if (tool === "section" && sectionStart) {
+      const result = applySnapResult(wp);
+      setSnapHint(result);
+      setCursor(result.point);
+    } else {
+      setSnapHint(null);
+      setCursor(wp);
+    }
   };
 
   const onMouseUp = () => {
@@ -1055,6 +1065,7 @@ export function Canvas2D({ onExportRef }: Props) {
   const onDblClick = () => {
     if (tool === "wall") {
       setDrawing(null);
+      setSnapHint(null);
       setTool("select");
     }
   };
@@ -1189,21 +1200,21 @@ export function Canvas2D({ onExportRef }: Props) {
     return lines;
   }, [showGrid, grid, pos, scale, size, theme]);
 
-  // Floor polygon — union of enclosed area computed via bounding box of walls
-  const floorRect = useMemo(() => {
-    if (plan.walls.length === 0) return null;
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    for (const w of plan.walls) {
-      minX = Math.min(minX, w.a.x, w.b.x);
-      minY = Math.min(minY, w.a.y, w.b.y);
-      maxX = Math.max(maxX, w.a.x, w.b.x);
-      maxY = Math.max(maxY, w.a.y, w.b.y);
+  const rooms = useMemo(() => detectInteriorRooms(plan), [plan]);
+
+  const liveDrawingArea = useMemo(() => {
+    if (!drawing || drawing.length < 2 || !cursor) return null;
+    const points = [...drawing, cursor];
+    const closes = snapHint?.wouldCloseRoom || dist(cursor, drawing[0]) < 2;
+    if (!closes || points.length < 4) return null;
+    let area = 0;
+    for (let i = 0; i < points.length; i += 1) {
+      const a = points[i];
+      const b = points[(i + 1) % points.length];
+      area += a.x * b.y - b.x * a.y;
     }
-    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-  }, [plan.walls]);
+    return Math.abs(area / 2) / 10000;
+  }, [cursor, drawing, snapHint?.wouldCloseRoom]);
 
   const renderWall = (w: Wall) => {
     const isSel = isSelected("wall", w.id);
@@ -2244,16 +2255,39 @@ export function Canvas2D({ onExportRef }: Props) {
       >
         <Layer listening={false}>{gridLines}</Layer>
         <Layer>
-          {floorRect && (
-            <Rect
-              x={floorRect.x}
-              y={floorRect.y}
-              width={floorRect.w}
-              height={floorRect.h}
-              fill={theme.floor}
-              listening={false}
-            />
-          )}
+          {rooms.map((room) => (
+            <Group key={room.id} listening={false}>
+              <Line
+                points={room.polygon.flatMap((p) => [p.x, p.y])}
+                closed
+                fill={theme.floor}
+                stroke={accentAlpha(0.18)}
+                strokeWidth={1 / scale}
+              />
+              <Group x={room.center.x} y={room.center.y}>
+                <Rect
+                  x={-54 / scale}
+                  y={-16 / scale}
+                  width={108 / scale}
+                  height={32 / scale}
+                  fill="rgba(255,255,255,0.88)"
+                  stroke={accentAlpha(0.35)}
+                  strokeWidth={1 / scale}
+                  cornerRadius={4 / scale}
+                />
+                <Text
+                  text={`${room.name}\n${formatAreaM2(room.areaM2)}`}
+                  x={-52 / scale}
+                  y={-11 / scale}
+                  width={104 / scale}
+                  align="center"
+                  fontSize={10 / scale}
+                  fontFamily="Inter"
+                  fill={theme.dimension}
+                />
+              </Group>
+            </Group>
+          ))}
           {plan.furniture.map(renderFurniture)}
           {plan.walls.map(renderWall)}
           {/* square junction patches: clean architectural corners, no rounded wall caps */}
@@ -2275,6 +2309,86 @@ export function Canvas2D({ onExportRef }: Props) {
           {previewLine}
           {previewRect}
           {previewSection}
+          {snapHint?.guideLines.map((guide, i) => (
+            <Line
+              key={`snap-guide-${i}`}
+              points={[guide.a.x, guide.a.y, guide.b.x, guide.b.y]}
+              stroke={snapHint.kind === "close-room" ? "#22c55e" : ACCENT}
+              strokeWidth={1.2 / scale}
+              dash={[10 / scale, 7 / scale]}
+              opacity={0.65}
+              listening={false}
+            />
+          ))}
+          {snapHint?.sourcePoint && (
+            <Circle
+              x={snapHint.sourcePoint.x}
+              y={snapHint.sourcePoint.y}
+              radius={snapHint.kind === "close-room" ? 8 / scale : 5 / scale}
+              fill={snapHint.kind === "close-room" ? "#22c55e" : ACCENT}
+              stroke="#ffffff"
+              strokeWidth={1.5 / scale}
+              listening={false}
+            />
+          )}
+          {drawing?.length && cursor && (
+            <Group
+              x={(drawing[drawing.length - 1].x + cursor.x) / 2}
+              y={(drawing[drawing.length - 1].y + cursor.y) / 2 - 28 / scale}
+              listening={false}
+            >
+              <Rect
+                x={-68 / scale}
+                y={-11 / scale}
+                width={136 / scale}
+                height={liveDrawingArea ? 36 / scale : 22 / scale}
+                fill="#1a1a1a"
+                opacity={0.9}
+                cornerRadius={4 / scale}
+              />
+              <Text
+                text={
+                  liveDrawingArea
+                    ? `Fermer · ${formatAreaM2(liveDrawingArea)}`
+                    : `${(dist(drawing[drawing.length - 1], cursor) / 100).toFixed(2)} m · ${snapHint?.kind === "axis-y" ? "Vertical" : snapHint?.kind === "axis-x" ? "Horizontal" : "Aligné"}`
+                }
+                fontSize={11 / scale}
+                fontFamily="JetBrains Mono"
+                fill="#ffffff"
+                width={136 / scale}
+                align="center"
+                x={-68 / scale}
+                y={-7 / scale}
+              />
+            </Group>
+          )}
+          {tool === "rectangle" && rectStart && cursor && (
+            <Group
+              x={(rectStart.x + cursor.x) / 2}
+              y={(rectStart.y + cursor.y) / 2}
+              listening={false}
+            >
+              <Rect
+                x={-72 / scale}
+                y={-14 / scale}
+                width={144 / scale}
+                height={28 / scale}
+                fill="#1a1a1a"
+                opacity={0.9}
+                cornerRadius={4 / scale}
+              />
+              <Text
+                text={`${(Math.abs(cursor.x - rectStart.x) / 100).toFixed(2)} × ${(Math.abs(cursor.y - rectStart.y) / 100).toFixed(2)} m · ${formatAreaM2((Math.abs(cursor.x - rectStart.x) * Math.abs(cursor.y - rectStart.y)) / 10000)}`}
+                fontSize={10 / scale}
+                fontFamily="JetBrains Mono"
+                fill="#ffffff"
+                width={144 / scale}
+                align="center"
+                x={-72 / scale}
+                y={-5 / scale}
+              />
+            </Group>
+          )}
           {plan.labels.map((l) => (
             <Text
               key={l.id}
