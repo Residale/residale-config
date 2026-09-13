@@ -138,6 +138,13 @@ export type Plan = {
   sections: SectionLine[];
   ceilingHeight?: number; // cm, default 250 — finished floor to underside of ceiling/roof
   roof?: Roof;
+  /**
+   * Données natives du nouvel éditeur Épure. On conserve ce bloc comme source
+   * de vérité pour reproduire exactement l'UI/UX canvas fournie, tout en
+   * continuant à exposer walls/openings/furniture/sections sous l'ancien format
+   * pour la liste des plans, Supabase et les exports historiques.
+   */
+  epure?: unknown;
 };
 
 export type Tool =
