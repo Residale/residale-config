@@ -183,7 +183,22 @@ function addFurniture(kind, p){ const spec=FURNITURE_CATALOG[kind]; const rot = 
 function furnitureRect(f){ const c=Math.cos(deg(f.rot||0)), s=Math.sin(deg(f.rot||0)), hw=f.w/2, hh=f.h/2; return [[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([x,y])=>({x:f.x+x*c-y*s,y:f.y+x*s+y*c})); }
 function furnitureExtents(f){ const pts=furnitureRect(f); return { minX:Math.min(...pts.map(p=>p.x)), maxX:Math.max(...pts.map(p=>p.x)), minY:Math.min(...pts.map(p=>p.y)), maxY:Math.max(...pts.map(p=>p.y)) }; }
 function fitFurnitureInside(f){ const bb=wallsBBox(); if(!bb) return f; const ext=furnitureExtents(f); const margin=Math.max(4, state.defaults.wallT/2 + 2); let dx=0, dy=0; if(ext.minX < bb.minX+margin) dx = bb.minX+margin-ext.minX; if(ext.maxX+dx > bb.maxX-margin) dx += bb.maxX-margin-(ext.maxX+dx); if(ext.minY < bb.minY+margin) dy = bb.minY+margin-ext.minY; if(ext.maxY+dy > bb.maxY-margin) dy += bb.maxY-margin-(ext.maxY+dy); return { ...f, x:f.x+dx, y:f.y+dy }; }
-function snapFurniture(raw, kind, rot){ const spec=FURNITURE_CATALOG[kind] || {w:60,h:60}; let p=snapPoint(raw,{free:true}); const wallAng=nearestWallAngle(raw); const wallMounted = kind && (kind.includes('kitchen') || ['fridge','stove','sink','dishwasher','toilet','vanity','shower','bath','wardrobe','washer'].includes(kind)); let r = rot ?? furniturePreviewRot ?? 0; if(wallMounted && wallAng !== null) r = Math.round(wallAng/90)*90; const f=fitFurnitureInside({kind,x:p.x,y:p.y,w:spec.w,h:spec.h,rot:r}); return {x:f.x,y:f.y,rot:f.rot,snap:p.snap}; }
+function snapFurniture(raw, kind, rot){
+  const spec=FURNITURE_CATALOG[kind] || {w:60,h:60};
+  const wallMounted = kind && (kind.includes('kitchen') || ['fridge','stove','sink','dishwasher','toilet','vanity','shower','bath','wardrobe','washer'].includes(kind));
+  let p=snapPoint(raw,{free:true}); let r = rot ?? furniturePreviewRot ?? 0; let snap=p.snap;
+  const nw=nearestWall(raw, 28/cam.s);
+  if(wallMounted && nw){
+    const d=wallDir(nw.w), n={x:-d.dy,y:d.dx}; const wallCenter={x:(nw.w.x1+nw.w.x2)/2,y:(nw.w.y1+nw.w.y2)/2};
+    const house=wallsBBox(); const hc=house?{x:(house.minX+house.maxX)/2,y:(house.minY+house.maxY)/2}:raw;
+    const side=((hc.x-wallCenter.x)*n.x+(hc.y-wallCenter.y)*n.y)>=0?1:-1;
+    r=Math.round(Math.atan2(d.dy,d.dx)*180/Math.PI/90)*90;
+    const depth = (Math.abs(((r%180)+180)%180) < 45 || Math.abs(((r%180)+180)%180) > 135) ? spec.h : spec.w;
+    const u=clamp(Math.round(nw.u/state.grid)*state.grid, spec.w/2, Math.max(spec.w/2, d.L-spec.w/2));
+    const base=ptAlong(nw.w,u,0); p={x:base.x+n.x*side*(nw.w.t/2+depth/2), y:base.y+n.y*side*(nw.w.t/2+depth/2)}; snap='wall';
+  }
+  const f=fitFurnitureInside({kind,x:p.x,y:p.y,w:spec.w,h:spec.h,rot:r}); return {x:f.x,y:f.y,rot:f.rot,snap};
+}
 function furnitureAt(p){ for(let i=state.furniture.length-1;i>=0;i--){ const f=state.furniture[i]; if(pointInPoly(p, furnitureRect(f))) return f; } return null; }
 function nearestWallAngle(p){ const nw=nearestWall(p, 24/cam.s); if(!nw) return null; const d=wallDir(nw.w); return Math.atan2(d.dy,d.dx)*180/Math.PI; }
 function rotateFurniture(f, degStep){ f.rot = Math.round(((f.rot||0)+degStep)/5)*5; const q=fitFurnitureInside(f); f.x=q.x; f.y=q.y; f.rot=q.rot; dirty.plan=dirty.three=true; refreshSideValues(); }
@@ -192,8 +207,28 @@ function drawFurniture(ctx,T){
   for(const f of state.furniture){ drawFurnitureItem(ctx,T,f,false); if(ui.selected&&ui.selected.type==='furniture'&&ui.selected.id===f.id){ const pts=furnitureRect(f); pathPts(ctx,pts,T); ctx.strokeStyle=C.accent; ctx.lineWidth=2; ctx.stroke(); const c=T({x:f.x,y:f.y}); ctx.beginPath(); ctx.arc(c.x,c.y,5,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill(); ctx.stroke(); } }
 }
 function polygonArea(pts){ let a=0; for(let i=0,j=pts.length-1;i<pts.length;j=i++) a+=pts[j].x*pts[i].y-pts[i].x*pts[j].y; return a/2; }
-function detectRooms(){ if(state.walls.length<4) return []; const keys=new Map(), pts=[]; const key=p=>Math.round(p.x)+','+Math.round(p.y); for(const w of state.walls){ for(const p of [{x:w.x1,y:w.y1},{x:w.x2,y:w.y2}]){ const k=key(p); if(!keys.has(k)){ keys.set(k,pts.length); pts.push({x:Math.round(p.x),y:Math.round(p.y)}); } } } const degs=new Array(pts.length).fill(0); for(const w of state.walls){ degs[keys.get(key({x:w.x1,y:w.y1}))]++; degs[keys.get(key({x:w.x2,y:w.y2}))]++; } if(pts.length>=4 && degs.every(d=>d===2)){ const center={x:pts.reduce((a,p)=>a+p.x,0)/pts.length,y:pts.reduce((a,p)=>a+p.y,0)/pts.length}; const ordered=pts.slice().sort((a,b)=>Math.atan2(a.y-center.y,a.x-center.x)-Math.atan2(b.y-center.y,b.x-center.x)); const area=Math.abs(polygonArea(ordered))/10000; if(area>0.1) return [{pts:ordered,center,area}]; } const bb=wallsBBox(); if(!bb) return []; const t=state.defaults.wallT; const area=Math.max(0,(bb.maxX-bb.minX-t)*(bb.maxY-bb.minY-t))/10000; return area>0.1?[{pts:[{x:bb.minX+t/2,y:bb.minY+t/2},{x:bb.maxX-t/2,y:bb.minY+t/2},{x:bb.maxX-t/2,y:bb.maxY-t/2},{x:bb.minX+t/2,y:bb.maxY-t/2}],center:{x:(bb.minX+bb.maxX)/2,y:(bb.minY+bb.maxY)/2},area}]:[]; }
-function drawRooms(ctx,T){ const rooms=detectRooms(); for(let i=0;i<rooms.length;i++){ const r=rooms[i]; pathPts(ctx,r.pts,T); ctx.fillStyle='rgba(64,120,80,.08)'; ctx.fill(); const c=T(r.center); ctx.font='600 12px '+FONT; ctx.fillStyle='#2B6E3F'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('Surface int. '+r.area.toFixed(2).replace('.',',')+' m²',c.x,c.y); } }
+function wallCoversSegment(w, a, b){
+  const eps=2; const d=wallDir(w); if(d.L<1) return false;
+  const ax=(a.x-w.x1)*d.dx+(a.y-w.y1)*d.dy, bx=(b.x-w.x1)*d.dx+(b.y-w.y1)*d.dy;
+  const av=Math.abs(-(a.x-w.x1)*d.dy+(a.y-w.y1)*d.dx), bv=Math.abs(-(b.x-w.x1)*d.dy+(b.y-w.y1)*d.dx);
+  return av<eps && bv<eps && Math.min(ax,bx)>=-eps && Math.max(ax,bx)<=d.L+eps;
+}
+function detectRooms(){
+  if(state.walls.length<4) return [];
+  const xs=[...new Set(state.walls.flatMap(w=>[Math.round(w.x1),Math.round(w.x2)]))].sort((a,b)=>a-b);
+  const ys=[...new Set(state.walls.flatMap(w=>[Math.round(w.y1),Math.round(w.y2)]))].sort((a,b)=>a-b);
+  const rooms=[];
+  for(let ix=0;ix<xs.length-1;ix++) for(let iy=0;iy<ys.length-1;iy++){
+    const x0=xs[ix], x1=xs[ix+1], y0=ys[iy], y1=ys[iy+1]; if(x1-x0<20||y1-y0<20) continue;
+    const top=[{x:x0,y:y0},{x:x1,y:y0}], bot=[{x:x0,y:y1},{x:x1,y:y1}], left=[{x:x0,y:y0},{x:x0,y:y1}], right=[{x:x1,y:y0},{x:x1,y:y1}];
+    const okTop=state.walls.some(w=>wallCoversSegment(w,...top)); const okBot=state.walls.some(w=>wallCoversSegment(w,...bot));
+    const okLeft=state.walls.some(w=>wallCoversSegment(w,...left)); const okRight=state.walls.some(w=>wallCoversSegment(w,...right));
+    if(okTop&&okBot&&okLeft&&okRight){ const t=state.defaults.wallT; const wi=Math.max(0,x1-x0-t), hi=Math.max(0,y1-y0-t); const area=wi*hi/10000; if(area>0.1) rooms.push({pts:[{x:x0+t/2,y:y0+t/2},{x:x1-t/2,y:y0+t/2},{x:x1-t/2,y:y1-t/2},{x:x0+t/2,y:y1-t/2}],center:{x:(x0+x1)/2,y:(y0+y1)/2},area}); }
+  }
+  if(rooms.length) return rooms;
+  const bb=wallsBBox(); if(!bb) return []; const t=state.defaults.wallT; const area=Math.max(0,(bb.maxX-bb.minX-t)*(bb.maxY-bb.minY-t))/10000; return area>0.1?[{pts:[{x:bb.minX+t/2,y:bb.minY+t/2},{x:bb.maxX-t/2,y:bb.minY+t/2},{x:bb.maxX-t/2,y:bb.maxY-t/2},{x:bb.minX+t/2,y:bb.maxY-t/2}],center:{x:(bb.minX+bb.maxX)/2,y:(bb.minY+bb.maxY)/2},area}]:[];
+}
+function drawRooms(ctx,T){ const rooms=detectRooms(); for(let i=0;i<rooms.length;i++){ const r=rooms[i]; pathPts(ctx,r.pts,T); ctx.fillStyle='rgba(64,120,80,.08)'; ctx.fill(); const c=T(r.center); ctx.font='600 12px '+FONT; ctx.fillStyle='#2B6E3F'; ctx.textAlign='center'; ctx.textBaseline='middle'; let cy=c.y; if(state.section){ const a=T({x:state.section.x1,y:state.section.y1}), b=T({x:state.section.x2,y:state.section.y2}); if(distSeg({x:c.x,y:c.y},a,b)<22) cy+=24; } ctx.fillText(r.area.toFixed(2).replace('.',',')+' m²',c.x,cy); } }
 
 /* ================= Géométrie des murs ================= */
 function wallDir(w) { const dx = w.x2 - w.x1, dy = w.y2 - w.y1, L = Math.hypot(dx, dy); return L < 1e-9 ? { dx: 1, dy: 0, L: 0 } : { dx: dx / L, dy: dy / L, L }; }
@@ -557,6 +592,15 @@ function drawPlan() {
 /* ================= Accrochage ================= */
 function snapPoint(raw, opts) {
   opts = opts || {}; const tol = 12 / cam.s; let best = null, bd = tol;
+  if (opts.anchor && !opts.free) {
+    const a=opts.anchor; const dx=raw.x-a.x, dy=raw.y-a.y; const horiz=Math.abs(dx)>=Math.abs(dy);
+    for (const w of state.walls) { if (w.id === opts.ignoreWall) continue; const d=wallDir(w); if(d.L<1) continue;
+      let cand=null;
+      if(horiz && Math.abs(d.dy)>0.98){ const t=(a.y-w.y1)/d.dy; if(t>=0&&t<=d.L) cand={x:w.x1+d.dx*t,y:a.y}; }
+      if(!horiz && Math.abs(d.dx)>0.98){ const t=(a.x-w.x1)/d.dx; if(t>=0&&t<=d.L) cand={x:a.x,y:w.y1+d.dy*t}; }
+      if(cand){ const dist=Math.hypot(cand.x-raw.x,cand.y-raw.y); if(dist<Math.max(tol,20)){ return {...cand, snap:'wall-end'}; } }
+    }
+  }
   for (const w of state.walls) { if (w.id === opts.ignoreWall) continue;
     for (const p of [{ x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 }]) { const d = Math.hypot(p.x - raw.x, p.y - raw.y); if (d < bd) { bd = d; best = { x: p.x, y: p.y, snap: 'end' }; } } }
   if (best) return best;
@@ -781,7 +825,7 @@ $('#rail').addEventListener('click', e => {
   else if (a === 'cam-home') fit3D(false); else if (a === 'cam-top') fit3D(true); else if (a === 'png3d') png3D();
 });
 function flipSection() { const S = state.section; if (!S) return; pushHistory(); state.section = { x1: S.x2, y1: S.y2, x2: S.x1, y2: S.y1 }; changed(); fitSection(); }
-function setFacadeSection(dir){ const bb=wallsBBox(); if(!bb){ setMsg('Tracez d’abord les murs pour générer les façades.', true); return; } pushHistory(); const m=120; if(dir==='n') state.section={x1:bb.maxX+m,y1:bb.minY-m,x2:bb.minX-m,y2:bb.minY-m}; if(dir==='s') state.section={x1:bb.minX-m,y1:bb.maxY+m,x2:bb.maxX+m,y2:bb.maxY+m}; if(dir==='e') state.section={x1:bb.maxX+m,y1:bb.maxY+m,x2:bb.maxX+m,y2:bb.minY-m}; if(dir==='w') state.section={x1:bb.minX-m,y1:bb.minY-m,x2:bb.minX-m,y2:bb.maxY+m}; changed(); fitSection(); setMsg('Façade '+({n:'Nord',s:'Sud',e:'Est',w:'Ouest'}[dir]||'')+' affichée.'); }
+function setFacadeSection(dir){ const bb=wallsBBox(); if(!bb){ setMsg('Tracez d’abord les murs pour générer les façades.', true); return; } pushHistory(); const m=120; if(dir==='n') state.section={x1:bb.maxX+m,y1:bb.minY+1,x2:bb.minX-m,y2:bb.minY+1}; if(dir==='s') state.section={x1:bb.minX-m,y1:bb.maxY-1,x2:bb.maxX+m,y2:bb.maxY-1}; if(dir==='e') state.section={x1:bb.maxX-1,y1:bb.maxY+m,x2:bb.maxX-1,y2:bb.minY-m}; if(dir==='w') state.section={x1:bb.minX+1,y1:bb.minY-m,x2:bb.minX+1,y2:bb.maxY+m}; changed(); fitSection(); setMsg('Façade '+({n:'Nord',s:'Sud',e:'Est',w:'Ouest'}[dir]||'')+' affichée.'); }
 function savePng(canvas, name) { try { const a = document.createElement('a'); a.download = name; a.href = canvas.toDataURL('image/png'); a.click(); setMsg('Téléchargement de ' + name + ' lancé.'); } catch (e) { setMsg('Impossible d\'enregistrer l\'image dans cet environnement.', true); } }
 
 /* ================= Panneau latéral ================= */
@@ -1108,11 +1152,26 @@ function rebuild3D() {
       else { box(o.w - 0.4, fw, dep, c.x, z0 + fw / 2 + 0.2, c.y, rot, fm); box(o.w - 2 * fw, o.h - 2 * fw, 1.5, c.x, (z0 + z1) / 2, c.y, rot, mats.glass); }
     }
   }
+  // Bardage par morceaux de mur : les lames ne traversent plus les portes/fenêtres.
+  const cladMat = new THREE.MeshStandardMaterial({ color: state.cladding.primary === 'metal' ? state.cladding.metalColor : state.cladding.woodColor, roughness:.85, metalness:state.cladding.primary === 'metal' ? .35 : 0 });
+  const strip = (sx,sy,sz,x,y,z,rot)=>{ const mesh=box(sx,sy,sz,x,y,z,rot,cladMat); mesh.castShadow=false; return mesh; };
+  for (const w of state.walls) { const d=wallDir(w); if(d.L<1) continue; const n={x:-d.dy,y:d.dx}; const rot=-Math.atan2(d.dy,d.dx); const openings=openingsOf(w); const intervals=[]; let cur=0; for(const o of openings){ if(o.off>cur) intervals.push([cur,o.off]); cur=o.off+o.w; } if(cur<d.L) intervals.push([cur,d.L]);
+    for(const [u0,u1] of intervals){ if(u1-u0<8) continue; for(const side of [-1,1]){ const mid=ptAlong(w,(u0+u1)/2,side*(w.t/2+1.2)); if(state.cladding.orientation==='vertical'){ for(let u=u0+Math.max(3,state.cladding.spacing||14); u<u1; u+=Math.max(3,state.cladding.spacing||14)){ const p=ptAlong(w,u,side*(w.t/2+1.4)); strip(1,Math.max(1,w.h),2,p.x,w.h/2,p.y,rot); } } else { for(let z=Math.max(3,state.cladding.spacing||14); z<w.h; z+=Math.max(3,state.cladding.spacing||14)) strip(u1-u0,1,2,mid.x,z,mid.y,rot); } } }
+  }
   for (const p of posts) box(p.t - 0.2, p.h - 0.1, p.t - 0.2, p.x, (p.h - 0.1) / 2, p.y, 0, mats.wall);
-  for (const f of state.furniture) { const spec = FURNITURE_CATALOG[f.kind] || {}; const mat = new THREE.MeshStandardMaterial({ color: f.color || spec.color || 0xC9C1B2, roughness: 0.85, metalness: 0, side: THREE.DoubleSide }); const mesh = box(Math.max(2,f.w), Math.max(2,f.z||80), Math.max(2,f.h), f.x, Math.max(1,(f.z||80)/2), f.y, -(f.rot||0)*Math.PI/180, mat); mesh.name = f.label || spec.label || f.kind; }
+  for (const f of state.furniture) { const spec = FURNITURE_CATALOG[f.kind] || {}; const mat = new THREE.MeshStandardMaterial({ color: f.color || spec.color || 0xC9C1B2, roughness: 0.85, metalness: 0, side: THREE.DoubleSide }); const rot=-(f.rot||0)*Math.PI/180;
+    if(f.kind==='toilet'){ box(f.w*.7,18,f.h*.55,f.x,9,f.y,rot,three.mats.frame); box(f.w*.8,38,12,f.x,38,f.y-f.h*.32,rot,three.mats.frame); }
+    else if(f.kind==='bath'){ box(f.w,20,f.h,f.x,10,f.y,rot,three.mats.frame); box(f.w-16,8,f.h-16,f.x,24,f.y,rot,three.mats.glass); }
+    else if(f.kind==='shower'){ box(f.w,8,f.h,f.x,4,f.y,rot,three.mats.glass); box(f.w,200,3,f.x,100,f.y-f.h/2,rot,three.mats.glass); }
+    else if(f.kind==='fridge'){ box(f.w,Math.max(160,f.z||190),f.h,f.x,Math.max(160,f.z||190)/2,f.y,rot,mat); box(f.w*.9,2,1,f.x,95,f.y-f.h/2-1,rot,three.mats.frame); }
+    else if(f.kind==='stove'){ box(f.w,90,f.h,f.x,45,f.y,rot,mat); for(const dx of [-15,15]) for(const dz of [-15,15]) box(12,2,12,f.x+dx,92,f.y+dz,rot,three.mats.roof); }
+    else if(f.kind==='sink'||f.kind==='vanity'){ box(f.w,85,f.h,f.x,42,f.y,rot,mat); box(f.w*.55,6,f.h*.45,f.x,88,f.y,rot,three.mats.glass); }
+    else if(f.kind==='bed'){ box(f.w,35,f.h,f.x,18,f.y,rot,mat); box(f.w*.8,14,35,f.x,45,f.y-f.h*.32,rot,three.mats.frame); }
+    else if(f.kind==='sofa'){ box(f.w,40,f.h,f.x,20,f.y,rot,mat); box(f.w,70,18,f.x,55,f.y-f.h/2+9,rot,mat); }
+    else { const mesh = box(Math.max(2,f.w), Math.max(2,f.z||80), Math.max(2,f.h), f.x, Math.max(1,(f.z||80)/2), f.y, rot, mat); mesh.name = f.label || spec.label || f.kind; }
+  }
   const bb = wallsBBox(); const rm = roofModel();
   if (bb) {
-    addCladding3D(bb, maxWallH(), add, state.cladding.primary === 'metal' ? state.cladding.metalColor : '#4B3B2A');
     add(solid([{ x: bb.minX, y: 1, z: bb.minY }, { x: bb.maxX, y: 1, z: bb.minY }, { x: bb.maxX, y: 1, z: bb.maxY }, { x: bb.minX, y: 1, z: bb.maxY }], { x: 0, y: -13, z: 0 }), mats.floor);
     if (rm) {
       for (const f of rm.fills) {
